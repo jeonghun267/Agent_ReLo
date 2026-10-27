@@ -13,6 +13,7 @@ test-results/
 .relo-sanity*/
 .relo-test*/
 build/
+dist/
 .openai/
 .agents/
 .codex/

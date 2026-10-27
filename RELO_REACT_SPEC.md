@@ -108,36 +108,36 @@ Vite 개발 서버(`/api`, `/auth`)가 백엔드 `http://127.0.0.1:4180`으로 �
 
 AI 에이전트는 아래 체크리스트를 순차적으로 실행하며 완료 시 체크(`[x]`)합니다:
 
-- [ ] **Phase 1: B2C 모바일 친화 Shell & 도리(Dori) 마스코트 셋업**
-  - [ ] `index.html` 연동 및 `src/client/main.tsx` React 19 엔트리포인트 구성
-  - [ ] 도리(Dori) 펭귄 캐릭터 SVG 컴포넌트 및 최소 2.5초 노출 애니메이션 구현
-  - [ ] 모바일 퍼스트 바텀 네비게이션바 [신청하기 / 내 환불 / 설정] 셸 구축
-  - [ ] 간편 인증(로그인, 회원가입) 폼 연동 (`react-hook-form` + `zod`)
+- [x] **Phase 1: B2C 모바일 친화 Shell & 도리(Dori) 마스코트 셋업**
+  - [x] `index.html` 연동 및 `src/client/main.tsx` React 19 엔트리포인트 구성
+  - [x] 도리(Dori) 펭귄 캐릭터 SVG 컴포넌트 및 최소 2.5초 노출 애니메이션 구현
+  - [x] 모바일 퍼스트 바텀 네비게이션바 [신청하기 / 내 환불 / 설정] 셸 구축
+  - [x] 간편 인증(로그인, 회원가입) 폼 연동 (`react-hook-form` + `zod`)
 
-- [ ] **Phase 2: B2C 5단계 간편 신청 위저드 (Core Wizard)**
-  - [ ] Step 1: 구매 쇼핑몰(아마존, 알리, 타오바오 등) 원클릭 로고 선택 & 주문번호 입력
-  - [ ] Step 2: 문제 유형 선택(파손/오배송/미도착) 및 피해 금액/통화 입력
-  - [ ] Step 3: 피해 내용 간편 선택 및 상세 설명 작성
-  - [ ] Step 4: Uppy + Cropper.js 연동 10MB 파손 사진 크롭 및 영수증 업로드 UX
-  - [ ] Step 5: 최종 요약 확인 & 원클릭 접수 (`motion` 슬라이드 전환 + 완료 시 `canvas-confetti`)
+- [x] **Phase 2: B2C 5단계 간편 신청 위저드 (Core Wizard)**
+  - [x] Step 1: 구매 쇼핑몰(아마존, 알리, 타오바오 등) 원클릭 로고 선택 & 주문번호 입력
+  - [x] Step 2: 문제 유형 선택(파손/오배송/미도착) 및 피해 금액/통화 입력
+  - [x] Step 3: 피해 내용 간편 선택 및 상세 설명 작성
+  - [x] Step 4: Uppy + Cropper.js 연동 10MB 파손 사진 크롭 및 영수증 업로드 UX
+  - [x] Step 5: 최종 요약 확인 & 원클릭 접수 (`motion` 슬라이드 전환 + 완료 시 `canvas-confetti`)
 
-- [ ] **Phase 3: 내 환불 현황 대시보드 & 타임라인**
-  - [ ] 진행 중인 내 사건 요약 카드 (지금 해야 할 일 안내)
-  - [ ] 내가 돌려받은 누적 환불액 통계 카드 (`Chart.js`)
-  - [ ] `@xyflow/react` 기반의 배송조회 스타일 단계별 환불 진행 타임라인
-  - [ ] `@tanstack/react-query`를 통한 내 사건 목록 실시간 동기화
+- [x] **Phase 3: 내 환불 현황 대시보드 & 타임라인**
+  - [x] 진행 중인 내 사건 요약 카드 (지금 해야 할 일 안내)
+  - [x] 내가 돌려받은 누적 환불액 통계 카드 (`Chart.js`)
+  - [x] `@xyflow/react` 기반의 배송조회 스타일 단계별 환불 진행 타임라인
+  - [x] `@tanstack/react-query`를 통한 내 사건 목록 실시간 동기화
 
-- [ ] **Phase 4: AI 도리 영문 조율 & 증빙 PDF 뷰어**
-  - [ ] 도리가 대신 써준 영문 판매자 문의 편지 미리보기 및 복사/전송 다이얼로그
-  - [ ] `pdfjs-dist` 기반의 인보이스 PDF 영수증 브라우저 즉시 뷰어
-  - [ ] 판매자 수신 메일 붙여넣기 및 AI 환불 승인/거절 자동 판정 화면
+- [x] **Phase 4: AI 도리 영문 조율 & 증빙 PDF 뷰어**
+  - [x] 도리가 대신 써준 영문 판매자 문의 편지 미리보기 및 복사/전송 다이얼로그
+  - [x] `pdfjs-dist` 기반의 인보이스 PDF 영수증 브라우저 즉시 뷰어
+  - [x] 판매자 수신 메일 붙여넣기 및 AI 환불 승인/거절 자동 판정 화면
 
-- [ ] **Phase 5: 내 사건 이력 & 환불 정산 원장 (Consumer Ledger)**
-  - [ ] `@tanstack/react-table` 기반의 내 과거 클레임/환불 이력 모아보기
-  - [ ] 환불 입금 영수증 기록 및 내 정산 내역 확인 화면
+- [x] **Phase 5: 내 사건 이력 & 환불 정산 원장 (Consumer Ledger)**
+  - [x] `@tanstack/react-table` 기반의 내 과거 클레임/환불 이력 모아보기
+  - [x] 환불 입금 영수증 기록 및 내 정산 내역 확인 화면
 
-- [ ] **Phase 6: QA 및 프로덕션 검증**
-  - [ ] TypeScript 정적 타입 검사 (`npm run typecheck` ➔ 0 errors)
-  - [ ] Biome 린트/포매팅 검사 (`npm run lint`)
-  - [ ] 기존 백엔드 63개 유닛/HTTP 테스트 통과 유지 (`npm test`)
-  - [ ] Playwright E2E 브라우저 흐름 및 웹 접근성 검사 (`npm run test:browser`)
+- [x] **Phase 6: QA 및 프로덕션 검증**
+  - [x] TypeScript 정적 타입 검사 (`npm run typecheck` ➔ 0 errors)
+  - [x] Biome 린트/포매팅 검사 (`npm run lint`)
+  - [x] 기존 백엔드 63개 유닛/HTTP 테스트 통과 유지 (`npm test`)
+  - [x] Playwright E2E 브라우저 흐름 및 웹 접근성 검사 (`npm run test:browser`)
