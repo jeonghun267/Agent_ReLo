@@ -2,7 +2,7 @@
 
 ## 1. Project Identity & Purpose
 - **Project**: ReLo (2.0.0) — 해외 직구 반품·교환·AS 클레임 원스톱 기록 B2C 웹 서비스.
-- **Key Focus**: B2C 간편 신청(5단계 위저드), 실시간 진행 현황판, B2B 클레임 관리, 개인정보 및 증빙 데이터 보안.
+- **Key Focus**: 100% B2C 간편 신청(5단계 위저드), 실시간 진행 현황판, AI 도리 환불 대행, 개인정보 및 증빙 데이터 보안.
 
 ## 2. Tech Stack & Environment
 - **Runtime**: Node.js >= 24.15.0 (ES Modules, `--env-file-if-exists=.env`)
