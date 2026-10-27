@@ -1,81 +1,79 @@
-# ReLo 2.0 React 전면 전환 마스터 설계 명세서 (RELO_REACT_SPEC.md)
+# ReLo 2.0 B2C 전면 전환 마스터 설계 명세서 (RELO_REACT_SPEC.md)
 
-> **프로젝트 목표**: 해외 직구 반품·교환·AS 클레임 원스톱 기록 및 AI 끝장 대행 서비스 **ReLo**의 프론트엔드를 기존 바닐라 Web Components에서 **Vite + React 19 + TypeScript + Tailwind CSS v4** 스택으로 전면 재구축한다.  
-> **핵심 철학**: "Search & Reuse First, Write Production-Grade Code, Protect Existing Environments, Zero Mock, AI 템플릿 탈피."
+> **프로젝트 목표**: 해외 직구로 피해를 입은 일반 소비자를 위한 **100% B2C 원스톱 반품·환불·교환 AI 대행 서비스 ReLo** 구축.  
+> **핵심 철학**: "100% Consumer B2C First, Toss/Karrot 스타일의 극단적 단순함, Zero Mock, 복잡한 B2B 기능 전면 배제."
 
 ---
 
-## 1. 🥊 경쟁사 분석 & ReLo 킬러 차별화 전략 (Competitor Moat)
+## 1. 🥊 경쟁사 분석 & ReLo B2C 킬러 차별화 전략 (Consumer Moat)
 
-경쟁사 분석 에이전트(`competitor-analysis`) 평가를 기반으로 도출된 ReLo의 4대 핵심 전략:
+경쟁사 분석 에이전트(`competitor-analysis`) 평가 기반 ReLo의 100% 소비자 중심 4대 차별점:
 
-| 분석 축 | 기존 배송대행지 반품 대행 (몰테일 등) | 글로벌 반품 SaaS (Loop, Returnly) | **ReLo 2.0 (킬러 차별화)** |
+| 분석 항목 | 기존 배송대행지 반품 (몰테일 등) | 해외 직구 포기 / 소비자 직접 해결 | **ReLo B2C (소비자 관점 킬러 기능)** |
 | :--- | :--- | :--- | :--- |
-| **적용 범위** | 특정 제휴 배대지 이용 건 한정 | 해당 쇼핑몰이 솔루션을 도입해야 가능 | **전 세계 모든 해외 쇼핑몰 무제한 지원** (아마존, 알리, 타오바오, 독립몰) |
-| **언어/교섭 장벽** | 고객이 파파고 번역기로 수기 작성 | 영미권 중심 (한국어 미지원) | **Gemini AI 기반 다국어 판매자 문의 초안 자동 생성 & 판매자 답장 분석** |
-| **증빙 제출 UX** | 단순 이미지 첨부 (용량 제한, 화질 저하) | 단순 텍스트 입력 위주 | **PDF.js 인보이스 뷰어 + Cropper.js 파손 부위 정밀 크롭 + Uppy 실시간 업로드** |
-| **진행 가시성** | "접수 후 무기한 대기" (블랙박스) | 단순 텍스트 상태 변경 | **`@xyflow/react` 기반 실시간 사건 타임라인 + 정산 원장(Ledger)** |
-| **B2B 확장성** | 개인 고객 위주 | 단순 쇼핑몰 반품 포털 | **TanStack Table + Chart.js 기반 구매대행/셀러용 일괄 클레임 관리** |
+| **적용 범위** | 특정 제휴 배대지 이용 건만 가능 | 해외 셀러와 직접 영어/중국어로 싸워야 함 | **전 세계 모든 해외 쇼핑몰 무제한 지원** (아마존, 알리, 타오바오, 쉬인, 독립몰) |
+| **언어 장벽** | 번역기 돌려 복잡한 영문 메일 수기 작성 | 판매자 전문 용어에 밀려 환불 거절당함 | **Gemini AI + 펭귄 도리(Dori)가 정중하고 단호한 판매자 문의 편지 자동 작성** |
+| **증빙 제출 UX** | 단순 첨부 (용량 제한, 화질 저하, 누락) | 복잡한 파일 형식 변환 요구 | **스마트폰 촬영 파손 사진 손가락 크롭 (`Cropper.js`) + 영수증 PDF 즉시 파싱** |
+| **환불 가시성** | "접수 후 무기한 대기" (블랙박스) | 판매자 답장 해석 불가로 방치 | **택배 배송 조회처럼 명확한 단계별 실시간 환불 타임라인 + 입금 정산 추적** |
 
 ---
 
-## 2. 🎨 시각 디자인 원칙 (Stops AI UIs Looking Templated)
+## 2. 🎨 B2C 시각 디자인 원칙 (Toss & Karrot 스타일)
 
-디자인 크리틱 에이전트(`critiquing-visual-design`, `taste-skill`, `design-review`) 기준 준수:
+디자인 크리틱 에이전트(`critiquing-visual-design`, `taste-skill`, `design-review`) 기준:
 
-1. **전형적인 AI 보라색 그라디언트/부트스트랩 카드 레이아웃 금지**:
-   - 모던하고 차분한 테크 SaaS 톤앤매너: Deep Neutral Slate (`#0B0F17`, `#111827`, `#F8FAFC`), 세련된 브랜드 액센트 컬러 (Electric Indigo / Emerald).
-2. **명확한 정보 계층 구조 (Typographic Hierarchy)**:
-   - Pretendard 기반 가변 폰트 적극 활용, 숫자/통화는 고정폭(tabular-nums) 및 볼드 처리.
-3. **모바일 퍼스트 390px 뷰포트 최우선 설계**:
-   - 직구 고객의 80%는 스마트폰으로 택배 박스를 뜯으며 신청함. 엄지손가락 터치 영역 최소 44px 확보.
-4. **마이크로 인터랙션 (`motion` & `canvas-confetti`)**:
-   - 위저드 단계 전환 시 부드러운 수평 슬라이드 트랜지션.
-   - 사건 접수 및 환불 승인 완료 시 터지는 절제된 축하 파티클.
+1. **절대 B2B 복잡한 엑셀 표나 기업용 대시보드 금지**:
+   - 20~30대 일반 직구 소비자를 위한 따뜻하고 친근하며 직관적인 B2C 감성.
+   - 큰 폰트, 시원한 여백, 1화면 1질문 중심의 쉬운 카드 UI.
+2. **소비자의 든든한 AI 친구, 펭귄 '도리(Dori)'**:
+   - 노란 크로스백을 맨 귀여운 펭귄 캐릭터가 단계마다 말풍선으로 친절히 가이드 (최소 2.5초 노출 정책 준수).
+   - *"억울하게 깨져서 온 물건, 도리가 대신 영어로 환불 따져드릴게요!"*
+3. **모바일 퍼스트 390px 뷰포트 최우선**:
+   - 택배 상자를 뜯으며 스마트폰으로 바로 신청할 수 있도록 엄지손가락 터치 반경(최소 44px) 최우선 배치.
+4. **감성적인 마이크로 인터랙션 (`motion` & `canvas-confetti`)**:
+   - 위저드 카드 간의 부드러운 수평 슬라이드 트랜지션.
+   - 환불 접수 완료 및 환불 승인 시 기분 좋은 축하 파티클 폭죽.
 
 ---
 
-## 3. 📦 설치된 패키지 1:1 역할 매핑표
+## 3. 📦 설치된 패키지 1:1 B2C 역할 매핑표
 
-| 패키지명 | 역할 및 적용 화면 |
+| 패키지명 | B2C 소비자 적용처 |
 | :--- | :--- |
-| **`react` & `react-dom` (v19)** | 핵심 리액트 런타임 |
+| **`react` & `react-dom` (v19)** | 핵심 리액트 웹 런타임 |
 | **`vite` & `@tailwindcss/vite`** | 초고속 HMR 번들러 및 유틸리티 CSS 엔진 |
-| **`motion` (v14)** | 위저드 단계 전환 애니메이션, 아코디언, 모달 열림/닫힘 인터랙션 |
-| **`canvas-confetti`** | 클레임 접수 성공 및 환불 승인 완료 화면 축하 인터랙션 |
-| **`@xyflow/react` (v12)** | 클레임 상세 페이지 사건 진행 워크플로우 타임라인 시각화 |
-| **`pdfjs-dist`** | 해외 쇼핑몰 주문서/인보이스 PDF 브라우저 즉시 뷰어 및 텍스트 추출 |
-| **`cropperjs`** | 택배 박스 송장, 제품 파손 부위, 시리얼 번호 사진 정밀 크롭 도구 |
+| **`motion` (v14)** | 5단계 위저드 슬라이드 애니메이션, 도리 말풍선 인터랙션 |
+| **`canvas-confetti`** | 반품 신청 완료 & 환불금 입금 확인 시 축하 파티클 |
+| **`@xyflow/react` (v12)** | 내 사건 진행 단계(접수 ➔ 판매자 협의 ➔ 승인 ➔ 입금) 직관적 타임라인 |
+| **`pdfjs-dist`** | 고객이 올린 해외 주문서/인보이스 PDF 즉시 열람 및 주문번호 자동 추출 |
+| **`cropperjs`** | 스마트폰으로 찍은 택배 파손 부위/송장 사진 손쉬운 네모 크롭 |
 | **`@uppy/core` & `@uppy/react`** | 최대 10MB 증빙자료 모바일 업로드 진행률 UI 및 자동 재시도 |
-| **`react-hook-form` & `zod`** | B2C 5단계 간편 신청 폼 상태 관리 및 런타임 스키마 유효성 검증 |
-| **`@tanstack/react-query`** | 백엔드 API 캐싱, 무효화, 백그라운드 리패칭 (REST 엔드포인트 연동) |
-| **`@tanstack/react-table`** | B2B 관리자 대시보드 다중 정렬, 필터링, 페이지네이션 고성능 테이블 |
-| **`chart.js` & `react-chartjs-2`** | B2B 클레임 통계, 월별 환불 회수액, 쇼핑몰별 불량률 도넛/바 차트 |
-| **`lucide-react`** | 글로벌 표준 모던 SaaS 아이콘 세트 |
-| **`clsx` & `tailwind-merge`** | `src/lib/utils.ts`의 `cn` 유틸리티 함수 (클래스 충돌 방지) |
+| **`react-hook-form` & `zod`** | 5단계 간편 신청 폼 상태 관리 및 주문번호/금액 실시간 검증 |
+| **`@tanstack/react-query`** | 내 환불 내역 실시간 캐싱 및 백그라운드 동기화 |
+| **`@tanstack/react-table`** | 내 전체 클레임 히스토리(신청일, 구매처, 환불금액, 상태) 정렬/조회 |
+| **`chart.js` & `react-chartjs-2`** | 내가 도리를 통해 돌려받은 **"누적 환불 성공 금액"** 개인 지표 카드 |
+| **`lucide-react`** | 쇼핑몰, 카메라, 송장, 환불금 등 친근한 모바일 아이콘 세트 |
+| **`clsx` & `tailwind-merge`** | `src/lib/utils.ts`의 `cn` 유틸리티 함수 |
 
 ---
 
-## 4. 🏛️ 시스템 아키텍처 및 디렉터리 구조
-
-기존 백엔드(`src/server/`)와 공존하며 `src/client/`로 React 코드를 모듈화합니다.
+## 4. 🏛️ 시스템 아키텍처 및 디렉터리 구조 (100% B2C)
 
 ```
 AI_Agent/
 ├── src/
-│   ├── client/                  # [신규] React 19 Frontend SPA
-│   │   ├── components/          # 공통 UI 컴포넌트 (Button, Card, Modal, Input 등)
+│   ├── client/                  # [신규] React 19 B2C Web SPA
+│   │   ├── components/          # 공통 UI 컴포넌트 (DoriMascot, Button, Card, Modal, Input)
 │   │   ├── features/
-│   │   │   ├── auth/            # 로그인, 회원가입, 비밀번호 재설정
-│   │   │   ├── claim-wizard/    # B2C 5단계 간편 신청 위저드 (Uppy, Cropper, Zod)
-│   │   │   ├── dashboard/       # 메인 홈 (Bento Grid, 진행 중인 사건, 다음 행동)
-│   │   │   ├── claim-detail/    # 사건 상세 (xyflow 타임라인, AI 초안, 답장 분석)
-│   │   │   ├── b2b-admin/       # B2B 일괄 관리 (TanStack Table, Chart.js)
-│   │   │   └── evidence/        # PDF.js 뷰어 및 이미지 크롭 모듈
-│   │   ├── hooks/               # React Query 커스텀 훅 (`useClaims`, `useAiDraft` 등)
+│   │   │   ├── auth/            # 간편 로그인 / 회원가입 / 비밀번호 재설정
+│   │   │   ├── claim-wizard/    # 5단계 간편 신청 위저드 (Uppy, Cropper, Zod, Motion)
+│   │   │   ├── my-claims/       # 내 클레임 모아보기 (환불 진행 상태, 누적 환불액)
+│   │   │   ├── claim-detail/    # 특정 사건 상세 (도리의 영문 편지, 판매자 답장 분석, 타임라인)
+│   │   │   └── evidence/        # 영수증 PDF 뷰어 및 파손 사진 크롭 모듈
+│   │   ├── hooks/               # React Query 커스텀 훅 (`useMyClaims`, `useAiDraft`)
 │   │   ├── lib/                 # 유틸리티 (`api-client.ts`, `cn`, `format.ts`)
 │   │   ├── types/               # TypeScript 인터페이스 및 Zod 스키마
-│   │   ├── App.tsx              # 최상위 라우터 및 글로벌 프로바이더
+│   │   ├── App.tsx              # B2C 최상위 라우터 및 프로바이더
 │   │   └── main.tsx             # React DOM 엔트리포인트
 │   ├── server/                  # [기존 유지] Native Node 24 HTTP 서버 (SQLite, AI, Mail)
 │   └── lib/utils.ts             # Tailwind cn() 유틸리티
@@ -93,49 +91,50 @@ Vite 개발 서버(`/api`, `/auth`)가 백엔드 `http://127.0.0.1:4180`으로 �
 - **인증 (`/auth/*`)**:
   - `POST /auth/signup`, `POST /auth/login`, `POST /auth/logout`, `GET /auth/session`
   - `POST /auth/forgot-password`, `POST /auth/reset-password`
-- **클레임 관리 (`/api/claims`)**:
-  - `GET /api/claims`: 전체 클레임 조회 (필터/정렬 지원)
-  - `POST /api/claims`: 신규 클레임 생성 (5단계 위저드 완료 시 제출)
-  - `GET /api/claims/:id`: 특정 클레임 상세, 증빙 파일, 판매자 교섭 이력, 정산 원장
+- **소비자 클레임 (`/api/claims`)**:
+  - `GET /api/claims`: 내 클레임 목록 조회
+  - `POST /api/claims`: 신규 클레임 간편 접수 (위저드 완료 시 제출)
+  - `GET /api/claims/:id`: 내 특정 사건 상세, 도리의 영문 편지, 진행 타임라인, 정산 내역
 - **증빙 파일 (`/api/claims/:id/files`)**:
-  - `POST /api/claims/:id/files`: 10MB 증빙자료 업로드 (멀티파트)
-- **AI 어시스턴트 (`/api/ai/*`)**:
-  - `POST /api/ai/draft`: Gemini 기반 영문/일문/중문 판매자 문의 초안 생성
-  - `POST /api/ai/analyze-reply`: 판매자 답장 이메일 텍스트/캡처 AI 판독
+  - `POST /api/claims/:id/files`: 10MB 증빙 사진/영수증 업로드
+- **AI 도리 어시스턴트 (`/api/ai/*`)**:
+  - `POST /api/ai/draft`: Gemini 기반 영문/일문/중문 판매자 문의 편지 자동 생성
+  - `POST /api/ai/analyze-reply`: 판매자가 보낸 답장 이메일 판독 (환불 승인/거절 여부 판정)
   - `POST /api/ai/extract-order`: 주문서 PDF 텍스트 자동 파싱
 
 ---
 
-## 6. 🚀 단계별 구현 체크리스트 (Task Execution List)
+## 6. 🚀 100% B2C 단계별 구현 체크리스트 (Task Execution List)
 
 AI 에이전트는 아래 체크리스트를 순차적으로 실행하며 완료 시 체크(`[x]`)합니다:
 
-- [ ] **Phase 1: React 기반 인프라 & Shell 셋업**
-  - [ ] `index.html`을 React 마운트용으로 연동 및 `src/client/main.tsx` 생성
-  - [ ] Tailwind v4 테마 및 shadcn 스타일 기본 컴포넌트(`Button`, `Input`, `Badge`, `Card`, `Modal`) 구축
-  - [ ] 글로벌 네비게이션(B2C 모바일 바텀바 + B2B 데스크톱 사이드바) Shell 완성
-  - [ ] 세션 및 인증 폼(`useAuth`, `react-hook-form` + `zod` 기반 로그인/회원가입) 연동
+- [ ] **Phase 1: B2C 모바일 친화 Shell & 도리(Dori) 마스코트 셋업**
+  - [ ] `index.html` 연동 및 `src/client/main.tsx` React 19 엔트리포인트 구성
+  - [ ] 도리(Dori) 펭귄 캐릭터 SVG 컴포넌트 및 최소 2.5초 노출 애니메이션 구현
+  - [ ] 모바일 퍼스트 바텀 네비게이션바 [신청하기 / 내 환불 / 설정] 셸 구축
+  - [ ] 간편 인증(로그인, 회원가입) 폼 연동 (`react-hook-form` + `zod`)
 
 - [ ] **Phase 2: B2C 5단계 간편 신청 위저드 (Core Wizard)**
-  - [ ] Step 1: 구매처(쇼핑몰), 주문번호, 주문일자 입력 (자동 검증)
-  - [ ] Step 2: 클레임 유형(반품/환불/교환/파손) 및 피해 금액/통화(USD, JPY, EUR, CNY, KRW)
-  - [ ] Step 3: 피해 상세 사유 작성 및 AI 사전 진단 가이드
-  - [ ] Step 4: Uppy + Cropper.js 연동 10MB 증빙 사진/인보이스 업로드 & 크롭 UX
-  - [ ] Step 5: 최종 요약 확인 및 제출 (`motion` 슬라이드 전환 + 완료 시 `canvas-confetti`)
+  - [ ] Step 1: 구매 쇼핑몰(아마존, 알리, 타오바오 등) 원클릭 로고 선택 & 주문번호 입력
+  - [ ] Step 2: 문제 유형 선택(파손/오배송/미도착) 및 피해 금액/통화 입력
+  - [ ] Step 3: 피해 내용 간편 선택 및 상세 설명 작성
+  - [ ] Step 4: Uppy + Cropper.js 연동 10MB 파손 사진 크롭 및 영수증 업로드 UX
+  - [ ] Step 5: 최종 요약 확인 & 원클릭 접수 (`motion` 슬라이드 전환 + 완료 시 `canvas-confetti`)
 
-- [ ] **Phase 3: 메인 대시보드 & 인터랙티브 타임라인**
-  - [ ] Bento Grid 레이아웃의 대시보드 홈 (미회수 금액 지표, 지금 해야 할 일(Next Action) 카드)
-  - [ ] `@xyflow/react`를 활용한 클레임 사건 진행 상태 노드 다이어그램 타임라인
-  - [ ] `@tanstack/react-query`를 통한 실시간 클레임 목록 조회, 필터링, 검색
+- [ ] **Phase 3: 내 환불 현황 대시보드 & 타임라인**
+  - [ ] 진행 중인 내 사건 요약 카드 (지금 해야 할 일 안내)
+  - [ ] 내가 돌려받은 누적 환불액 통계 카드 (`Chart.js`)
+  - [ ] `@xyflow/react` 기반의 배송조회 스타일 단계별 환불 진행 타임라인
+  - [ ] `@tanstack/react-query`를 통한 내 사건 목록 실시간 동기화
 
-- [ ] **Phase 4: AI 사건 처리 어시스턴트 & 증빙 PDF 뷰어**
-  - [ ] Gemini AI 해외 판매자 문의 초안 생성 및 원클릭 복사/메일 전송 다이얼로그
-  - [ ] `pdfjs-dist` 기반의 인보이스 PDF 뷰어 (페이지 넘김, 확대/축소, 주문번호 하이라이트)
-  - [ ] 판매자 수신 메일 붙여넣기 및 AI 환불 승인/거절 판독 컴포넌트
+- [ ] **Phase 4: AI 도리 영문 조율 & 증빙 PDF 뷰어**
+  - [ ] 도리가 대신 써준 영문 판매자 문의 편지 미리보기 및 복사/전송 다이얼로그
+  - [ ] `pdfjs-dist` 기반의 인보이스 PDF 영수증 브라우저 즉시 뷰어
+  - [ ] 판매자 수신 메일 붙여넣기 및 AI 환불 승인/거절 자동 판정 화면
 
-- [ ] **Phase 5: ReLo Business B2B 관리자 대시보드**
-  - [ ] `@tanstack/react-table` 기반의 고성능 엔터프라이즈 클레임 데이터 그리드
-  - [ ] `chart.js` 기반의 월별 클레임 추이 및 환불 성공률 분석 대시보드
+- [ ] **Phase 5: 내 사건 이력 & 환불 정산 원장 (Consumer Ledger)**
+  - [ ] `@tanstack/react-table` 기반의 내 과거 클레임/환불 이력 모아보기
+  - [ ] 환불 입금 영수증 기록 및 내 정산 내역 확인 화면
 
 - [ ] **Phase 6: QA 및 프로덕션 검증**
   - [ ] TypeScript 정적 타입 검사 (`npm run typecheck` ➔ 0 errors)
