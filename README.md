@@ -1,3 +1,7 @@
+
+
+https://github.com/user-attachments/assets/7fa6bbec-fa54-4515-8a2b-56c7ef74aa91
+
 # ReLo · 해외 직구 클레임 기록
 
 해외 쇼핑몰에서 산 상품의 반품·교환·AS를 **청구 → 판매처 문의 → 답변 → 실제 회수**까지 한 곳에서 기록하는 개인용(B2C) 웹 서비스다.
