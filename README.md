@@ -10,17 +10,7 @@ https://github.com/user-attachments/assets/7fa6bbec-fa54-4515-8a2b-56c7ef74aa91
 
 ## 화면
 
-홈은 **현황판**(얼마가 남았고 무엇부터 할지), 클레임 상세는 **실행판**(금액·단계·다음 할 일), 새 클레임은 **5단계 신청**이다.
 
-| 홈 (현황판) | 클레임 목록 |
-|---|---|
-| ![홈](docs/screenshots/dashboard.png) | ![클레임 목록](docs/screenshots/claims.png) |
-| **클레임 상세 (금액 카드·진행 단계·다음 할 일)** | **새 클레임 1단계 (주문서로 자동 채우기)** |
-| ![클레임 상세](docs/screenshots/claim-detail.png) | ![새 클레임](docs/screenshots/wizard.png) |
-| **회수 완료** | **로그인** |
-| ![회수 완료](docs/screenshots/celebrate.png) | ![로그인](docs/screenshots/login.png) |
-
-<img src="docs/screenshots/mobile-home.png" alt="휴대폰 홈 화면" width="260"> <img src="docs/screenshots/mobile-claim.png" alt="휴대폰 클레임 화면" width="260">
 
 휴대폰(390px): 하단 탭 바 가운데에 "새 신청" 버튼이 떠 있다. 분쟁 건은 노란 단계와 노란 "다음 할 일"로 표시된다.
 
