@@ -33,18 +33,3 @@ test('server: domain is pure, only repositories touch SQL, routes do not open tr
   ];
   assert.deepEqual(problems, []);
 });
-
-test('web: views never fetch, view models never touch the DOM, models hold no state', () => {
-  const problems = [
-    ...violations('src/web/views', source => [
-      ...(/\bfetch\(/.test(source) ? ['view calls fetch'] : []),
-      ...imports(source).filter(path => path.includes('/models/')).map(path => `view imports ${path}`),
-    ]),
-    ...violations('src/web/viewmodels', source => /\b(document|window|localStorage|location)\./.test(source) ? ['view model touches the DOM or window'] : []),
-    ...violations('src/web/models', source => [
-      ...(/\b(document|window)\./.test(source) ? ['model touches the DOM'] : []),
-      ...(/^\s*let /m.test(source) ? ['model keeps mutable state'] : []),
-    ]),
-  ];
-  assert.deepEqual(problems, []);
-});

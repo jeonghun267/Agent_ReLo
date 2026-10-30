@@ -4,8 +4,8 @@ import {spawnSync} from 'node:child_process';
 
 const steps = [
   ['syntax', ['scripts/check.mjs']],
+  ['client quality audit', ['scripts/audit-client-quality.mjs']],
   ['unit + http', ['--test', 'tests/unit/**/*.test.mjs', 'tests/http/**/*.test.mjs']],
-  ['browser', ['--test', 'tests/browser/**/*.test.mjs']],
 ];
 
 for (const [name, args] of steps) {

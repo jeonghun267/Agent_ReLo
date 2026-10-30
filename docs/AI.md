@@ -61,7 +61,7 @@ GROUP BY capability;
 
 1. `ai/prompts/새기능.mjs`에 `build*Request`(capability 이름, system, parts, schema)와 `parse*`를 만든다.
 2. `services/ai.service.mjs`에 `run(user, claimId, request, parse)`를 쓰는 함수를 추가한다. 동의·한도·기록이 자동으로 적용된다.
-3. `routes/ai.routes.mjs`에 경로를, `src/web/models/ai.model.mjs`에 함수를 추가한다.
+3. `routes/ai.routes.mjs`에 경로를, `src/client/` API 연동 모듈에 함수를 추가한다.
 4. `ai/fake.provider.mjs`에 시험용 응답을 추가하고 `tests/http/ai.test.mjs`에 시험을 쓴다.
 5. `scripts/ai-smoke.mjs`에 실제 호출 확인을 한 줄 추가한다.
 

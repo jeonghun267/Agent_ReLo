@@ -44,7 +44,7 @@ export function loadConfig(env = process.env) {
 
   return Object.freeze({
     root: ROOT,
-    webRoot: resolve(ROOT, 'src', 'web'),
+    webRoot: resolve(ROOT, 'dist'),
     appEnv,
     isProduction,
     host: env.HOST || '127.0.0.1',

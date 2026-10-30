@@ -31,19 +31,16 @@ View ──(사용자 행동)──▶ ViewModel ──▶ Model ──fetch─�
 | `mail/` | 계정 메일 provider 경계(`provider.mjs` 계약), `resend`(Resend REST API, SDK 없음), `console`(개발·시험: 서버 로그에 출력), `disabled`, `messages.mjs`(메일 본문) | 서비스는 발송을 기다리지 않는다. API 키는 `.env`에만 |
 | `dev/` | 개발용 데모 계정 seed, 합성 주문서 PDF | 운영에서 seed 금지 |
 
-### 화면 `src/web/` (빌드 도구 없는 ES 모듈)
+### 화면 `src/client/` (React 19 + TypeScript + Vite + Tailwind CSS v4)
 
 | 위치 | 역할 | 규칙 |
 |---|---|---|
-| `main.mjs` | 부트스트랩: HTTP 클라이언트 → Model → ViewModel → View 순서 | |
-| `core/` | 공용 도구: `observable`(상태+구독), `http-client`(유일한 fetch), `html`(자동 이스케이프 템플릿), `dom`, `format`, `hash-router`, `preparation`(도리 최소 표시 시간) | |
-| `models/` | API 한 곳당 함수 하나. 상태 없음 | DOM·상태 금지 |
-| `viewmodels/` | 화면 상태와 명령(`Observable` 상속). 목록 계산은 `select*` 함수. `claim-progress.mjs`에 진행 단계·회수율·**다음 할 일**(`selectNextAction`)·활동 목록, `claim-list.vm.mjs`에 홈 수치·할 일·목록 필터·정렬 | **DOM·window 접근 금지** |
-| `views/` | 상태 → HTML(`render`)과 이벤트 → ViewModel 명령(`handlers`) | **fetch·Model 직접 호출 금지** |
-| `views/pages/` | 홈(`dashboard`), 클레임 목록(`claims`), 상세(`claim-detail`), 휴지통, 설정, 로그인 화면 | |
-| `views/components/` | 여러 화면이 쓰는 조각: 아이콘, 클레임 카드, 다음 할 일 카드, 활동 타임라인, 진행 단계·금액 카드, 단계형 폼(`stepper`), 입력 오류 표시 | |
-| `views/app.view.mjs` | 상태가 바뀌면 다시 그리기, 이벤트 위임(click·submit·input·change·파일 끌어 놓기), 다이얼로그·URL 동기화 | |
-| `styles/` | `base.css`(토큰·상단 바·하단 탭), `components.css`(공용 조각), `pages.css`(화면 배치), `dori.css` | 숫자 대신 토큰 사용 |
+| `main.tsx` | React 19 진입점 및 전역 프로바이더 설정 | |
+| `pages/` | 랜딩(`LandingPage`), 현황판(`DashboardPage`), 클레임 목록(`MyClaimsPage`), 상세(`ClaimDetailPage`), 5단계 위저드(`WizardPage`), 설정, 로그인 | 460줄 이하 모듈성 유지 |
+| `components/` | Toss 스타일 UI 컴포넌트: 3D 지구본(`GlobeCanvas`), 3D 스마트폰 스크롤(`PhoneStorySection`), 4열 푸터(`LandingFooter`), 다이얼로그, 카드 등 | 재사용 가능한 UI 조각 |
+| `i18n/` | 다국어 사전 (`ko`, `en`, `zh`, `ja`) | 모든 라벨 1:1 대칭 매핑 및 쉬운 소비자 언어 |
+| `hooks/` | 커스텀 훅 및 상태 관리 | 비즈니스 로직과 화면 분리 |
+| `styles/` | Tailwind CSS v4 (`index.css`) 및 Pretendard 가변 폰트 | 일관된 Toss 미니멀 컬러 하모니 |
 
 이 규칙 대부분은 `tests/unit/architecture.test.mjs`가 소스를 읽어 강제한다.
 
@@ -110,7 +107,7 @@ View ──(사용자 행동)──▶ ViewModel ──▶ Model ──fetch─�
 1. 필요하면 `repositories/*.repo.mjs`에 SQL 함수 추가
 2. `services/*.service.mjs`에 업무 함수 추가. 변경이면 `claims.mutate` 또는 `withIdempotency` 사용
 3. `routes/*.routes.mjs`에 경로 추가. 기본은 로그인 필요, 공개 경로만 `{auth: false}`
-4. `src/web/models/*.model.mjs`에 함수 추가
+4. `src/client/` API 연동 함수 추가
 5. `tests/http/`에 시험 추가. 다른 사용자 접근 404 확인을 포함한다
 
 ### 새 화면이나 다이얼로그
