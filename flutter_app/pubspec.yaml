@@ -1,0 +1,53 @@
+name: relo_flutter
+description: ReLo 2.0.0 — 해외직구 반품·교환·환불 원스톱 기록 및 실제 카드취소 확인 B2C Flutter 앱 (20대 법적 컴플라이언스 및 기능별 모듈 아키텍처 완비)
+publish_to: 'none'
+version: 2.0.0+1
+
+environment:
+  # Flutter 3.41.9 / Dart 3.11.5 안정화 채널 기준 호환 범위
+  sdk: '>=3.4.0 <4.0.0'
+  flutter: '>=3.22.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # 다국어(KO/EN/JA/ZH) DatePicker, 접근성 Semantics 및 텍스트 방향 지원을 위한 필수 Flutter SDK 패키지
+  flutter_localizations:
+    sdk: flutter
+
+  # Flutter 3.41.9 SDK 내부 고정 버전과 100% 일치시켜 구형/신형 패키지 버전 충돌(Version Solve Failed) 원천 차단
+  intl: ^0.20.2
+  collection: ^1.19.1
+  characters: ^1.4.1
+  meta: ^1.17.0
+  vector_math: ^2.2.0
+  material_color_utilities: ^0.13.0
+  path: ^1.9.1
+  cupertino_icons: ^1.0.8
+  animations: ^2.0.11
+  flutter_animate: ^4.5.2
+  smooth_sheets: ^1.2.1
+  confetti: ^0.8.0
+  skeletonizer: ^3.0.0
+  lucide_icons_flutter: ^4.0.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  integration_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+# [패키지 충돌 방지 안전장치]
+# 추후 서드파티 패키지 추가 시 구형 서브 의존성이 최신 Flutter SDK 핀 버전과 충돌하지 않도록 강제 고정합니다.
+dependency_overrides:
+  intl: 0.20.2
+  collection: 1.19.1
+  characters: 1.4.1
+  meta: 1.17.0
+  vector_math: 2.2.0
+  material_color_utilities: 0.13.0
+  path: 1.9.1
+
+flutter:
+  uses-material-design: true

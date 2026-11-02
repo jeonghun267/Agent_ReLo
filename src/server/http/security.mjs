@@ -29,7 +29,7 @@ export function securityHeaders(requestId, config) {
 // In production it only answers to the public host in APP_ORIGIN.
 export function allowedHosts(config, listeningPort) {
   if (config.isProduction) return [new URL(config.appOrigin).host];
-  return [`127.0.0.1:${listeningPort}`, `localhost:${listeningPort}`];
+  return [`127.0.0.1:${listeningPort}`, `localhost:${listeningPort}`, `10.0.2.2:${listeningPort}`];
 }
 
 export function expectedOrigin(config, host) {
