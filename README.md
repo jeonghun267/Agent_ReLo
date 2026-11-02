@@ -1,30 +1,52 @@
+<div align="center">
+
+# ReLo
+
+**해외 직구 반품·교환·환불을 접수부터 회수까지 한곳에서 기록하는 웹 서비스**
+
+![React](https://img.shields.io/badge/React_19-20232A?style=flat-square&logo=react&logoColor=61DAFB)
+![TypeScript](https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white)
+![Vite](https://img.shields.io/badge/Vite-646CFF?style=flat-square&logo=vite&logoColor=white)
+![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS_4-06B6D4?style=flat-square&logo=tailwindcss&logoColor=white)
+![Node.js](https://img.shields.io/badge/Node.js_24-339933?style=flat-square&logo=nodedotjs&logoColor=white)
+![SQLite](https://img.shields.io/badge/SQLite-003B57?style=flat-square&logo=sqlite&logoColor=white)
+![Gemini](https://img.shields.io/badge/Gemini-8E75B2?style=flat-square&logo=googlegemini&logoColor=white)
+
+</div>
+
 https://github.com/user-attachments/assets/7fa6bbec-fa54-4515-8a2b-56c7ef74aa91
 
-# ReLo · 해외 직구 반품·교환·환불 클레임 원스톱 기록 웹 서비스
-
-해외 쇼핑몰(아마존, 알리익스프레스, 타오바오 등)에서 산 상품의 반품·교환·AS·환불을 **초기 접수 → 판매처 문의 작성 → 실시간 현황 추적 → 최종 회수**까지 소비자가 한눈에 관리하는 프리미엄 B2C 웹 서비스입니다.
-
 ---
 
-## 🌟 핵심 특징 & UX 하이라이트
+## 프로젝트 소개
 
-1. **토스(Toss) 스타일 인터랙티브 3D 비주얼**:
-   - **글로벌 항로 3D 지구본**: 전 세계 대륙(동아시아, 미주, 유럽)과 실제 비행기 항로가 서울 허브로 이어지는 3D Canvas 지구본 애니메이션.
-   - **3D 스마트폰 스크롤 스토리텔링**: 스크롤에 맞춰 3차원 회전하는 스마트폰 속에서 복잡한 해외 직구 문제가 원스톱으로 해결되는 시각적 안내.
-   - **Toss 미니멀 컬러 하모니**: Blue 500(#3182F6) 메인 포인트, 통화별(KRW/EUR/USD) 시각적 조화 및 토스 스타일 4열 푸터.
-2. **글로벌 4개 언어 원클릭 전환**:
-   - 한국어(KO), 영어(EN), 중국어(ZH), 일본어(JA) 100% 완전 지원.
-   - 직관적이고 쉬운 소비자 중심 언어 사용 (어려운 전문 용어 배제).
-3. **모바일 퍼스트 (390px 반응형 최적화)**:
-   - 스마트폰 화면에서도 완벽하게 작동하는 모바일 하단 네비게이션 및 반응형 카드 레이아웃.
-4. **AI 직구 환불 어시스턴트 (Google Gemini)**:
-   - 주문서 송장 자동 분석 및 판매처 맞춤 영문 클레임 편지 자동 생성.
-5. **엄격한 데이터 무결성 & 개인정보 보안**:
-   - SQLite 기반 경량 단일 DB, 본인 소유의 사건 및 10MB 증빙 자료 철저 격리.
+아마존·알리익스프레스·타오바오 같은 해외 쇼핑몰에서 산 물건을 반품하거나 환불받으려면, 영어로 문의를 쓰고 답장을 기다리고 얼마를 돌려받았는지 직접 챙겨야 합니다.
+ReLo는 **접수 → 판매처 문의 작성 → 진행 상황 추적 → 회수 확인**까지를 소비자 한 사람이 한눈에 관리하도록 돕는 B2C 웹 서비스입니다.
 
----
+- **팀**: 오정훈 ([@jeonghun267](https://github.com/jeonghun267)) · 방승훈 ([@sbang0209](https://github.com/sbang0209))
+- **오정훈 담당**: 서비스 설계, Node.js 백엔드(계층형 구조·SQLite·인증·메일), React 19 프론트엔드, Gemini 연동
 
-## 🚀 빠른 시작 (Getting Started)
+## 주요 기능
+
+- **5단계 클레임 신청**: 주문 정보 → 문제 → 증빙 → 요청 → 확인 순서로 접수
+- **AI 환불 도우미 (Gemini)**: 주문서·송장 문서 읽기, 판매처에 보낼 영문 문의 초안, 번역, 판매처 답변 분석. 동의한 사용자만 쓰고 결과는 미리보기로만 보여 줌
+- **현황판**: 통화별(원·달러·유로·엔) 아직 못 돌려받은 금액, 해야 할 일, 진행 단계와 회수율
+- **증빙 관리**: 파일당 10MB까지, 본인 클레임에만 접근
+- **계정**: 회원가입, 이메일 인증·비밀번호 재설정(Resend), 휴지통·내보내기·탈퇴
+- **4개 언어**: 한국어·영어·중국어·일본어 전환
+- **모바일 우선 반응형**: 390px 화면 기준 하단 내비게이션과 카드 레이아웃
+- **랜딩 페이지 연출**: 항로가 서울로 이어지는 3D 지구본, 스크롤에 따라 회전하는 3D 스마트폰
+
+## 기술 스택
+
+| 분류 | 사용 기술 |
+|---|---|
+| 프론트엔드 | React 19, TypeScript, Vite, Tailwind CSS 4, TanStack Query·Table, React Hook Form + Zod, Motion, Chart.js, PDF.js |
+| 백엔드 | Node.js 24 기본 HTTP 서버(프레임워크 없음), 내장 `node:sqlite` |
+| 외부 서비스 | Google Gemini API, Resend(이메일) |
+| 품질 | Node test runner(단위·HTTP 통합 테스트), Biome, `tsc --noEmit`, 자체 클라이언트 품질 감사 스크립트 |
+
+## 실행 방법
 
 Node.js 24.15 이상이 필요합니다.
 
@@ -50,9 +72,9 @@ npm run dev:react
 
 ---
 
-## 🛠️ 주요 스크립트 & 코드 품질 관리
+## 주요 스크립트
 
-누구나 쉽게 코드를 파악하고 유지보수할 수 있도록 엄격한 자동화 품질 감사 도구를 갖추고 있습니다:
+코드 품질을 자동으로 확인하는 스크립트를 함께 둡니다.
 
 | 명령어 | 설명 |
 |---|---|
@@ -60,19 +82,19 @@ npm run dev:react
 | `npm run dev` | 백엔드 코드 감시 및 자동 재시작 모드 |
 | `npm run dev:react` | React 19 프론트엔드 Vite HMR 개발 서버 (5173 포트) |
 | `npm run build:react` | TypeScript 타입 검사 후 React 앱 프로덕션 빌드 (`dist/`) |
-| `npm test` | 백엔드 도메인 및 HTTP API 단위/통합 테스트 (48개 테스트 100% 통과) |
+| `npm test` | 백엔드 도메인 및 HTTP API 단위/통합 테스트  |
 | `npm run audit:client` | 클라이언트 품질 감사 (MVVM 헤더, 460줄 모듈성, 4개 국어 일치성, 쉬운 소비자 언어 검증) |
 | `npm run typecheck` | TypeScript 정적 타입 검사 (`tsc --noEmit`) |
 | `npm run lint` | Biome 초고속 린터 검사 |
-| `npm run check` | 백엔드 ES 모듈 문법 정적 검사 (81개 모듈) |
+| `npm run check` | 백엔드 ES 모듈 문법 정적 검사  |
 | `npm run backup` | SQLite 운영 데이터베이스 안전 백업 |
 
 ---
 
-## 📁 디렉터리 아키텍처
+## 프로젝트 구조
 
 ```
-AI_Agent/
+Agent_ReLo/
 ├── dist/                  # 프로덕션 빌드된 React 19 SPA (Node 서버 4180 단독 서빙)
 ├── src/
 │   ├── client/            # 모던 React 19 프론트엔드 소스코드
@@ -98,7 +120,7 @@ AI_Agent/
 
 ---
 
-## 🔒 환경 변수 설정 (`.env`)
+## 환경 변수
 
 필요 시 `.env.example`을 복사하여 `.env`를 생성합니다:
 ```bash
@@ -116,13 +138,15 @@ cp .env.example .env
 
 ## 지금까지 한 일
 
-| 날짜 | PR | 내용 |
+> 10-17까지의 PR 번호(#1~#5)는 이전 개인 저장소 기준입니다.
+
+| 날짜 | 작업 | 내용 |
 |---|---|---|
-| 2026-10-13 | [#1](https://github.com/jeonghun267/AI_Agent/pull/1) | B2B 합성 데이터 시제품 (업체·역할·관리자 승인) |
-| 2026-10-17 | [#2](https://github.com/jeonghun267/AI_Agent/pull/2) | **B2C 전환**: 회원가입, 판매처 자유 입력·다통화, 휴지통·내보내기·탈퇴. 서버 계층형, 화면 MVVM으로 재구성. Gemini 연결(초안·번역·답변 분석·문서 읽기). 디자인 명세 작성·적용 |
-| 2026-10-17 | [#3](https://github.com/jeonghun267/AI_Agent/pull/3) | AI 대기 안내와 취소, 입력칸 아래 오류 표시, 작성 중 닫기 경고, 토스트가 창 뒤에 가려지던 문제 수정 |
-| 2026-10-17 | [#4](https://github.com/jeonghun267/AI_Agent/pull/4) | 이메일 인증·비밀번호 재설정, Resend 발송 |
-| 2026-10-17 | [#5](https://github.com/jeonghun267/AI_Agent/pull/5) | UI 꾸미기: 진행 단계·회수율 막대, 도리 인사·축하, Pretendard 글꼴 |
+| 2026-10-13 | #1 | B2B 합성 데이터 시제품 (업체·역할·관리자 승인) |
+| 2026-10-17 | #2 | **B2C 전환**: 회원가입, 판매처 자유 입력·다통화, 휴지통·내보내기·탈퇴. 서버 계층형, 화면 MVVM으로 재구성. Gemini 연결(초안·번역·답변 분석·문서 읽기). 디자인 명세 작성·적용 |
+| 2026-10-17 | #3 | AI 대기 안내와 취소, 입력칸 아래 오류 표시, 작성 중 닫기 경고, 토스트가 창 뒤에 가려지던 문제 수정 |
+| 2026-10-17 | #4 | 이메일 인증·비밀번호 재설정, Resend 발송 |
+| 2026-10-17 | #5 | UI 꾸미기: 진행 단계·회수율 막대, 도리 인사·축하, Pretendard 글꼴 |
 | 2026-10-18 | `feat/redesign` | 전체 UI/UX 리디자인 (5단계 신청 위저드, 현황판, 사건 관리) |
 | 2026-10-30 | `feat/react-19-toss` | **React 19 & 토스 스타일 B2C 고도화**: React 19, Vite, Tailwind CSS v4 모던 프론트엔드로 전면 전환. 글로벌 항로 3D 지구본, 3D 스마트폰 스크롤 스토리텔링, 4개 국어(KO/EN/ZH/JA) 원클릭 전환, 쉬운 일상 용어 정립, Toss 미니멀 컬러 하모니 구축, 구버전(`src/web/`) 완전 삭제 및 `dist/` 단독 서빙 통합 |
 
@@ -158,3 +182,8 @@ cp .env.example .env
    - 업로드 파일 악성코드 검사.
    - 사용료를 받는다면 결제 연동(PG). 이때 사업자등록·통신판매업 신고 확인이 필요하다.
    - **여러 서버 인스턴스 운영**: 로그인·재설정 요청 시도 제한이 메모리 기반이라 단일 프로세스 기준이다.
+
+## 개발 흐름
+
+- 각자 `JeongHun` · `Bang` 브랜치에서 작업하고, `npm test`·`npm run typecheck`·`npm run lint`로 확인한 뒤 PR로 `main`에 머지합니다.
+- `main`은 항상 `npm start`로 바로 실행되는 상태로 유지합니다.
