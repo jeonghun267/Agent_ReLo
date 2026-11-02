@@ -19,7 +19,10 @@
     "ai:smoke": "node --env-file-if-exists=.env scripts/ai-smoke.mjs",
     "mail:smoke": "node --env-file-if-exists=.env scripts/mail-smoke.mjs",
     "backup": "node --env-file-if-exists=.env scripts/backup-db.mjs",
-    "verify": "node scripts/verify.mjs"
+    "verify": "node scripts/verify.mjs",
+    "flutter:get": "cd flutter_app && flutter pub get",
+    "flutter:test": "cd flutter_app && flutter test",
+    "flutter:run": "cd flutter_app && flutter run"
   },
   "devDependencies": {
     "@axe-core/playwright": "^4.14.0",
