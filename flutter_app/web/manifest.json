@@ -1,0 +1,11 @@
+{
+  "name": "ReLo — 해외직구 반품·교환·환불 통장",
+  "short_name": "ReLo",
+  "start_url": ".",
+  "display": "standalone",
+  "background_color": "#0F172A",
+  "theme_color": "#1B64DA",
+  "description": "외국어 한 줄 몰라도 내 통장으로 환불. 해외직구 반품·교환·환불 및 실제 카드 취소 확인 서비스.",
+  "orientation": "portrait-primary",
+  "prefer_related_applications": false
+}

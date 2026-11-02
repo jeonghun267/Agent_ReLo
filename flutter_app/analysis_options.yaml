@@ -1,0 +1,11 @@
+analyzer:
+  errors:
+    unused_import: warning
+    dead_code: warning
+
+linter:
+  rules:
+    prefer_const_constructors: true
+    prefer_final_fields: true
+    avoid_print: true
+    use_key_in_widget_constructors: true
