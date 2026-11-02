@@ -9,7 +9,7 @@ import '../compliance/business_footer.dart';
 
 /// @module features/settings/settings_screen
 /// @layer Feature Module — Account, Accessibility, Email Unsubscribe & Immediate Purge
-/// @purpose [법적 안전장치 #8 외부 SDK 제어, #14 고대비 접근성, #18 이메일 수신거부, #20 개인정보 삭제요청]
+/// @purpose 계정, 화면(테마·고대비·언어), 알림, 백업, 약관·정책 열기, 탈퇴
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
 
@@ -124,7 +124,7 @@ class SettingsScreen extends StatelessWidget {
                   ),
                 ),
                 ReloBadge(
-                  label: store.isOfflineFallback ? '로컬 보안 모드' : '서버 동기화됨',
+                  label: store.isOfflineFallback ? '오프라인 데모' : '서버 연결됨',
                   tone: store.isOfflineFallback
                       ? ReloBadgeTone.sunny
                       : ReloBadgeTone.mint,
@@ -140,7 +140,7 @@ class SettingsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '화면 스타일 · 고대비 접근성 · 다국어',
+                  '화면',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
@@ -156,7 +156,7 @@ class SettingsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '미드나잇 다크 블루 테마',
+                            '어두운 화면',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -164,8 +164,9 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '승인된 실배포 다크 에디토리얼 모드 / 라이트 모드 전환',
-                            style: TextStyle(fontSize: 11, color: palette.muted),
+                            '끄면 밝은 화면으로 바뀌어요',
+                            style:
+                                TextStyle(fontSize: 11, color: palette.muted),
                           ),
                         ],
                       ),
@@ -186,7 +187,7 @@ class SettingsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '시각 약자용 WCAG AAA 초고대비 모드 (항목 #14)',
+                            '고대비 모드',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -194,8 +195,9 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '글자와 배경 명도 대비를 15:1 이상으로 강화하고 노란 포커스 링을 표시합니다.',
-                            style: TextStyle(fontSize: 11, color: palette.muted),
+                            '글자와 배경 차이를 더 크게 하고, 키보드 포커스를 노란색으로 표시해요.',
+                            style:
+                                TextStyle(fontSize: 11, color: palette.muted),
                           ),
                         ],
                       ),
@@ -247,7 +249,7 @@ class SettingsScreen extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Text(
-                  '개인정보 권리 행사 및 수신거부 · 즉시 파기',
+                  '내 정보',
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w900,
@@ -263,7 +265,7 @@ class SettingsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'AI 영수증 인식 · 외국어 번역 도우미 동의 (항목 #8)',
+                            'AI 영수증 인식 · 외국어 번역 도우미',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -271,8 +273,9 @@ class SettingsScreen extends StatelessWidget {
                             ),
                           ),
                           Text(
-                            '언제든 끄실 수 있으며, 끄면 외부 AI 서버로 텍스트가 전송되지 않습니다.',
-                            style: TextStyle(fontSize: 11, color: palette.muted),
+                            '끄면 영수증과 사유를 AI 서버로 보내지 않아요.',
+                            style:
+                                TextStyle(fontSize: 11, color: palette.muted),
                           ),
                         ],
                       ),
@@ -293,7 +296,7 @@ class SettingsScreen extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            '이메일 알림 원클릭 수신 허용 (항목 #18)',
+                            '이메일 알림 받기',
                             style: TextStyle(
                               fontSize: 13,
                               fontWeight: FontWeight.w800,
@@ -302,9 +305,10 @@ class SettingsScreen extends StatelessWidget {
                           ),
                           Text(
                             store.emailUnsubscribed
-                                ? '현재 수신거부됨 (광고·안내 메일이 발송되지 않습니다)'
-                                : '현재 수신 허용 중 (스위치를 끄면 즉시 수신거부 처리됩니다)',
-                            style: TextStyle(fontSize: 11, color: palette.muted),
+                                ? '지금은 메일을 보내지 않아요'
+                                : '끄면 바로 수신 거부돼요',
+                            style:
+                                TextStyle(fontSize: 11, color: palette.muted),
                           ),
                         ],
                       ),
@@ -318,7 +322,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 14),
                 ReloButton(
-                  text: '내 환불 기록 전체 백업 (JSON 내보내기)',
+                  text: '내 환불 기록 백업 (JSON)',
                   isPrimary: false,
                   height: 46,
                   icon: Icons.download_rounded,
@@ -326,7 +330,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 ReloButton(
-                  text: '법적보호 20선 · 외부 SDK 점검 · 약관 열람',
+                  text: '약관 · 개인정보 처리방침 · 정책',
                   isPrimary: false,
                   height: 46,
                   icon: Icons.gavel_rounded,
@@ -334,7 +338,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 ReloButton(
-                  text: '회원 탈퇴 및 개인정보 즉시 영구 삭제 (항목 #20)',
+                  text: '회원 탈퇴 · 내 정보 모두 삭제',
                   isDanger: true,
                   height: 46,
                   icon: Icons.delete_forever_rounded,

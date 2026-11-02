@@ -28,11 +28,11 @@ class ReloApiClient {
   String baseUrl;
   String _csrfToken = '';
   String _sessionCookie = '';
-  final HttpClient _httpClient = HttpClient()
+  late final HttpClient _httpClient = HttpClient()
     ..connectionTimeout = const Duration(seconds: 6);
 
   ReloApiClient({String? initialBaseUrl})
-    : baseUrl = initialBaseUrl ?? _defaultBaseUrl();
+      : baseUrl = initialBaseUrl ?? _defaultBaseUrl();
 
   static String _defaultBaseUrl() {
     try {
@@ -56,9 +56,9 @@ class ReloApiClient {
   static String newIdempotencyKey() {
     final rng = math.Random();
     String hex(int digits) => List.generate(
-      digits,
-      (_) => rng.nextInt(16).toRadixString(16),
-    ).join();
+          digits,
+          (_) => rng.nextInt(16).toRadixString(16),
+        ).join();
     return '${hex(8)}-${hex(4)}-4${hex(3)}-a${hex(3)}-${hex(12)}';
   }
 

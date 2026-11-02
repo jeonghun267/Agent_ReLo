@@ -8,6 +8,8 @@ import '../../shared/state/relo_store.dart';
 /// @purpose [법적 안전장치 #4 쿠키정책, #5 쿠키동의 배너, #9 원하지 않는 선택 유도 금지(다크패턴 방지)]
 ///          [필수 쿠키만 허용(선택 거절)] 버튼과 [전체 쿠키 동의] 버튼의 크기·높이·가독성을
 ///          1:1 동등하게 배치하여 공정거래위원회 다크패턴 방지 가이드라인을 완벽히 준수합니다.
+/// 현재 앱 셸에서는 띄우지 않는다. 필수 쿠키만 쓰므로 동의 절차가 필요 없고,
+/// 분석·광고 도구를 붙일 때 ReloAppShell에 다시 넣는다 (DESIGN.md 7절).
 class CookieConsentBanner extends StatelessWidget {
   const CookieConsentBanner({super.key});
 

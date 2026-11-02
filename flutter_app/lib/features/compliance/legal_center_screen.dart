@@ -9,7 +9,7 @@ import 'compliance_data.dart';
 
 /// @module features/compliance/legal_center_screen
 /// @layer Feature Module — 20-Point Legal & Compliance Protection Center
-/// @purpose 웹/앱 출시 시 고소·분쟁을 예방하는 20가지 필수 법적 안전장치를
+/// @purpose 약관·정책 문서와 개인정보 보호 항목 20개를
 ///          한눈에 검증하고 조작할 수 있는 통합 법적 보호 센터입니다.
 class LegalCenterScreen extends StatefulWidget {
   const LegalCenterScreen({super.key});
@@ -24,7 +24,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
   bool _deleting = false;
 
   static const List<({String id, String label})> _tabs = [
-    (id: 'checklist', label: '20대 법적 체크리스트'),
+    (id: 'checklist', label: '보호 항목'),
     (id: 'privacy', label: '1. 개인정보 처리방침'),
     (id: 'terms', label: '2. 이용약관·사업자정보'),
     (id: 'refund', label: '3. 환불·투명요금 정책'),
@@ -69,7 +69,6 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
           // 상단 요약 배너
           ReloCard(
             backgroundColor: palette.brandSoft.withValues(alpha: 0.7),
-            borderColor: palette.brandLine,
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -77,16 +76,14 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                   mainAxisAlignment: MainAxisAlignment.spaceBetween,
                   children: [
                     const ReloBadge(
-                      label: '20/20 법적 안전장치 적용 완료',
+                      label: '모두 적용됨',
                       tone: ReloBadgeTone.mint,
                       icon: Icons.verified_user_rounded,
                     ),
                     GestureDetector(
                       onTap: store.toggleHighContrast,
                       child: ReloBadge(
-                        label: store.isHighContrast
-                            ? '고대비(AAA) 켜짐'
-                            : '고대비(AAA) 켜기',
+                        label: store.isHighContrast ? '고대비 켜짐' : '고대비 켜기',
                         tone: store.isHighContrast
                             ? ReloBadgeTone.sunny
                             : ReloBadgeTone.brand,
@@ -97,7 +94,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                 ),
                 const SizedBox(height: 10),
                 Text(
-                  '웹/앱 고소 방지 20대 필수 컴플라이언스 센터',
+                  '약관과 개인정보 보호',
                   style: TextStyle(
                     fontSize: 18,
                     fontWeight: FontWeight.w900,
@@ -107,7 +104,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                 ),
                 const SizedBox(height: 4),
                 Text(
-                  '개인정보보호법 · 전자상거래법(다크패턴 방지) · 표시광고법 · 장애인차별금지법(KWCAG 2.2) · 저작권법 기준 20개 항목이 실제 코드로 작동 중입니다.',
+                  '개인정보 처리방침, 이용약관, 환불 정책, 쿠키 설정과 내 정보 삭제 요청을 한곳에서 봅니다. 개인정보보호법·전자상거래법·표시광고법·장애인차별금지법·저작권법 기준 20개 항목을 적용했습니다.',
                   style: TextStyle(
                     fontSize: 12,
                     color: palette.body,
@@ -157,7 +154,8 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
           ),
           const SizedBox(height: 14),
 
-          if (activeId == 'checklist') _buildTwentyPointChecklist(store, palette),
+          if (activeId == 'checklist')
+            _buildTwentyPointChecklist(store, palette),
           if (activeId == 'privacy')
             _buildPolicyDocumentCard(
               title: '1. 개인정보 처리방침 (최소 수집 · 아동 보호 · 즉시 파기)',
@@ -180,9 +178,11 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
               palette: palette,
             ),
           if (activeId == 'cookie') _buildCookieControlPanel(store, palette),
-          if (activeId == 'sdk') _buildExternalSdkAndUnsubscribePanel(store, palette),
+          if (activeId == 'sdk')
+            _buildExternalSdkAndUnsubscribePanel(store, palette),
           if (activeId == 'licenses') _buildFontAndAssetLicensesPanel(palette),
-          if (activeId == 'delete') _buildImmediateDataPurgePanel(store, palette),
+          if (activeId == 'delete')
+            _buildImmediateDataPurgePanel(store, palette),
 
           const BusinessFooter(),
         ],
@@ -313,7 +313,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ReloBadge(
-            label: '항목 #4 쿠키정책 & #5 쿠키동의 배너 & #9 다크패턴 방지',
+            label: '쿠키 설정',
             tone: ReloBadgeTone.brand,
           ),
           const SizedBox(height: 8),
@@ -407,7 +407,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const ReloBadge(
-                label: '항목 #18 이메일 수신거부 링크 (정보통신망법 제50조)',
+                label: '이메일 수신 거부',
                 tone: ReloBadgeTone.sunny,
               ),
               const SizedBox(height: 8),
@@ -479,7 +479,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               const ReloBadge(
-                label: '항목 #8 외부 SDK 점검 & Flutter 3.41.9 패키지 핀 고정',
+                label: '외부 서비스 연결',
                 tone: ReloBadgeTone.brand,
               ),
               const SizedBox(height: 8),
@@ -501,8 +501,8 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                 final isEnabled = sdk.id == 'gemini_ai_bridge'
                     ? store.sdkAiEnabled
                     : (sdk.id == 'resend_mail_bridge'
-                          ? store.sdkMailEnabled
-                          : true);
+                        ? store.sdkMailEnabled
+                        : true);
                 return Container(
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),
@@ -531,8 +531,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                             Switch(
                               value: isEnabled,
                               activeThumbColor: palette.brand,
-                              onChanged: (_) =>
-                                  store.toggleExternalSdk(sdk.id),
+                              onChanged: (_) => store.toggleExternalSdk(sdk.id),
                             )
                           else
                             const ReloBadge(
@@ -601,7 +600,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           const ReloBadge(
-            label: '항목 #19 사용하는 이미지와 글꼴의 이용권 확보',
+            label: '글꼴·이미지 라이선스',
             tone: ReloBadgeTone.mint,
           ),
           const SizedBox(height: 8),
@@ -679,7 +678,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           const ReloBadge(
-            label: '항목 #20 개인정보 삭제요청 기능 (개인정보보호법 제36조)',
+            label: '내 정보 삭제 요청',
             tone: ReloBadgeTone.danger,
           ),
           const SizedBox(height: 8),
@@ -734,9 +733,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
           ),
           const SizedBox(height: 10),
           ReloButton(
-            text: _deleting
-                ? '영구 파기 실행 중...'
-                : '내 모든 개인정보 · 영수증 사진 즉시 영구 삭제하기',
+            text: _deleting ? '영구 파기 실행 중...' : '내 모든 개인정보 · 영수증 사진 즉시 영구 삭제하기',
             isDanger: true,
             icon: Icons.delete_forever_rounded,
             onPressed: (!_confirmImmediateDelete || _deleting)

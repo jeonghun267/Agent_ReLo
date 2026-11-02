@@ -32,3 +32,9 @@ build/
 /android/app/debug
 /android/app/profile
 /android/app/release
+
+# Flutter가 빌드할 때 만드는 플랫폼 파일
+android/local.properties
+android/app/src/main/java/io/flutter/
+ios/Flutter/
+ios/Runner/GeneratedPluginRegistrant.*

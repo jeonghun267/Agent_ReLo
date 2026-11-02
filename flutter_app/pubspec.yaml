@@ -24,6 +24,12 @@ dependencies:
   material_color_utilities: ^0.13.0
   path: ^1.9.1
   cupertino_icons: ^1.0.8
+  animations: ^2.0.11
+  flutter_animate: ^4.5.2
+  smooth_sheets: ^1.2.1
+  confetti: ^0.8.0
+  skeletonizer: ^3.0.0
+  lucide_icons_flutter: ^4.0.1
 
 dev_dependencies:
   flutter_test:

@@ -16,7 +16,7 @@ flutter_app/
 ├── ios/                                          # Info.plist (사진 보관함 최소 목적 고지)
 ├── web/                                          # index.html & manifest.json
 └── lib/
-    ├── main.dart                                 # 앱 루트 (flutter_localizations, 테마, 5탭 라우터)
+    ├── main.dart                                 # 앱 루트 (flutter_localizations, 테마, 탭 라우터, 시작 연출)
     ├── core/                                     # [1계층: 비즈니스 무관 공통 인프라]
     │   ├── config/sdk_registry.dart              # 외부 SDK 점검표 & 패키지 버전 호환성 레지스트리
     │   ├── i18n/relo_i18n.dart                   # 4개국어(KO/EN/JA/ZH) 다국어 사전
@@ -27,8 +27,10 @@ flutter_app/
     │   ├── models/domain_models.dart             # User, ClaimView, CookieConsentChoice 등 불변 모델
     │   ├── state/relo_store.dart                 # 전역 스토어 (실서버 API 연동 + 오프라인 폴백 + 법적 동의 상태)
     │   └── widgets/
-    │       ├── relo_app_shell.dart               # 상단바 + 키보드 단축키(Alt+1~5) + 쿠키 배너 + 5탭 바
-    │       ├── relo_orb_emblem.dart              # Semantics 대체 텍스트 내장 3D 블루 오브 엠블럼
+    │       ├── relo_app_shell.dart               # 상단바(로고·프로필) + 키보드 단축키(Alt+1~5) + 4탭 바
+    │       ├── relo_intro.dart                   # 시작 연출 (로고 고리 → 상단 바 이동)
+    │       ├── refund_globe.dart                 # 지구본 (웹 globeCanvasRenderer.ts 포팅)
+    │       ├── relo_orb_emblem.dart              # 3D 블루 오브 엠블럼 (로그인 화면)
     │       └── relo_primitives.dart              # FocusableActionDetector(Tab/Enter) & ReloConsentCheckbox
     └── features/                                 # [3계층: 기능별(Feature-First) 독립 모듈]
         ├── home/home_screen.dart                 # [홈] 승인 디자인 + 숨겨진 요금 0원 + 과장없는 지표 + 사업자 푸터
@@ -37,11 +39,11 @@ flutter_app/
         │   ├── my_claims_screen.dart             # [내 환불] 통화별 환불 통장 + 상태 필터 + 클레임 카드
         │   └── claim_detail_screen.dart          # [환불 상세] AI 외국어 초안 + 판매자 답장 요약 + 실제 입금 기록
         ├── auth/auth_screen.dart                 # [인증] 만 14세 연령 확인 + 다크패턴 없는 필수/선택 동의 양식
-        ├── compliance/                           # [법적보호 20선] 고소 방지 20대 안전장치 전담 모듈
+        ├── compliance/                           # 약관·정책 문서와 보호 항목 20개
         │   ├── compliance_data.dart              # 20대 체크리스트, 처리방침/약관/환불/쿠키 전문, 사업자 정보, 라이선스
-        │   ├── cookie_consent_banner.dart        # 거절·동의 1:1 동등 배치 쿠키 배너
+        │   ├── cookie_consent_banner.dart        # 쿠키 배너 (현재 미사용, 분석 도구를 붙일 때 다시 켬)
         │   ├── business_footer.dart              # 전자상거래법 사업자 정보 & 6대 정책 바로가기 푸터
-        │   └── legal_center_screen.dart          # 20대 법적 보호 센터 화면
+        │   └── legal_center_screen.dart          # 약관·정책 화면 (설정에서 열림)
         └── settings/settings_screen.dart         # [설정] 테마/고대비 전환, 이메일 원클릭 수신거부, 즉시 탈퇴/파기
 ```
 
@@ -60,7 +62,7 @@ Flutter 프로젝트에서 가장 흔히 발생하는 빌드 오류는 `flutter_
 
 ---
 
-## 3. 웹/앱 고소 방지 20대 필수 항목 코드 매핑표
+## 3. 개인정보·접근성 보호 항목 20개 코드 매핑표
 
 | 번호 | 필수 항목 | 적용된 소스 파일 |
 | :--- | :--- | :--- |

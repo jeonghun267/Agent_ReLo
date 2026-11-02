@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/money_format.dart';
 
@@ -57,7 +58,9 @@ class _ReloButtonState extends State<ReloButton> {
       bgColor = palette.dangerSoft;
       textColor = palette.danger;
       border = Border.all(
-        color: _focused ? palette.focusRing : palette.danger.withValues(alpha: 0.5),
+        color: _focused
+            ? palette.focusRing
+            : palette.danger.withValues(alpha: 0.5),
         width: _focused ? 2.5 : 1.0,
       );
     } else if (widget.isPrimary) {
@@ -67,14 +70,12 @@ class _ReloButtonState extends State<ReloButton> {
         border = Border.all(color: palette.focusRing, width: 2.5);
       }
     } else {
-      bgColor = palette.isDark ? const Color(0xFF1E293B) : palette.sunken;
+      // 보조 버튼은 테두리 없이 밝기 차이로만 구분한다 (DESIGN.md 2절)
+      bgColor = _hovered ? palette.surfaceElevated : palette.surface;
       textColor = palette.ink;
-      border = Border.all(
-        color: _focused
-            ? palette.focusRing
-            : (palette.isDark ? const Color(0xFF334155) : palette.line),
-        width: _focused ? 2.5 : 1.0,
-      );
+      if (_focused) {
+        border = Border.all(color: palette.focusRing, width: 2.5);
+      }
     }
 
     return Semantics(
@@ -83,9 +84,8 @@ class _ReloButtonState extends State<ReloButton> {
       label: widget.semanticLabel ?? widget.text,
       child: FocusableActionDetector(
         enabled: !disabled,
-        mouseCursor: disabled
-            ? SystemMouseCursors.basic
-            : SystemMouseCursors.click,
+        mouseCursor:
+            disabled ? SystemMouseCursors.basic : SystemMouseCursors.click,
         onShowFocusHighlight: (v) => setState(() => _focused = v),
         onShowHoverHighlight: (v) => setState(() => _hovered = v),
         shortcuts: const <ShortcutActivator, Intent>{
@@ -101,13 +101,19 @@ class _ReloButtonState extends State<ReloButton> {
           ),
         },
         child: GestureDetector(
-          onTapDown: disabled ? null : (_) => setState(() => _pressed = true),
+          onTapDown: disabled
+              ? null
+              : (_) {
+                  HapticFeedback.lightImpact();
+                  setState(() => _pressed = true);
+                },
           onTapUp: disabled ? null : (_) => setState(() => _pressed = false),
           onTapCancel: disabled ? null : () => setState(() => _pressed = false),
           onTap: widget.onPressed,
           child: AnimatedScale(
-            scale: _pressed ? 0.985 : 1.0,
-            duration: const Duration(milliseconds: 90),
+            scale: _pressed ? ReloMotion.pressScale : 1.0,
+            duration: ReloMotion.press,
+            curve: ReloMotion.enter,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 120),
               opacity: disabled ? 0.48 : 1.0,
@@ -116,7 +122,7 @@ class _ReloButtonState extends State<ReloButton> {
                 padding: const EdgeInsets.symmetric(horizontal: 18),
                 decoration: BoxDecoration(
                   color: bgColor,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(14),
                   border: border,
                   boxShadow: widget.isPrimary && !disabled
                       ? [
@@ -180,7 +186,7 @@ class ReloCard extends StatefulWidget {
   const ReloCard({
     super.key,
     required this.child,
-    this.padding = const EdgeInsets.all(18),
+    this.padding = const EdgeInsets.all(16),
     this.onTap,
     this.backgroundColor,
     this.borderColor,
@@ -197,24 +203,27 @@ class _ReloCardState extends State<ReloCard> {
   @override
   Widget build(BuildContext context) {
     final palette = ReloPalette.of(context);
+    // 카드는 테두리 없이 면 색으로만 구분한다. 테두리는 키보드 포커스 링과
+    // 호출자가 명시한 경우에만 그린다 (DESIGN.md 2절).
     final card = Container(
       padding: widget.padding,
       decoration: BoxDecoration(
         color: widget.backgroundColor ?? palette.surface,
-        borderRadius: BorderRadius.circular(20),
-        border: Border.all(
-          color: _focused
-              ? palette.focusRing
-              : (widget.borderColor ?? palette.line),
-          width: _focused ? 2.2 : 1.0,
-        ),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withValues(alpha: palette.isDark ? 0.22 : 0.04),
-            blurRadius: 14,
-            offset: const Offset(0, 4),
-          ),
-        ],
+        borderRadius: BorderRadius.circular(16),
+        border: _focused
+            ? Border.all(color: palette.focusRing, width: 2.2)
+            : (widget.borderColor != null
+                ? Border.all(color: widget.borderColor!)
+                : null),
+        boxShadow: palette.isDark
+            ? null
+            : [
+                BoxShadow(
+                  color: Colors.black.withValues(alpha: 0.04),
+                  blurRadius: 14,
+                  offset: const Offset(0, 4),
+                ),
+              ],
       ),
       child: widget.child,
     );
@@ -546,8 +555,8 @@ class ReloConsentCheckbox extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                               color: isRequired
                                   ? (palette.isDark
-                                        ? const Color(0xFF93C5FD)
-                                        : palette.brand)
+                                      ? const Color(0xFF93C5FD)
+                                      : palette.brand)
                                   : palette.muted,
                             ),
                           ),

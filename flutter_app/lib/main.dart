@@ -1,5 +1,7 @@
+import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
+import 'core/theme/motion_tokens.dart';
 import 'core/theme/relo_theme.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/claims/claim_detail_screen.dart';
@@ -10,6 +12,7 @@ import 'features/settings/settings_screen.dart';
 import 'features/wizard/wizard_screen.dart';
 import 'shared/state/relo_store.dart';
 import 'shared/widgets/relo_app_shell.dart';
+import 'shared/widgets/relo_intro.dart';
 
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
@@ -18,13 +21,17 @@ void main() {
 }
 
 /// @module main
-/// @layer Application Root (Feature-First Architecture + 20-Point Legal Compliance)
-/// @purpose Flutter_localizations 다국어 SDK 통합, 고대비(WCAG AAA) 테마,
-///          키보드 네비게이션(Alt+1~5, Tab/Enter), 5탭 기능별 화면 라우팅을 총괄합니다.
+/// @layer Application Root
+/// @purpose 다국어(KO/EN/JA/ZH), 다크·라이트·고대비 테마, 키보드 이동(Alt+1~5),
+///          탭 화면 라우팅과 시작 연출을 맡는다.
+///          탭 번호: 0 홈 · 1 신청 · 2 내 환불(상세 포함) · 3 약관·정책 · 4 설정
 class ReloFlutterApp extends StatelessWidget {
   final ReloStore store;
 
-  const ReloFlutterApp({super.key, required this.store});
+  /// 테스트나 스크린샷에서 시작 연출을 건너뛸 때 false
+  final bool showIntro;
+
+  const ReloFlutterApp({super.key, required this.store, this.showIntro = true});
 
   @override
   Widget build(BuildContext context) {
@@ -51,7 +58,9 @@ class ReloFlutterApp extends StatelessWidget {
               GlobalWidgetsLocalizations.delegate,
               GlobalCupertinoLocalizations.delegate,
             ],
-            home: const _ReloMainNavigation(),
+            home: showIntro
+                ? const ReloIntro(child: _ReloMainNavigation())
+                : const _ReloMainNavigation(),
           );
         },
       ),
@@ -119,8 +128,15 @@ class _ReloMainNavigation extends StatelessWidget {
           store.navigateToTab(4);
         }
       },
-      body: AnimatedSwitcher(
-        duration: const Duration(milliseconds: 200),
+      // 이전 화면이 사라진 뒤 새 화면이 나타난다 (두 화면이 겹쳐 보이지 않게)
+      body: PageTransitionSwitcher(
+        duration: ReloMotion.tabSwitch,
+        transitionBuilder: (child, primary, secondary) => FadeThroughTransition(
+          animation: primary,
+          secondaryAnimation: secondary,
+          fillColor: Colors.transparent,
+          child: child,
+        ),
         child: KeyedSubtree(
           key: ValueKey<String>(
             'tab_${store.activeTabIndex}_claim_${store.selectedClaimId ?? "none"}_doc_${store.activeLegalDocId}',

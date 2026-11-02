@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/i18n/relo_i18n.dart';
+import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
-import '../../features/compliance/cookie_consent_banner.dart';
 import '../state/relo_store.dart';
 
 class _SwitchTabIntent extends Intent {
@@ -10,10 +10,16 @@ class _SwitchTabIntent extends Intent {
   const _SwitchTabIntent(this.index);
 }
 
+/// 상단 바의 높이. 시작 연출(ReloIntro)이 로고를 이 자리로 옮길 때 같이 쓴다.
+const double kReloTopBarHeight = 56;
+const double kReloLogoSize = 30;
+const double kReloShellMaxWidth = 480;
+
 /// @module shared/widgets/relo_app_shell
-/// @layer Shared Application Shell (Top Bar + Keyboard Navigation + Cookie Banner + 5-Tab Bar)
-/// @purpose [법적 안전장치 #5 쿠키동의 배너, #13 대체 텍스트, #14 고대비 토글, #15 키보드 이동(Tab / Alt+1~5)]
-///          마우스 없이 키보드(Tab, Shift+Tab, Enter, Alt+1~5)만으로 모든 화면을 이동할 수 있습니다.
+/// @layer Shared Application Shell (Top Bar + Keyboard Navigation + 4-Tab Bar)
+/// @purpose 상단에는 로고와 프로필만, 하단에는 홈 · 내 환불 · ＋신청 · 설정 네 탭을 둔다.
+///          언어·테마·고대비는 설정 화면에 있고, 약관·정책은 설정 안에서 연다.
+///          키보드(Tab, Shift+Tab, Enter, Alt+1~5)만으로도 모든 화면을 이동할 수 있다.
 class ReloAppShell extends StatelessWidget {
   final Widget body;
   final VoidCallback onUserTap;
@@ -59,12 +65,12 @@ class ReloAppShell extends StatelessWidget {
             body: SafeArea(
               child: Center(
                 child: ConstrainedBox(
-                  constraints: const BoxConstraints(maxWidth: 480),
+                  constraints:
+                      const BoxConstraints(maxWidth: kReloShellMaxWidth),
                   child: Column(
                     children: [
                       _buildTopBar(context, store, palette),
                       Expanded(child: body),
-                      const CookieConsentBanner(),
                       _buildBottomNav(context, store, palette, s),
                     ],
                   ),
@@ -82,203 +88,68 @@ class ReloAppShell extends StatelessWidget {
     ReloStore store,
     ReloPalette palette,
   ) {
-    return Container(
-      height: 56,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: palette.canvas.withValues(alpha: 0.94),
-        border: Border(
-          bottom: BorderSide(color: palette.line.withValues(alpha: 0.65)),
-        ),
-      ),
-      child: Row(
-        mainAxisAlignment: MainAxisAlignment.spaceBetween,
-        children: [
-          // 좌측 ReLo 브랜드 마크 (Semantics 대체 텍스트 포함)
-          Semantics(
-            button: true,
-            label: 'ReLo 홈 화면으로 이동 (단축키 Alt+1)',
-            child: GestureDetector(
-              onTap: () => store.navigateToTab(0),
-              child: Row(
-                children: [
-                  Container(
-                    width: 30,
-                    height: 30,
-                    decoration: BoxDecoration(
-                      gradient: const LinearGradient(
-                        begin: Alignment.topLeft,
-                        end: Alignment.bottomRight,
-                        colors: [Color(0xFF2B7FFF), Color(0xFF1B64DA)],
+    final user = store.user;
+    return SizedBox(
+      height: kReloTopBarHeight,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 20),
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.spaceBetween,
+          children: [
+            Semantics(
+              button: true,
+              label: 'ReLo 홈 화면으로 이동 (단축키 Alt+1)',
+              child: GestureDetector(
+                onTap: () => store.navigateToTab(0),
+                behavior: HitTestBehavior.opaque,
+                child: Row(
+                  children: [
+                    const ReloLogoMark(size: kReloLogoSize),
+                    const SizedBox(width: 9),
+                    Text(
+                      'ReLo',
+                      style: TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w800,
+                        color: palette.ink,
+                        letterSpacing: -0.5,
                       ),
-                      borderRadius: BorderRadius.circular(9),
                     ),
-                    child: CustomPaint(painter: _ReloBrandMarkPainter()),
-                  ),
-                  const SizedBox(width: 9),
-                  Text(
-                    'ReLo',
-                    style: TextStyle(
-                      fontSize: 17,
-                      fontWeight: FontWeight.w900,
-                      color: palette.ink,
-                      letterSpacing: -0.5,
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
             ),
-          ),
-
-          // 우측 다국어 · 고대비(AAA) · 다크/라이트 · 계정 버튼
-          Row(
-            children: [
-              // 4개국어 스위처
-              PopupMenuButton<ReloLocale>(
-                tooltip: '언어 선택 (KO/EN/JA/ZH)',
-                onSelected: store.setLocale,
-                color: palette.surface,
-                itemBuilder: (context) => ReloLocale.values
-                    .map(
-                      (loc) => PopupMenuItem<ReloLocale>(
-                        value: loc,
-                        child: Text(
-                          '${loc.shortLabel} · ${loc.nativeName}',
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: store.locale == loc
-                                ? FontWeight.w900
-                                : FontWeight.w600,
-                            color: palette.ink,
-                          ),
-                        ),
-                      ),
-                    )
-                    .toList(),
+            Semantics(
+              button: true,
+              label: user != null ? '${user.name}님 계정 설정 열기' : '로그인 및 회원가입 열기',
+              child: GestureDetector(
+                onTap: onUserTap,
                 child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 9,
-                    vertical: 5,
-                  ),
+                  width: 34,
+                  height: 34,
                   decoration: BoxDecoration(
                     color: palette.surface,
                     borderRadius: BorderRadius.circular(999),
-                    border: Border.all(color: palette.line),
                   ),
-                  child: Row(
-                    children: [
-                      Text(
-                        store.locale.shortLabel,
-                        style: TextStyle(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w800,
-                          color: palette.body,
-                        ),
-                      ),
-                      const SizedBox(width: 2),
-                      Icon(
-                        Icons.keyboard_arrow_down_rounded,
-                        size: 14,
-                        color: palette.muted,
-                      ),
-                    ],
-                  ),
+                  alignment: Alignment.center,
+                  child: user != null
+                      ? Text(
+                          user.name.isNotEmpty
+                              ? user.name.substring(0, 1)
+                              : 'R',
+                          style: TextStyle(
+                            fontSize: 13,
+                            fontWeight: FontWeight.w700,
+                            color: palette.body,
+                          ),
+                        )
+                      : Icon(Icons.person_outline_rounded,
+                          size: 18, color: palette.body),
                 ),
               ),
-              const SizedBox(width: 6),
-
-              // [항목 #14] WCAG AAA 고대비 모드 토글
-              Semantics(
-                button: true,
-                label: store.isHighContrast ? '고대비 모드 끄기' : '시각 약자용 고대비 모드 켜기',
-                child: GestureDetector(
-                  onTap: store.toggleHighContrast,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: store.isHighContrast
-                          ? palette.sunnySoft
-                          : palette.surface,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(
-                        color: store.isHighContrast
-                            ? palette.sunny
-                            : palette.line,
-                      ),
-                    ),
-                    child: Icon(
-                      Icons.contrast_rounded,
-                      size: 16,
-                      color: store.isHighContrast
-                          ? palette.sunny
-                          : palette.body,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-
-              // 다크/라이트 테마 토글
-              Semantics(
-                button: true,
-                label: store.isDarkMode ? '라이트 모드로 전환' : '다크 모드로 전환',
-                child: GestureDetector(
-                  onTap: store.toggleDarkMode,
-                  child: Container(
-                    width: 32,
-                    height: 32,
-                    decoration: BoxDecoration(
-                      color: palette.surface,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: palette.line),
-                    ),
-                    child: Icon(
-                      store.isDarkMode
-                          ? Icons.dark_mode_rounded
-                          : Icons.light_mode_rounded,
-                      size: 16,
-                      color: palette.body,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 6),
-
-              // 계정/로그인 버튼
-              Semantics(
-                button: true,
-                label: store.user != null
-                    ? '${store.user!.name}님 계정 설정 열기'
-                    : '로그인 및 회원가입 열기',
-                child: GestureDetector(
-                  onTap: onUserTap,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 6,
-                    ),
-                    decoration: BoxDecoration(
-                      color: palette.brandSoft,
-                      borderRadius: BorderRadius.circular(999),
-                      border: Border.all(color: palette.brandLine),
-                    ),
-                    child: Text(
-                      store.user != null ? '${store.user!.name}님' : '로그인',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w800,
-                        color: palette.isDark
-                            ? const Color(0xFF93C5FD)
-                            : palette.brand,
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-        ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -289,67 +160,160 @@ class ReloAppShell extends StatelessWidget {
     ReloPalette palette,
     ReloStrings s,
   ) {
-    final items = [
-      (index: 0, icon: Icons.home_rounded, label: s.navHome),
-      (index: 1, icon: Icons.add_circle_outline_rounded, label: s.navWizard),
-      (index: 2, icon: Icons.description_outlined, label: s.navClaims),
-      (index: 3, icon: Icons.gavel_rounded, label: s.navCompliance),
-      (index: 4, icon: Icons.person_outline_rounded, label: s.navSettings),
-    ];
+    // 약관·정책(탭 3)은 설정 안에서 열리므로 설정 탭을 켜진 상태로 보여 준다
+    final active = store.activeTabIndex == 3 ? 4 : store.activeTabIndex;
+    final activeColor =
+        palette.isDark ? const Color(0xFFF8FAFC) : palette.brand;
+
+    Widget item(int index, IconData icon, String label) {
+      final on = active == index;
+      final color = on ? activeColor : palette.subtle;
+      return Expanded(
+        child: Semantics(
+          button: true,
+          selected: on,
+          label: '$label 탭 (단축키 Alt+${index + 1})',
+          child: InkWell(
+            onTap: () => store.navigateToTab(index),
+            child: Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                AnimatedScale(
+                  scale: on ? 1.0 : 0.92,
+                  duration: ReloMotion.press,
+                  child: Icon(icon, size: 22, color: color),
+                ),
+                const SizedBox(height: 4),
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                    color: color,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
+    }
 
     return Container(
-      height: 66,
+      height: 68,
       decoration: BoxDecoration(
-        color: palette.isDark ? const Color(0xFF131C31) : palette.surface,
-        border: Border(top: BorderSide(color: palette.line)),
+        color: palette.isDark ? const Color(0xFF111A2E) : palette.surface,
       ),
       child: Row(
-        children: items.map((item) {
-          final active = store.activeTabIndex == item.index;
-          final color = active
-              ? (palette.isDark ? const Color(0xFF3B82F6) : palette.brand)
-              : palette.muted;
-
-          return Expanded(
+        children: [
+          item(0, Icons.home_rounded, s.navHome),
+          item(2, Icons.receipt_long_outlined, s.navClaims),
+          Expanded(
             child: Semantics(
               button: true,
-              selected: active,
-              label: '${item.label} 탭 (단축키 Alt+${item.index + 1})',
-              child: InkWell(
-                onTap: () => store.navigateToTab(item.index),
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    Icon(item.icon, size: 21, color: color),
-                    const SizedBox(height: 3),
-                    Text(
-                      item.label,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: TextStyle(
-                        fontSize: 10.5,
-                        fontWeight: active ? FontWeight.w900 : FontWeight.w600,
-                        color: color,
-                      ),
-                    ),
-                  ],
+              label: '${s.navWizard} (단축키 Alt+2)',
+              child: Center(
+                child: _AddButton(
+                  onTap: () => store.navigateToTab(1),
+                  highlighted: active == 1,
                 ),
               ),
             ),
-          );
-        }).toList(),
+          ),
+          item(4, Icons.person_outline_rounded, s.navSettings),
+        ],
       ),
     );
   }
 }
 
-class _ReloBrandMarkPainter extends CustomPainter {
+class _AddButton extends StatefulWidget {
+  final VoidCallback onTap;
+  final bool highlighted;
+  const _AddButton({required this.onTap, required this.highlighted});
+
+  @override
+  State<_AddButton> createState() => _AddButtonState();
+}
+
+class _AddButtonState extends State<_AddButton> {
+  bool _pressed = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return GestureDetector(
+      onTapDown: (_) {
+        HapticFeedback.lightImpact();
+        setState(() => _pressed = true);
+      },
+      onTapUp: (_) => setState(() => _pressed = false),
+      onTapCancel: () => setState(() => _pressed = false),
+      onTap: widget.onTap,
+      child: AnimatedScale(
+        scale: _pressed ? ReloMotion.pressScale : 1.0,
+        duration: ReloMotion.press,
+        child: Container(
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: widget.highlighted ? palette.brandHover : palette.brand,
+            shape: BoxShape.circle,
+            boxShadow: [
+              BoxShadow(
+                color: palette.brand.withValues(alpha: 0.45),
+                blurRadius: 20,
+                offset: const Offset(0, 6),
+              ),
+            ],
+          ),
+          child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
+        ),
+      ),
+    );
+  }
+}
+
+/// ReLo 로고 마크 (파란 사각형 + 되돌아오는 고리). 상단 바와 시작 연출에서 같이 쓴다.
+class ReloLogoMark extends StatelessWidget {
+  final double size;
+
+  /// 0~1. 고리가 그려지는 정도. 1이면 완성된 로고.
+  final double ringProgress;
+
+  const ReloLogoMark(
+      {super.key, this.size = kReloLogoSize, this.ringProgress = 1});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        gradient: const LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [Color(0xFF2B7FFF), Color(0xFF1B64DA)],
+        ),
+        borderRadius: BorderRadius.circular(size * 0.3),
+      ),
+      child: CustomPaint(painter: ReloBrandMarkPainter(progress: ringProgress)),
+    );
+  }
+}
+
+class ReloBrandMarkPainter extends CustomPainter {
+  final double progress;
+  ReloBrandMarkPainter({this.progress = 1});
+
   @override
   void paint(Canvas canvas, Size size) {
     final paint = Paint()
       ..color = Colors.white
       ..style = PaintingStyle.stroke
-      ..strokeWidth = 2.4
+      ..strokeWidth = size.width * 0.08
       ..strokeCap = StrokeCap.round
       ..strokeJoin = StrokeJoin.round;
 
@@ -358,15 +322,22 @@ class _ReloBrandMarkPainter extends CustomPainter {
 
     final path = Path()
       ..moveTo(w * 0.25, h * 0.56)
-      ..cubicTo(w * 0.36, h * 0.25, w * 0.66, h * 0.25, w * 0.74, h * 0.45);
-    canvas.drawPath(path, paint);
-
-    final returnPath = Path()
+      ..cubicTo(w * 0.36, h * 0.25, w * 0.66, h * 0.25, w * 0.74, h * 0.45)
       ..moveTo(w * 0.74, h * 0.52)
       ..cubicTo(w * 0.62, h * 0.76, w * 0.34, h * 0.76, w * 0.26, h * 0.54);
-    canvas.drawPath(returnPath, paint);
+
+    if (progress >= 1) {
+      canvas.drawPath(path, paint);
+      return;
+    }
+    // 시작 연출: 고리를 progress만큼만 그린다
+    for (final metric in path.computeMetrics()) {
+      canvas.drawPath(
+          metric.extractPath(0, metric.length * progress.clamp(0, 1)), paint);
+    }
   }
 
   @override
-  bool shouldRepaint(covariant CustomPainter oldDelegate) => false;
+  bool shouldRepaint(covariant ReloBrandMarkPainter old) =>
+      old.progress != progress;
 }
