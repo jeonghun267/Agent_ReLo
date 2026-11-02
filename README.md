@@ -24,8 +24,9 @@ https://github.com/user-attachments/assets/7fa6bbec-fa54-4515-8a2b-56c7ef74aa91
 ReLo는 **접수 → 판매처 문의 작성 → 진행 상황 추적 → 회수 확인**까지를 소비자 한 사람이 한눈에 관리하도록 돕는 B2C 웹 서비스입니다.
 
 - **팀**: 오정훈 ([@jeonghun267](https://github.com/jeonghun267)) · 방승훈 ([@sbang0209](https://github.com/sbang0209))
-- **오정훈 담당**: 서비스 설계, Node.js 백엔드(계층형 구조·SQLite·인증·메일), React 19 프론트엔드, Gemini 연동, Flutter 앱 구현
-- **진행 상황**: React 19 웹(dist 서빙 완비) 및 Flutter 크로스플랫폼 모바일 앱(`flutter_app/`) 구현 완료.
+- **오정훈 담당**: 서비스 설계, Node.js 백엔드(계층형 구조·SQLite·인증·메일), React 19 프론트엔드, Gemini 연동
+- **진행 상황**: 웹은 핵심 기능까지 구현했고, 모바일 앱은 `flutter_app/` 폴더에서 별도 관리됩니다.
+- **앱 전용 README**: Flutter 앱 실행 방법 및 아키텍처는 **[`flutter_app/README.md`](./flutter_app/README.md)** 문서를 참고하세요.
 
 ## 주요 기능
 
@@ -43,7 +44,6 @@ ReLo는 **접수 → 판매처 문의 작성 → 진행 상황 추적 → 회수
 | 분류 | 사용 기술 |
 |---|---|
 | 프론트엔드 | React 19, TypeScript, Vite, Tailwind CSS 4, TanStack Query·Table, React Hook Form + Zod, Motion, Chart.js, PDF.js |
-| 모바일 앱 | Flutter 3.41, Dart, Material 3, Toss Design Tokens, 20대 컴플라이언스 보호망 |
 | 백엔드 | Node.js 24 기본 HTTP 서버(프레임워크 없음), 내장 `node:sqlite` |
 | 외부 서비스 | Google Gemini API, Resend(이메일) |
 | 품질 | Node test runner(단위·HTTP 통합 테스트), Biome, `tsc --noEmit`, 자체 클라이언트 품질 감사 스크립트 |
@@ -72,14 +72,6 @@ npm run dev:react
 ```
 - 프론트엔드 개발 주소: **http://localhost:5173** (API 호출은 4180 포트의 백엔드로 프록시 연결)
 
-### 4. Flutter 크로스플랫폼 앱 실행 (`flutter_app/`)
-반품·환불 원스톱 기록 및 실제 카드 취소/통장 입금 확인 공식 Flutter 앱입니다.
-```bash
-cd flutter_app
-flutter pub get
-flutter run -d windows   # 또는 chrome, edge, android, ios
-```
-
 ---
 
 ## 주요 스크립트
@@ -92,9 +84,6 @@ flutter run -d windows   # 또는 chrome, edge, android, ios
 | `npm run dev` | 백엔드 코드 감시 및 자동 재시작 모드 |
 | `npm run dev:react` | React 19 프론트엔드 Vite HMR 개발 서버 (5173 포트) |
 | `npm run build:react` | TypeScript 타입 검사 후 React 앱 프로덕션 빌드 (`dist/`) |
-| `npm run flutter:get` | Flutter 의존성 패키지 설치 (`flutter pub get`) |
-| `npm run flutter:test` | Flutter 390px 모바일 뷰포트 통합 테스트 (`flutter test`) |
-| `npm run flutter:run` | Flutter 앱 실행 (`flutter run`) |
 | `npm test` | 백엔드 도메인 및 HTTP API 단위/통합 테스트  |
 | `npm run audit:client` | 클라이언트 품질 감사 (MVVM 헤더, 460줄 모듈성, 4개 국어 일치성, 쉬운 소비자 언어 검증) |
 | `npm run typecheck` | TypeScript 정적 타입 검사 (`tsc --noEmit`) |
