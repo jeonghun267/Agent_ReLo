@@ -23,7 +23,7 @@
 - **지구본**은 웹 랜딩과 같은 코드를 Dart Canvas로 옮긴 것입니다 ([`refund_globe.dart`](./lib/shared/widgets/refund_globe.dart)). 외부 패키지 없이 해안선 좌표를 직접 투영합니다.
 - 하단 탭은 **홈 · 신청 · 내 환불 · 설정** 4개이고, 네 칸 모두 같은 모양입니다. 약관·정책과 언어·테마·고대비는 설정 안에 있습니다.
 - 앱을 켜면 로고 고리가 그려지고 상단 바 자리로 옮겨 가면서 홈이 나타납니다 (0.9초, [`relo_intro.dart`](./lib/shared/widgets/relo_intro.dart)).
-- **AI 도우미**는 화면 오른쪽 아래에 떠 있는 ReLo 캐릭터입니다 ([`assistant_sheet.dart`](./lib/features/assistant/assistant_sheet.dart), [`relo_mascot.dart`](./lib/shared/widgets/relo_mascot.dart)). 끌어서 옮길 수 있고 설정에서 끌 수 있습니다. 환불 상세의 "이 건 물어보기"로 열면 그 건을 두고 대화합니다. 답은 서버 `POST /api/ai/assistant`(Gemini)가 하고, 서버가 없으면 앱이 내 환불 기록으로 기본 안내를 합니다. 창 왼쪽 위 ☰에서 지난 대화를 다시 열 수 있고, 대화는 이 기기에만 저장됩니다(로그아웃·탈퇴 때 삭제).
+- **AI 도우미**는 화면 오른쪽 아래에 떠 있는 ReLo 캐릭터입니다 ([`assistant_sheet.dart`](./lib/features/assistant/assistant_sheet.dart), [`relo_mascot.dart`](./lib/shared/widgets/relo_mascot.dart)). 끌어서 옮길 수 있고 설정에서 끌 수 있습니다. 환불 상세의 "이 건 물어보기"로 열면 그 건을 두고 대화합니다. 답은 백엔드 `POST /api/ai/assistant`(Gemini, 보내는 정보와 안전장치는 [`docs/AI.md`](../docs/AI.md))가 하고, 서버가 없으면 앱이 내 환불 기록으로 기본 안내를 합니다. 창 왼쪽 위 ☰에서 지난 대화를 다시 열 수 있고, 대화는 이 기기에만 저장됩니다(로그아웃·탈퇴 때 삭제).
 - 디자인 기준(색·간격·글자·움직임·문구)은 [`DESIGN.md`](./DESIGN.md)에 숫자로 적어 두었습니다.
 
 ## 기능
@@ -95,5 +95,5 @@ lib/
 
 - 안드로이드 12+ 시스템 스플래시 배경색 맞추기 (`flutter_native_splash`)
 - 쇼핑몰 선택·스캔 결과도 아래 시트로 바꾸기 (smooth_sheets)
-- 웹 빌드는 서버와 통신하지 못해(`dart:io` HttpClient) 도우미가 늘 기본 안내로 답함. 실제 Gemini 답은 Android·iOS·Windows에서 확인 필요
+- Flutter 웹 빌드(`flutter run -d chrome`)는 백엔드와 통신하지 못해(`dart:io` HttpClient) 도우미가 늘 기본 안내로 답함. 실제 Gemini 답은 Android·iOS·Windows에서 확인 필요
 - 실제 기기(Android · iOS)에서 확인. 지금까지는 웹과 테스트로만 확인했습니다
