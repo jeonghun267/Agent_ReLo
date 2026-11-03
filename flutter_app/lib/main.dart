@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'core/theme/motion_tokens.dart';
 import 'core/theme/relo_theme.dart';
+import 'features/assistant/assistant_sheet.dart';
 import 'features/auth/auth_screen.dart';
 import 'features/claims/claim_detail_screen.dart';
 import 'features/claims/my_claims_screen.dart';
@@ -128,21 +129,31 @@ class _ReloMainNavigation extends StatelessWidget {
           store.navigateToTab(4);
         }
       },
-      // 이전 화면이 사라진 뒤 새 화면이 나타난다 (두 화면이 겹쳐 보이지 않게)
-      body: PageTransitionSwitcher(
-        duration: ReloMotion.tabSwitch,
-        transitionBuilder: (child, primary, secondary) => FadeThroughTransition(
-          animation: primary,
-          secondaryAnimation: secondary,
-          fillColor: Colors.transparent,
-          child: child,
-        ),
-        child: KeyedSubtree(
-          key: ValueKey<String>(
-            'tab_${store.activeTabIndex}_claim_${store.selectedClaimId ?? "none"}_doc_${store.activeLegalDocId}',
+      body: Stack(
+        children: [
+          // 이전 화면이 사라진 뒤 새 화면이 나타난다 (두 화면이 겹쳐 보이지 않게)
+          Positioned.fill(
+            child: PageTransitionSwitcher(
+              duration: ReloMotion.tabSwitch,
+              transitionBuilder: (child, primary, secondary) =>
+                  FadeThroughTransition(
+                animation: primary,
+                secondaryAnimation: secondary,
+                fillColor: Colors.transparent,
+                child: child,
+              ),
+              child: KeyedSubtree(
+                key: ValueKey<String>(
+                  'tab_${store.activeTabIndex}_claim_${store.selectedClaimId ?? "none"}_doc_${store.activeLegalDocId}',
+                ),
+                child: activeBody,
+              ),
+            ),
           ),
-          child: activeBody,
-        ),
+          // 화면을 스크롤해도 제자리에 떠 있는 도우미 캐릭터
+          if (store.showAssistantButton)
+            const Positioned.fill(child: ReloAssistantLauncher()),
+        ],
       ),
     );
   }

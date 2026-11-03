@@ -129,7 +129,7 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                   minorAmount: totalCash,
                   currency: _selectedCurrencyTab,
                   size: MoneySize.xl,
-                  color: totalCash > 0 ? palette.mint : palette.ink,
+                  color: palette.ink,
                 ),
                 const SizedBox(height: 6),
                 Text(
@@ -296,6 +296,9 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
         ? 0.0
         : (claim.summary.cash / claim.claimed).clamp(0.0, 1.0);
     final dday = DDay.label(claim.deadline);
+    // 진행 상태는 배지 대신 회색 글자로. 입금이 끝난 건은 "입금 완료"라고 쓴다
+    final metaLabel =
+        '${claim.vendor} · ${isRecovered ? '입금 완료' : stateLabel}';
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 8),
@@ -324,23 +327,23 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                   Row(
                     children: [
                       Expanded(
-                        child: Wrap(
-                          spacing: 6,
-                          runSpacing: 6,
+                        child: Row(
                           children: [
-                            ReloBadge(
-                              label: '${claim.vendor} · $stateLabel',
-                              tone: isRecovered
-                                  ? ReloBadgeTone.mint
-                                  : ReloBadgeTone.brand,
-                            ),
-                            if (dday != null)
-                              ReloBadge(
-                                label: dday,
-                                tone: DDay.isUrgent(claim.deadline)
-                                    ? ReloBadgeTone.sunny
-                                    : ReloBadgeTone.neutral,
+                            Flexible(
+                              child: Text(
+                                metaLabel,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: TextStyle(
+                                    fontSize: 12, color: palette.muted),
                               ),
+                            ),
+                            if (dday != null && !isRecovered) ...[
+                              Text(' · ',
+                                  style: TextStyle(
+                                      fontSize: 12, color: palette.muted)),
+                              ReloDdayText(deadline: claim.deadline),
+                            ],
                           ],
                         ),
                       ),
@@ -349,7 +352,7 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                         minorAmount: promised,
                         currency: claim.currency,
                         size: MoneySize.md,
-                        color: isRecovered ? palette.mint : palette.ink,
+                        color: palette.ink,
                       ),
                     ],
                   ),
@@ -378,12 +381,11 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                           FractionallySizedBox(
                             widthFactor: promisedRatio,
                             child: ColoredBox(
-                                color:
-                                    palette.brandHover.withValues(alpha: 0.5)),
+                                color: palette.brand.withValues(alpha: 0.35)),
                           ),
                           FractionallySizedBox(
                             widthFactor: cashRatio,
-                            child: ColoredBox(color: palette.mint),
+                            child: ColoredBox(color: palette.brand),
                           ),
                         ],
                       ),
@@ -392,13 +394,13 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                   const SizedBox(height: 6),
                   Text(
                     isRecovered
-                        ? '${MoneyFormat.formatMinor(claim.summary.cash, claim.currency)} 입금 확인'
+                        ? '✓ ${MoneyFormat.formatMinor(claim.summary.cash, claim.currency)} 들어왔어요'
                         : claim.summary.cash > 0
                             ? '입금 ${MoneyFormat.formatMinor(claim.summary.cash, claim.currency)} · 아직 ${MoneyFormat.formatMinor(claim.summary.remaining, claim.currency)} 남음'
                             : '아직 입금 전이에요',
                     style: TextStyle(
                       fontSize: 12,
-                      color: isRecovered ? palette.mint : palette.subtle,
+                      color: isRecovered ? palette.body : palette.subtle,
                     ),
                   ),
                   if (claim.replies.isNotEmpty) ...[

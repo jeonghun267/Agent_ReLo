@@ -125,9 +125,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 ReloBadge(
                   label: store.isOfflineFallback ? '오프라인 데모' : '서버 연결됨',
-                  tone: store.isOfflineFallback
-                      ? ReloBadgeTone.sunny
-                      : ReloBadgeTone.mint,
+                  tone: ReloBadgeTone.neutral,
                 ),
               ],
             ),
@@ -204,8 +202,39 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     Switch(
                       value: store.isHighContrast,
-                      activeThumbColor: palette.sunny,
+                      activeThumbColor: palette.brand,
                       onChanged: (_) => store.toggleHighContrast(),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '도우미 캐릭터 띄우기',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: palette.ink,
+                            ),
+                          ),
+                          Text(
+                            '화면 위에 떠 있는 ReLo 도우미예요. 꺼도 환불 상세에서 "이 건 물어보기"로 열 수 있어요.',
+                            style:
+                                TextStyle(fontSize: 11, color: palette.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: store.showAssistantButton,
+                      activeThumbColor: palette.brand,
+                      onChanged: store.setAssistantButtonVisible,
                     ),
                   ],
                 ),

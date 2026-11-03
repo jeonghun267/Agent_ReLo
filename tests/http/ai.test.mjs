@@ -128,3 +128,45 @@ test('reply analysis output is sanitized before it reaches the client', async t 
     ['other', null, null, null, null],
   );
 });
+
+test('the help desk answers from the user\'s own claims and only suggests buttons for them', async t => {
+  const responses = [];
+  const aiProvider = createFakeProvider({assistant: () => responses.shift()});
+  const {client} = await startApp(t, {aiProvider});
+  const user = await consentedUser(client);
+  const claim = await createClaim(user);
+  const stranger = await consentedUser(client);
+  const strangerClaim = await createClaim(stranger);
+  const ask = (who, data) => who.call('/api/ai/assistant', {method: 'POST', data});
+
+  responses.push({reply: '판매처 답변을 기다리는 중이에요.', action: 'draft_email', claimId: claim.id, suggestions: ['독촉 메일 써 줘', '', 'a', 'b', 'c']});
+  const answer = await ask(user, {
+    message: '내 환불 어디까지 왔어?',
+    claimId: claim.id,
+    locale: 'ko',
+    history: [{role: 'user', text: '안녕'}, {role: 'assistant', text: '무엇을 도와드릴까요?'}, {role: 'system', text: ''}],
+  });
+  assert.equal(answer.status, 200);
+  assert.equal(answer.data.reply, '판매처 답변을 기다리는 중이에요.');
+  assert.equal(answer.data.action, 'draft_email');
+  assert.equal(answer.data.claimId, claim.id);
+  assert.deepEqual(answer.data.suggestions, ['독촉 메일 써 줘', 'a', 'b']);
+  const sent = aiProvider.calls.at(-1);
+  assert.match(sent.system, /Answer in Korean/);
+  assert.match(sent.parts[0].text, /<my_claims>/);
+  assert.match(sent.parts[0].text, /<current_claim>/);
+  assert.match(sent.parts[0].text, /Example Gadgets EU/);
+  assert.match(sent.parts[0].text, /User: 안녕\nReLo: 무엇을 도와드릴까요\?/);
+  assert.doesNotMatch(sent.parts[0].text, new RegExp(user.email), 'no account details are sent');
+
+  responses.push({reply: '이 건을 열어 볼게요.', action: 'open_claim', claimId: strangerClaim.id, suggestions: []});
+  const foreign = await ask(user, {message: '다른 건 보여 줘'});
+  assert.equal(foreign.data.action, 'none', 'a claim the user does not own is never offered');
+  assert.equal(foreign.data.claimId, null);
+  assert.doesNotMatch(aiProvider.calls.at(-1).parts[0].text, /<current_claim>/);
+
+  assert.equal((await ask(user, {message: ''})).status, 422);
+  assert.equal((await ask(user, {message: '이 건 알려 줘', claimId: strangerClaim.id})).status, 404);
+  const after = (await user.call(`/api/claims/${claim.id}`)).data.claim;
+  assert.equal(after.version, claim.version, 'the help desk never changes a claim');
+});

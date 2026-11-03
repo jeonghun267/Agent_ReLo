@@ -8,6 +8,7 @@ import {createGeminiProvider} from '../src/server/ai/gemini.provider.mjs';
 import {buildDraftRequest, parseDraftResult} from '../src/server/ai/prompts/draft.mjs';
 import {buildIssueTranslationRequest, parseIssueTranslation, buildReplyAnalysisRequest, parseReplyAnalysis} from '../src/server/ai/prompts/translate.mjs';
 import {buildExtractRequest, parseExtraction} from '../src/server/ai/prompts/extract.mjs';
+import {buildAssistantRequest, parseAssistantReply} from '../src/server/ai/prompts/assistant.mjs';
 import {fixtureOrderPdf} from '../src/server/dev/fixtures.mjs';
 
 const config = loadConfig();
@@ -31,6 +32,11 @@ const checks = [
     parseReplyAnalysis, result => `${result.suggestedKind} / ${result.summaryKo}`],
   ['주문서 PDF 추출', buildExtractRequest({mime: 'application/pdf', bytes: fixtureOrderPdf()}), parseExtraction,
     result => JSON.stringify({...result.suggestion, orderTotal: result.orderTotal})],
+  ['도우미 상담', buildAssistantRequest({
+    claims: [{...claim, id: 'clm_smoke', state: 'awaiting', deadline: null, summary: {cash: 0, remaining: 3990},
+      nextStep: '판매처 답변을 기다리세요.', updatedAt: '2026-11-01T00:00:00Z'}],
+    current: null, history: [], message: '내 환불 어디까지 왔어? 판매자한테 뭐라고 보내면 돼?', locale: 'ko',
+  }), data => parseAssistantReply(data, new Set(['clm_smoke'])), result => `${result.action} / ${result.reply}`],
 ];
 
 console.log(`Gemini model: ${config.ai.model}\n`);

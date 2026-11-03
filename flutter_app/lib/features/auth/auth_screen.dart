@@ -274,9 +274,8 @@ class _AuthScreenState extends State<AuthScreen> {
                   margin: const EdgeInsets.only(bottom: 10),
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
-                    color: palette.sunnySoft,
+                    color: palette.sunken,
                     borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: palette.sunny),
                   ),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -286,7 +285,7 @@ class _AuthScreenState extends State<AuthScreen> {
                         style: TextStyle(
                           fontSize: 12,
                           fontWeight: FontWeight.w900,
-                          color: palette.sunny,
+                          color: palette.ink,
                         ),
                       ),
                       const SizedBox(height: 8),

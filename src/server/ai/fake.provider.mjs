@@ -17,6 +17,12 @@ const DEFAULT_RESPONDERS = {
     deadline: null,
     deadlineQuote: null,
   }),
+  assistant: () => ({
+    reply: '판매처가 아직 답하지 않았어요. 독촉 메일을 한 번 더 보내 보세요.',
+    action: 'none',
+    claimId: null,
+    suggestions: ['독촉 메일 써 줘', '환불은 보통 며칠 걸려?'],
+  }),
   extract: () => ({
     vendor: 'Example Gadgets EU',
     orderRef: 'EG-2026-1001',

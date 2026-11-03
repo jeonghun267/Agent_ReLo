@@ -26,10 +26,10 @@ class ReloStrings {
       };
 
   String get navWizard => switch (locale) {
-        ReloLocale.ko => '신청하기',
-        ReloLocale.en => 'New Claim',
-        ReloLocale.ja => '返金申請',
-        ReloLocale.zh => '申请退款',
+        ReloLocale.ko => '신청',
+        ReloLocale.en => 'New',
+        ReloLocale.ja => '申請',
+        ReloLocale.zh => '申请',
       };
 
   String get navClaims => switch (locale) {
@@ -145,5 +145,223 @@ class ReloStrings {
         ReloLocale.en => 'Tap to start',
         ReloLocale.ja => 'タップして開始',
         ReloLocale.zh => '点击开始',
+      };
+
+  // --- AI 도우미 ---------------------------------------------------------
+
+  String get assistantName => switch (locale) {
+        ReloLocale.ko => 'ReLo 도우미',
+        ReloLocale.en => 'ReLo Helper',
+        ReloLocale.ja => 'ReLo アシスタント',
+        ReloLocale.zh => 'ReLo 助手',
+      };
+
+  String get assistantGreeting => switch (locale) {
+        ReloLocale.ko => '무엇을 도와드릴까요?',
+        ReloLocale.en => 'How can I help?',
+        ReloLocale.ja => '何をお手伝いしましょうか？',
+        ReloLocale.zh => '需要什么帮助？',
+      };
+
+  String get assistantGreetingSub => switch (locale) {
+        ReloLocale.ko => '내 환불 기록을 보고 답해요. 판매자에게 보낼 글도 같이 써요.',
+        ReloLocale.en =>
+          'I answer from your claims and help you write to sellers.',
+        ReloLocale.ja => 'あなたの返金記録を見て答えます。販売者への文面も一緒に作ります。',
+        ReloLocale.zh => '我会根据你的退款记录回答，也能帮你写给卖家的信。',
+      };
+
+  List<String> get assistantStarters => switch (locale) {
+        ReloLocale.ko => const [
+            '내 환불 어디까지 왔어?',
+            '판매자한테 독촉 메일 써 줘',
+            '판매자 답장 해석해 줘',
+            '환불이랑 교환은 뭐가 달라?',
+            '카드 취소는 보통 며칠 걸려?',
+          ],
+        ReloLocale.en => const [
+            'Where is my refund now?',
+            'Write a reminder to the seller',
+            'Explain the seller reply',
+            'Refund vs. exchange?',
+            'How long do card refunds take?',
+          ],
+        ReloLocale.ja => const [
+            '返金は今どこまで進んでる？',
+            '販売者に催促メールを書いて',
+            '販売者の返信を訳して',
+            '返金と交換の違いは？',
+            'カード取消は何日かかる？',
+          ],
+        ReloLocale.zh => const [
+            '我的退款到哪一步了？',
+            '帮我写催促卖家的邮件',
+            '帮我解读卖家回复',
+            '退款和换货有什么区别？',
+            '银行卡退款一般要几天？',
+          ],
+      };
+
+  List<String> get assistantClaimStarters => switch (locale) {
+        ReloLocale.ko => const [
+            '이 건 지금 어떤 상태야?',
+            '이 건 독촉 메일 써 줘',
+            '판매자 답장 해석해 줘'
+          ],
+        ReloLocale.en => const [
+            'What is the status of this claim?',
+            'Write a reminder for this claim',
+            'Explain the seller reply'
+          ],
+        ReloLocale.ja => const ['この件は今どんな状態？', 'この件の催促メールを書いて', '販売者の返信を訳して'],
+        ReloLocale.zh => const ['这笔现在是什么状态？', '帮这笔写催促邮件', '帮我解读卖家回复'],
+      };
+
+  String get assistantInputHint => switch (locale) {
+        ReloLocale.ko => '궁금한 걸 물어보세요',
+        ReloLocale.en => 'Ask anything about your refunds',
+        ReloLocale.ja => '気になることを聞いてください',
+        ReloLocale.zh => '有什么想问的',
+      };
+
+  String get assistantDisclaimer => switch (locale) {
+        ReloLocale.ko => 'AI 답변은 틀릴 수 있어요. 금액과 날짜는 상세 화면에서 꼭 확인하세요.',
+        ReloLocale.en =>
+          'AI can be wrong. Check amounts and dates in the claim.',
+        ReloLocale.ja => 'AIの回答は間違うことがあります。金額と日付は詳細画面で確認してください。',
+        ReloLocale.zh => 'AI 回答可能有误，金额和日期请在详情页确认。',
+      };
+
+  String get assistantThinking => switch (locale) {
+        ReloLocale.ko => '생각하는 중',
+        ReloLocale.en => 'Thinking',
+        ReloLocale.ja => '考え中',
+        ReloLocale.zh => '思考中',
+      };
+
+  String get assistantOfflineNote => switch (locale) {
+        ReloLocale.ko => '서버 AI 대신 기본 안내로 답했어요',
+        ReloLocale.en => 'Basic answer (server AI unavailable)',
+        ReloLocale.ja => 'サーバーAIの代わりに基本案内で回答しました',
+        ReloLocale.zh => '未连接服务器 AI，这是基本说明',
+      };
+
+  String get assistantNewChat => switch (locale) {
+        ReloLocale.ko => '새 대화',
+        ReloLocale.en => 'New chat',
+        ReloLocale.ja => '新しい会話',
+        ReloLocale.zh => '新对话',
+      };
+
+  String get assistantAskThisClaim => switch (locale) {
+        ReloLocale.ko => '이 건 물어보기',
+        ReloLocale.en => 'Ask about this',
+        ReloLocale.ja => 'この件を質問',
+        ReloLocale.zh => '询问这笔',
+      };
+
+  String assistantContext(String vendor) => switch (locale) {
+        ReloLocale.ko => '$vendor 건에 대해 물어보는 중',
+        ReloLocale.en => 'Asking about $vendor',
+        ReloLocale.ja => '$vendor の件について質問中',
+        ReloLocale.zh => '正在询问 $vendor 这笔',
+      };
+
+  String assistantAction(String action) => switch ((locale, action)) {
+        (ReloLocale.ko, 'open_claim') => '상세 열기',
+        (ReloLocale.ko, 'draft_email') => '판매자 메시지 쓰기',
+        (ReloLocale.ko, 'analyze_reply') => '답장 붙여 넣기',
+        (ReloLocale.ko, 'new_claim') => '새 환불 신청',
+        (ReloLocale.en, 'open_claim') => 'Open claim',
+        (ReloLocale.en, 'draft_email') => 'Write to seller',
+        (ReloLocale.en, 'analyze_reply') => 'Paste reply',
+        (ReloLocale.en, 'new_claim') => 'New claim',
+        (ReloLocale.ja, 'open_claim') => '詳細を開く',
+        (ReloLocale.ja, 'draft_email') => '販売者へ書く',
+        (ReloLocale.ja, 'analyze_reply') => '返信を貼り付け',
+        (ReloLocale.ja, 'new_claim') => '新規申請',
+        (ReloLocale.zh, 'open_claim') => '打开详情',
+        (ReloLocale.zh, 'draft_email') => '写给卖家',
+        (ReloLocale.zh, 'analyze_reply') => '粘贴回复',
+        (ReloLocale.zh, 'new_claim') => '新建申请',
+        _ => '',
+      };
+
+  String get assistantConsentTitle => switch (locale) {
+        ReloLocale.ko => 'AI 처리에 동의하면 시작할 수 있어요',
+        ReloLocale.en => 'Agree to AI processing to start',
+        ReloLocale.ja => 'AI処理に同意すると始められます',
+        ReloLocale.zh => '同意 AI 处理后即可开始',
+      };
+
+  String get assistantConsentBody => switch (locale) {
+        ReloLocale.ko => '쇼핑몰·주문번호·금액·진행 상태만 AI에 보내요. 이름·주소·카드번호는 보내지 않아요.',
+        ReloLocale.en =>
+          'Only shop, order number, amounts and status are sent. Never your name, address or card number.',
+        ReloLocale.ja => 'ショップ・注文番号・金額・進行状況だけを送ります。氏名・住所・カード番号は送りません。',
+        ReloLocale.zh => '只发送商城、订单号、金额和进度，不发送姓名、地址和卡号。',
+      };
+
+  String get assistantConsentButton => switch (locale) {
+        ReloLocale.ko => '동의하고 시작하기',
+        ReloLocale.en => 'Agree and start',
+        ReloLocale.ja => '同意して始める',
+        ReloLocale.zh => '同意并开始',
+      };
+
+  String get assistantHistory => switch (locale) {
+        ReloLocale.ko => '대화 기록',
+        ReloLocale.en => 'Chat history',
+        ReloLocale.ja => '会話履歴',
+        ReloLocale.zh => '对话记录',
+      };
+
+  String get assistantHistoryPast => switch (locale) {
+        ReloLocale.ko => '지난 대화',
+        ReloLocale.en => 'Past chats',
+        ReloLocale.ja => '過去の会話',
+        ReloLocale.zh => '历史对话',
+      };
+
+  String get assistantFloatingToggle => switch (locale) {
+        ReloLocale.ko => '도우미 캐릭터 띄우기',
+        ReloLocale.en => 'Show floating helper',
+        ReloLocale.ja => 'アシスタントを画面に表示',
+        ReloLocale.zh => '显示悬浮助手',
+      };
+
+  String get assistantHistoryEmpty => switch (locale) {
+        ReloLocale.ko => '아직 저장된 대화가 없어요',
+        ReloLocale.en => 'No saved chats yet',
+        ReloLocale.ja => '保存された会話はまだありません',
+        ReloLocale.zh => '还没有保存的对话',
+      };
+
+  String get assistantHistoryLocal => switch (locale) {
+        ReloLocale.ko => '대화 기록은 이 기기에만 저장돼요',
+        ReloLocale.en => 'Chats are saved only on this device',
+        ReloLocale.ja => '会話履歴はこの端末にだけ保存されます',
+        ReloLocale.zh => '对话记录只保存在本设备上',
+      };
+
+  String get assistantHistoryDeleteAll => switch (locale) {
+        ReloLocale.ko => '대화 기록 모두 지우기',
+        ReloLocale.en => 'Delete all chats',
+        ReloLocale.ja => '会話履歴をすべて削除',
+        ReloLocale.zh => '删除全部对话',
+      };
+
+  String get assistantHistoryDeleteConfirm => switch (locale) {
+        ReloLocale.ko => '지난 대화를 모두 지울까요? 되돌릴 수 없어요.',
+        ReloLocale.en => 'Delete all past chats? This cannot be undone.',
+        ReloLocale.ja => '過去の会話をすべて削除しますか？元に戻せません。',
+        ReloLocale.zh => '要删除全部历史对话吗？删除后无法恢复。',
+      };
+
+  String get assistantToday => switch (locale) {
+        ReloLocale.ko => '오늘',
+        ReloLocale.en => 'Today',
+        ReloLocale.ja => '今日',
+        ReloLocale.zh => '今天',
       };
 }

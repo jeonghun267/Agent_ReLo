@@ -1,11 +1,15 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:relo_flutter/core/config/sdk_registry.dart';
 import 'package:relo_flutter/core/utils/money_format.dart';
+import 'package:relo_flutter/features/assistant/assistant_sheet.dart';
 import 'package:relo_flutter/features/compliance/compliance_data.dart';
 import 'package:relo_flutter/main.dart';
 import 'package:relo_flutter/shared/models/domain_models.dart';
 import 'package:relo_flutter/shared/state/relo_store.dart';
+import 'package:relo_flutter/shared/widgets/relo_mascot.dart';
 
 void main() {
   group('MoneyFormat · 파일 시그니처 · 보호 항목 데이터', () {
@@ -52,7 +56,8 @@ void main() {
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
 
-      final store = ReloStore();
+      // 떠 있는 도우미는 계속 움직여서 pumpAndSettle이 끝나지 않으므로 이 테스트에서는 끈다
+      final store = ReloStore()..showAssistantButton = false;
       await tester.pumpWidget(ReloFlutterApp(store: store, showIntro: false));
       await tester.pump();
       // 홈 등장 효과와 지구본 틱이 끝나도록 잠시 돌린다
@@ -100,6 +105,81 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('고대비 모드'), findsOneWidget);
       expect(find.text('약관 · 개인정보 처리방침 · 정책'), findsOneWidget);
+    },
+  );
+
+  testWidgets(
+    '떠 있는 도우미를 누르면 대화 창이 열리고, 서버 없이도 내 환불 기록으로 답하며, 대화는 기기에 남는다',
+    (WidgetTester tester) async {
+      tester.view.physicalSize = const Size(390, 960);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+
+      // 지난번에 저장해 둔 대화 하나
+      SharedPreferences.setMockInitialValues({
+        'relo.assistant.history.v1': jsonEncode([
+          AssistantConversation(
+            id: 'conv_old',
+            title: 'AliExpress 답장 해석',
+            updatedAt: DateTime(2026, 10, 28, 14, 33),
+            turns: const [
+              AssistantTurn.user('AliExpress 답장 해석'),
+              AssistantTurn(fromUser: false, text: '답장을 붙여 넣어 주세요.'),
+            ],
+          ).toStored(),
+        ]),
+      });
+
+      final store = ReloStore()..isOfflineFallback = true;
+      await tester.pumpWidget(ReloFlutterApp(store: store, showIntro: false));
+      await tester.pump(const Duration(milliseconds: 1200));
+
+      final launcher = find.descendant(
+        of: find.byType(ReloAssistantLauncher),
+        matching: find.byType(ReloMascot),
+      );
+      expect(launcher, findsOneWidget);
+      await tester.tap(launcher);
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 700));
+      expect(find.text('무엇을 도와드릴까요?'), findsOneWidget);
+
+      await tester.tap(find.text('내 환불 어디까지 왔어?'));
+      await tester.pump(const Duration(milliseconds: 600));
+      expect(store.assistantTurns.length, 2);
+      final reply = store.assistantTurns.last;
+      expect(reply.offline, true);
+      expect(reply.action, 'open_claim');
+      expect(find.textContaining('단계예요'), findsOneWidget);
+
+      // ☰ 대화 기록: 방금 대화가 맨 위, 지난번 대화가 그 아래
+      await tester.tap(find.byTooltip('대화 기록'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('지난 대화'), findsOneWidget);
+      expect(store.assistantHistory.map((c) => c.title).toList(),
+          ['내 환불 어디까지 왔어?', 'AliExpress 답장 해석']);
+      expect(find.text('AliExpress 답장 해석'), findsOneWidget);
+      final saved = (await SharedPreferences.getInstance())
+          .getString('relo.assistant.history.v1');
+      expect(saved, contains('내 환불 어디까지 왔어?'));
+
+      // 지난 대화를 누르면 그 대화가 다시 열린다
+      await tester.tap(find.text('AliExpress 답장 해석'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('답장을 붙여 넣어 주세요.'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('대화 기록'));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('내 환불 어디까지 왔어?'));
+      await tester.pump(const Duration(milliseconds: 500));
+
+      await tester.tap(find.text('상세 열기'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 800));
+      expect(store.activeTabIndex, 2);
+      expect(store.selectedClaimId, reply.claimId);
+      expect(find.text('이 건 물어보기'), findsOneWidget);
     },
   );
 }

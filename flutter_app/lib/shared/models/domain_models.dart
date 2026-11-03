@@ -502,3 +502,112 @@ class StagedEvidenceFile {
 
   int get size => bytes.length;
 }
+
+/// AI 도우미 대화 한 줄. 서버 `/api/ai/assistant` 응답과 같은 모양이다.
+/// action: none · open_claim · draft_email · analyze_reply · new_claim
+class AssistantTurn {
+  final bool fromUser;
+  final String text;
+  final String action;
+  final String? claimId;
+  final List<String> suggestions;
+
+  /// 서버 AI 대신 앱 안 기본 안내로 답했을 때 true
+  final bool offline;
+
+  const AssistantTurn({
+    required this.fromUser,
+    required this.text,
+    this.action = 'none',
+    this.claimId,
+    this.suggestions = const [],
+    this.offline = false,
+  });
+
+  const AssistantTurn.user(this.text)
+      : fromUser = true,
+        action = 'none',
+        claimId = null,
+        suggestions = const [],
+        offline = false;
+
+  factory AssistantTurn.fromJson(Map<String, dynamic> json) {
+    return AssistantTurn(
+      fromUser: false,
+      text: (json['reply'] ?? '').toString(),
+      action: (json['action'] ?? 'none').toString(),
+      claimId: json['claimId']?.toString(),
+      suggestions: (json['suggestions'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+    );
+  }
+
+  Map<String, String> toHistory() =>
+      {'role': fromUser ? 'user' : 'assistant', 'text': text};
+
+  /// 기기 저장용 (서버 응답 모양과 다르다)
+  Map<String, dynamic> toStored() => {
+        'u': fromUser,
+        't': text,
+        if (action != 'none') 'a': action,
+        if (claimId != null) 'c': claimId,
+        if (suggestions.isNotEmpty) 's': suggestions,
+        if (offline) 'o': true,
+      };
+
+  factory AssistantTurn.fromStored(Map<String, dynamic> json) {
+    return AssistantTurn(
+      fromUser: json['u'] == true,
+      text: (json['t'] ?? '').toString(),
+      action: (json['a'] ?? 'none').toString(),
+      claimId: json['c']?.toString(),
+      suggestions: (json['s'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+      offline: json['o'] == true,
+    );
+  }
+}
+
+/// 지난 대화 하나. 제목은 첫 질문에서 따온다.
+class AssistantConversation {
+  final String id;
+  final String title;
+  final String? claimId;
+  final DateTime updatedAt;
+  final List<AssistantTurn> turns;
+
+  const AssistantConversation({
+    required this.id,
+    required this.title,
+    required this.updatedAt,
+    required this.turns,
+    this.claimId,
+  });
+
+  Map<String, dynamic> toStored() => {
+        'id': id,
+        'title': title,
+        if (claimId != null) 'claimId': claimId,
+        'updatedAt': updatedAt.toIso8601String(),
+        'turns': turns.map((t) => t.toStored()).toList(),
+      };
+
+  static AssistantConversation? fromStored(Map<String, dynamic> json) {
+    final updated = DateTime.tryParse((json['updatedAt'] ?? '').toString());
+    final turns = (json['turns'] as List<dynamic>? ?? [])
+        .whereType<Map<String, dynamic>>()
+        .map(AssistantTurn.fromStored)
+        .where((t) => t.text.isNotEmpty)
+        .toList();
+    if (updated == null || turns.isEmpty || json['id'] == null) return null;
+    return AssistantConversation(
+      id: json['id'].toString(),
+      title: (json['title'] ?? '').toString(),
+      claimId: json['claimId']?.toString(),
+      updatedAt: updated,
+      turns: turns,
+    );
+  }
+}

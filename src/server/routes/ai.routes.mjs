@@ -17,6 +17,10 @@ export function registerAiRoutes(router, {services}) {
     }),
   }));
 
+  router.post('/api/ai/assistant', async ctx => ({
+    body: await ai.assistant(ctx.user, await ctx.json()),
+  }));
+
   router.post('/api/claims/:id/ai/draft', async ctx => ({
     body: await ai.draft(ctx.user, ctx.params.id),
   }));

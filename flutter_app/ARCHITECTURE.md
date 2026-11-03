@@ -22,13 +22,15 @@ flutter_app/
     │   ├── i18n/relo_i18n.dart                   # 4개국어(KO/EN/JA/ZH) 다국어 사전
     │   ├── network/api_client.dart               # 세션 쿠키, CSRF, If-Match, Idempotency-Key HTTP 클라이언트
     │   ├── theme/relo_theme.dart                 # 미드나잇 다크(#0F172A) / 라이트(#F9FAFB) / 초고대비(WCAG AAA) 테마
+    │   ├── storage/assistant_history_storage.dart # 도우미 지난 대화 (shared_preferences, 이 기기에만)
     │   └── utils/money_format.dart               # 8개국 통화 무오차 정수(Minor Unit) 계산기
     ├── shared/                                   # [2계층: 앱 전역 공유 모델·상태·접근성 프리미티브]
     │   ├── models/domain_models.dart             # User, ClaimView, CookieConsentChoice 등 불변 모델
     │   ├── state/relo_store.dart                 # 전역 스토어 (실서버 API 연동 + 오프라인 폴백 + 법적 동의 상태)
     │   └── widgets/
-    │       ├── relo_app_shell.dart               # 상단바(로고·프로필) + 키보드 단축키(Alt+1~5) + 4탭 바
+    │       ├── relo_app_shell.dart               # 상단바(로고·프로필) + 키보드 단축키(Alt+1~5) + 같은 모양 4탭 바 (홈·신청·내 환불·설정)
     │       ├── relo_intro.dart                   # 시작 연출 (로고 고리 → 상단 바 이동)
+    │       ├── relo_mascot.dart                  # ReLo 도우미 캐릭터 (깜빡임·생각 중·웃음)
     │       ├── refund_globe.dart                 # 지구본 (웹 globeCanvasRenderer.ts 포팅)
     │       ├── relo_orb_emblem.dart              # 3D 블루 오브 엠블럼 (로그인 화면)
     │       └── relo_primitives.dart              # FocusableActionDetector(Tab/Enter) & ReloConsentCheckbox
@@ -38,6 +40,7 @@ flutter_app/
         ├── claims/
         │   ├── my_claims_screen.dart             # [내 환불] 통화별 환불 통장 + 상태 필터 + 클레임 카드
         │   └── claim_detail_screen.dart          # [환불 상세] AI 외국어 초안 + 판매자 답장 요약 + 실제 입금 기록
+        ├── assistant/assistant_sheet.dart        # [AI 도우미] 떠 있는 캐릭터 + 아래 시트 대화 (POST /api/ai/assistant, 서버 없으면 기본 안내)
         ├── auth/auth_screen.dart                 # [인증] 만 14세 연령 확인 + 다크패턴 없는 필수/선택 동의 양식
         ├── compliance/                           # 약관·정책 문서와 보호 항목 20개
         │   ├── compliance_data.dart              # 20대 체크리스트, 처리방침/약관/환불/쿠키 전문, 사업자 정보, 라이선스

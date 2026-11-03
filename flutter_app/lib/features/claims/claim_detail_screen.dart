@@ -6,7 +6,9 @@ import '../../core/theme/relo_theme.dart';
 import '../../core/utils/money_format.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
+import '../../shared/widgets/relo_mascot.dart';
 import '../../shared/widgets/relo_primitives.dart';
+import '../assistant/assistant_sheet.dart';
 
 /// @module features/claims/claim_detail_screen
 /// @layer Feature Module — Individual Claim Workspace
@@ -26,6 +28,7 @@ class ClaimDetailScreen extends StatefulWidget {
 
 class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   int _activeSubTab = 0;
+  bool _subTabTaken = false;
 
   final _draftCtrl = TextEditingController();
   final _submissionNoteCtrl = TextEditingController(
@@ -56,6 +59,12 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final store = ReloScope.of(context);
+    // 도우미가 "판매자 메시지 쓰기"·"답장 붙여 넣기"로 열었으면 그 탭부터 보여 준다
+    if (!_subTabTaken) {
+      _subTabTaken = true;
+      _activeSubTab = store.pendingDetailSubTab;
+      store.pendingDetailSubTab = 0;
+    }
     final claim = store.findClaim(widget.claimId);
     if (claim != null) {
       if (_draftCtrl.text.isEmpty && claim.drafts.isNotEmpty) {
@@ -316,7 +325,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: palette.mintSoft,
+                              color: palette.sunken,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -324,7 +333,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: palette.mint,
+                                color: palette.body,
                               ),
                             ),
                           ),
@@ -360,26 +369,27 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ReloBadge(
-                          label: claim.vendor,
-                          tone: ReloBadgeTone.brand,
-                          icon: Icons.storefront_rounded,
-                        ),
-                        ReloBadge(
-                          label: '주문번호 #${claim.orderRef}',
-                          tone: ReloBadgeTone.neutral,
+                        Text(
+                          '${claim.vendor} · 주문번호 #${claim.orderRef}',
+                          style: TextStyle(fontSize: 12, color: palette.muted),
                         ),
                         if (claim.deadline != null &&
-                            claim.deadline!.isNotEmpty)
-                          ReloBadge(
-                            label: '마감 ${claim.deadline}',
-                            tone: ReloBadgeTone.sunny,
-                            icon: Icons.schedule_rounded,
+                            claim.deadline!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Text(
+                                '마감 ${claim.deadline} · ',
+                                style: TextStyle(
+                                    fontSize: 12, color: palette.muted),
+                              ),
+                              ReloDdayText(deadline: claim.deadline),
+                            ],
                           ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -431,9 +441,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                                     minorAmount: claim.summary.cash,
                                     currency: claim.currency,
                                     size: MoneySize.lg,
-                                    color: claim.summary.cash > 0
-                                        ? palette.mint
-                                        : palette.ink,
+                                    color: palette.ink,
                                   ),
                                 ],
                               ),
@@ -468,11 +476,8 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                               value: progressRatio,
                               minHeight: 8,
                               backgroundColor: palette.surface,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                progressRatio >= 1.0
-                                    ? palette.mint
-                                    : palette.brand,
-                              ),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(palette.brand),
                             ),
                           ),
                         ],
@@ -533,6 +538,8 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              _buildAskAssistant(store, claim, palette),
               const SizedBox(height: 14),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -584,14 +591,60 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           blastDirectionality: BlastDirectionality.explosive,
           numberOfParticles: 24,
           gravity: 0.25,
-          colors: [
-            palette.brandHover,
-            palette.mint,
-            palette.sunny,
-            Colors.white
-          ],
+          colors: [palette.brand, palette.brandHover, Colors.white],
         ),
       ],
+    );
+  }
+
+  // 이 건을 담은 채로 도우미를 연다. 같은 건의 메시지·답장 버튼은 이 화면의 탭을 바꾼다.
+  Widget _buildAskAssistant(
+      ReloStore store, ClaimView claim, ReloPalette palette) {
+    void onAction(AssistantTurn turn) {
+      final sameClaim = turn.claimId == claim.id;
+      if (sameClaim && turn.action == 'draft_email') {
+        setState(() => _activeSubTab = 0);
+      } else if (sameClaim && turn.action == 'analyze_reply') {
+        setState(() => _activeSubTab = 1);
+      } else if (!(sameClaim && turn.action == 'open_claim')) {
+        if (widget.onClose != null) widget.onClose!();
+        runAssistantAction(store, turn);
+      }
+    }
+
+    return Material(
+      color: palette.brandSoft,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () =>
+            showReloAssistant(context, claimId: claim.id, onAction: onAction),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+          child: Row(
+            children: [
+              const ReloMascot(size: 30, animate: false),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  store.strings.assistantClaimStarters.first,
+                  style: TextStyle(fontSize: 13, color: palette.body),
+                ),
+              ),
+              Text(
+                store.strings.assistantAskThisClaim,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: palette.brandHover,
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: palette.brandHover),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -901,9 +954,9 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                       color: palette.ink,
                     ),
                   ),
-                  const ReloBadge(
-                    label: '10MB 암호화 격리 보관',
-                    tone: ReloBadgeTone.mint,
+                  Text(
+                    '10MB까지 · 암호화 보관',
+                    style: TextStyle(fontSize: 11, color: palette.muted),
                   ),
                 ],
               ),
@@ -1089,7 +1142,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: palette.mintSoft,
+                      color: palette.sunken,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -1122,7 +1175,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                           minorAmount: entry.amount,
                           currency: claim.currency,
                           size: MoneySize.sm,
-                          color: palette.mint,
+                          color: palette.ink,
                         ),
                       ],
                     ),
