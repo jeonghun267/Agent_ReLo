@@ -209,6 +209,37 @@ class SettingsScreen extends StatelessWidget {
                     ),
                   ],
                 ),
+                const SizedBox(height: 8),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '도우미 캐릭터 띄우기',
+                            style: TextStyle(
+                              fontSize: 13,
+                              fontWeight: FontWeight.w800,
+                              color: palette.ink,
+                            ),
+                          ),
+                          Text(
+                            '화면 위에 떠 있는 ReLo 도우미예요. 꺼도 환불 상세에서 "이 건 물어보기"로 열 수 있어요.',
+                            style:
+                                TextStyle(fontSize: 11, color: palette.muted),
+                          ),
+                        ],
+                      ),
+                    ),
+                    Switch(
+                      value: store.showAssistantButton,
+                      activeThumbColor: palette.brand,
+                      onChanged: store.setAssistantButtonVisible,
+                    ),
+                  ],
+                ),
                 Divider(color: palette.line, height: 24),
                 Wrap(
                   spacing: 8,

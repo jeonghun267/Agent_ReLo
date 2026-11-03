@@ -1,9 +1,10 @@
 import {reject} from '../domain/errors.mjs';
 import {newId, nowIso} from '../domain/primitives.mjs';
-import {requireText} from '../domain/validation.mjs';
+import {cleanText, requireText} from '../domain/validation.mjs';
 import {buildDraftRequest, parseDraftResult} from '../ai/prompts/draft.mjs';
 import {buildIssueTranslationRequest, parseIssueTranslation, buildReplyAnalysisRequest, parseReplyAnalysis} from '../ai/prompts/translate.mjs';
 import {buildExtractRequest, parseExtraction} from '../ai/prompts/extract.mjs';
+import {buildAssistantRequest, parseAssistantReply, ASSISTANT_HISTORY_LIMIT} from '../ai/prompts/assistant.mjs';
 import {checkFile} from './file.service.mjs';
 
 // AI suggestions only. Nothing here saves to a claim: the user reviews the
@@ -76,5 +77,21 @@ export function createAiService({repos, config, claims, files, provider}) {
     return {...result, source: {fileId: null, name: safeName}};
   }
 
-  return {status, draft, translateIssue, analyzeReply, extract, extractDocument};
+  // In-app help desk. The model sees a summary of the user's open claims (and
+  // the one they asked from, if any) and may suggest one button; it never acts.
+  async function assistant(user, input) {
+    const message = requireText(input.message, 1000, '궁금한 내용을 입력하세요.');
+    const current = input.claimId ? claims.detail(user.id, String(input.claimId)) : null;
+    const history = (Array.isArray(input.history) ? input.history : [])
+      .slice(-ASSISTANT_HISTORY_LIMIT)
+      .map(turn => ({role: turn?.role === 'assistant' ? 'assistant' : 'user', text: cleanText(turn?.text, 1000)}))
+      .filter(turn => turn.text);
+    const mine = claims.list(user.id).slice(0, 20);
+    const request = buildAssistantRequest({claims: mine, current, history, message, locale: input.locale});
+    const claimIds = new Set(mine.map(claim => claim.id));
+    if (current) claimIds.add(current.id);
+    return run(user, current?.id ?? null, request, data => parseAssistantReply(data, claimIds));
+  }
+
+  return {status, draft, translateIssue, analyzeReply, extract, extractDocument, assistant};
 }

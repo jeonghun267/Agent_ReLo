@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../../core/i18n/relo_i18n.dart';
 import '../../core/network/api_client.dart';
 import '../../core/theme/relo_theme.dart';
+import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
 import '../models/domain_models.dart';
 
@@ -38,6 +39,14 @@ class ReloStore extends ChangeNotifier {
   List<ClaimView> claims = [];
   bool isLoading = false;
   bool isOfflineFallback = false;
+
+  // AI 도우미. 대화는 앱을 켜 둔 동안만 기억한다.
+  bool showAssistantButton = true;
+  final List<AssistantTurn> assistantTurns = [];
+  bool assistantBusy = false;
+
+  /// 도우미가 상세 화면을 열 때 고른 하위 탭 (0 판매자 메시지, 1 답장 해석)
+  int pendingDetailSubTab = 0;
 
   // 필터 상태
   String stateFilter = '';
@@ -429,10 +438,156 @@ class ReloStore extends ChangeNotifier {
     wizardPresetIssue = null;
   }
 
-  void openClaimDetail(String claimId) {
+  void openClaimDetail(String claimId, {int subTab = 0}) {
+    pendingDetailSubTab = subTab;
     selectedClaimId = claimId;
     activeTabIndex = 2;
     notifyListeners();
+  }
+
+  void setAssistantButtonVisible(bool visible) {
+    showAssistantButton = visible;
+    notifyListeners();
+  }
+
+  void clearAssistantConversation() {
+    assistantTurns.clear();
+    notifyListeners();
+  }
+
+  /// AI 도우미에게 묻는다. 서버 AI가 답하지 못하면(오프라인·AI 꺼짐) 내 환불 기록으로
+  /// 앱 안에서 기본 안내를 만든다. 동의가 없거나 한도를 넘긴 경우는 서버 안내를 그대로 보여 준다.
+  Future<void> askAssistant(String message, {String? claimId}) async {
+    final question = message.trim();
+    if (question.isEmpty || assistantBusy) return;
+    final history = assistantTurns
+        .skip(assistantTurns.length > 10 ? assistantTurns.length - 10 : 0)
+        .map((t) => t.toHistory())
+        .toList();
+    assistantTurns.add(AssistantTurn.user(question));
+    assistantBusy = true;
+    notifyListeners();
+
+    AssistantTurn? reply;
+    if (sdkAiEnabled && !isOfflineFallback) {
+      try {
+        final res = await api.requestJson(
+          '/api/ai/assistant',
+          method: 'POST',
+          data: {
+            'message': question,
+            if (claimId != null) 'claimId': claimId,
+            'locale': locale.code,
+            'history': history,
+          },
+        );
+        reply = AssistantTurn.fromJson(res);
+      } on ApiError catch (e) {
+        if (e.code == 'ai_consent_required' || e.code == 'ai_rate_limited') {
+          reply = AssistantTurn(fromUser: false, text: e.message);
+        }
+      } catch (_) {}
+    }
+    reply ??= _localAssistantReply(question, claimId);
+
+    assistantTurns.add(reply);
+    assistantBusy = false;
+    notifyListeners();
+  }
+
+  // 서버 AI 없이 답하는 기본 안내. 내 환불 기록에 있는 사실만 말한다.
+  AssistantTurn _localAssistantReply(String q, String? claimId) {
+    final ko = locale == ReloLocale.ko;
+    String t(String k, String e) => ko ? k : e;
+    final lower = q.toLowerCase();
+    bool has(List<String> words) => words.any(lower.contains);
+
+    final open = claims
+        .where(
+            (c) => !c.deleted && c.state != 'completed' && c.state != 'waived')
+        .toList()
+      ..sort((a, b) => (DDay.daysLeft(a.deadline) ?? 999)
+          .compareTo(DDay.daysLeft(b.deadline) ?? 999));
+    ClaimView? focus;
+    for (final c in claims) {
+      if (c.id == claimId) focus = c;
+    }
+    focus ??= open.isNotEmpty ? open.first : null;
+
+    AssistantTurn answer(String text, {String action = 'none', String? id}) =>
+        AssistantTurn(
+          fromUser: false,
+          text: text,
+          action: action,
+          claimId: id,
+          suggestions:
+              strings.assistantStarters.where((x) => x != q).take(3).toList(),
+          offline: true,
+        );
+
+    if (has(['독촉', '메일', '메시지', '써 줘', '써줘', 'email', 'message'])) {
+      if (focus == null) {
+        return answer(
+          t('메시지를 보낼 환불 건이 아직 없어요. 먼저 환불을 신청해 주세요.',
+              'There is no claim to write about yet. Start a new claim first.'),
+          action: 'new_claim',
+        );
+      }
+      return answer(
+        t('${focus.vendor}에 보낼 영어 메시지를 만들어 드릴게요. 아래 버튼을 누르면 초안 쓰는 화면으로 가요. 보내기 전에 내용을 한 번 확인해 주세요.',
+            'I can draft an English message to ${focus.vendor}. Tap below to open the draft, and check it before sending.'),
+        action: 'draft_email',
+        id: focus.id,
+      );
+    }
+    if (has(['답장', '해석', '뭐라', '답변', 'reply', 'translate'])) {
+      if (focus == null) {
+        return answer(t('해석할 판매자 답장이 있는 환불 건이 없어요.',
+            'There is no claim with a seller reply yet.'));
+      }
+      return answer(
+        t('판매자 답장을 붙여 넣으면 한국어로 풀고, 약속한 금액이 있으면 찾아 드려요. 아래 버튼을 누르면 ${focus.vendor} 건의 답장 칸이 열려요.',
+            'Paste the seller reply and I will explain it and pick out any promised amount. Tap below to open the reply box for ${focus.vendor}.'),
+        action: 'analyze_reply',
+        id: focus.id,
+      );
+    }
+    if (has(['신청', '새로', '등록', 'new claim'])) {
+      return answer(
+        t('아래 버튼이나 ＋를 누르면 5단계로 신청할 수 있어요. 영수증을 찍으면 쇼핑몰과 주문번호가 자동으로 채워져요.',
+            'Tap below or the ＋ button to start a 5-step claim. Scanning the receipt fills in the shop and order number.'),
+        action: 'new_claim',
+      );
+    }
+    if (has(['차이', '교환', '반품', 'difference', 'exchange'])) {
+      return answer(t(
+          '환불은 돈을 돌려받는 것, 교환은 같은 상품을 새로 받는 것, 수리는 고쳐서 다시 받는 거예요. 판매자에 따라 반품 배송비가 들 수 있으니 메시지에서 꼭 물어보세요.',
+          'A refund returns your money, an exchange sends a new item, and a repair fixes the item. Return shipping may cost extra, so ask the seller.'));
+    }
+    if (has(['며칠', '언제 들어', '기간', 'how long', 'days'])) {
+      return answer(t(
+          '카드 취소 환불은 판매자가 처리한 뒤에도 카드사에 따라 며칠에서 2주 정도 걸릴 수 있어요. 판매자가 "환불했다"고 해도 실제로 들어온 게 확인돼야 끝난 거예요. 들어오면 상세 화면에서 입금 확인을 눌러 주세요.',
+          'Card refunds can take from a few days to about two weeks after the seller processes them. A "refund issued" message is not the money itself, so record the deposit once it arrives.'));
+    }
+    if (focus != null) {
+      final state = config.states[focus.state] ?? focus.state;
+      final dday = DDay.label(focus.deadline);
+      final when = dday == null ? '' : ' ($dday)';
+      final lead = claimId == null && open.length > 1
+          ? t('진행 중인 환불이 ${open.length}건이에요. 가장 급한 건부터 볼게요.\n',
+              'You have ${open.length} open claims. Here is the most urgent one.\n')
+          : '';
+      return answer(
+        lead +
+            t('${focus.vendor} 건은 지금 "$state" 단계예요$when. ${focus.nextStep}',
+                '${focus.vendor}: currently "$state"$when. ${focus.nextStep}'),
+        action: 'open_claim',
+        id: focus.id,
+      );
+    }
+    return answer(t(
+        '환불 신청, 진행 상황, 판매자에게 보낼 메시지, 답장 해석을 도와드릴 수 있어요. 아래에서 골라 보세요.',
+        'I can help you start a claim, check progress, write to the seller, or read a seller reply.'));
   }
 
   void closeClaimDetail() {

@@ -27,7 +27,10 @@
 | 문제 설명 번역 | `POST /api/ai/translate-issue` | 입력한 한국어 문장 | 영문 | `ai/prompts/translate.mjs` |
 | 답변 분석 | `POST /api/claims/:id/ai/analyze-reply` | 붙여 넣은 판매처 답변 + 사건 요약 | 한국어 번역·요약, 추천 유형, 언급된 금액·기한 | `ai/prompts/translate.mjs` |
 | 주문 정보 읽기 | `POST /api/claims/:id/ai/extract` | 선택한 증빙 파일(PDF·이미지) | 판매처, 주문번호, 주문일, 통화, 품목, 원문 인용 | `ai/prompts/extract.mjs` |
+| 도우미 상담 (앱) | `POST /api/ai/assistant` | 질문, 직전 대화 10개, 내 클레임 요약 최대 20건(상품·판매처·주문번호·종류·상태·금액·기한·다음 할 일). 특정 건에서 물으면 그 건의 문제 설명과 최근 답변 1개 | 한국어(또는 앱 언어) 답변, 버튼 하나(`open_claim`·`draft_email`·`analyze_reply`·`new_claim`·`none`), 이어서 물을 질문 3개 | `ai/prompts/assistant.mjs` |
 | 주문서로 자동 채우기 (새 클레임 1단계) | `POST /api/ai/extract` (파일 원본을 본문으로, 이름은 `X-File-Name`) | 사용자가 고른 주문서 파일(PDF·이미지). 클레임이 아직 없을 때 쓴다 | 위와 같음 | `ai/prompts/extract.mjs` |
+
+**도우미 상담**은 아무것도 저장하거나 바꾸지 않는다. 답과 함께 버튼 하나만 제안하고, 버튼의 `claimId`가 그 사용자의 클레임이 아니면 서버가 버튼을 지운다. 이름·이메일·주소·파일은 보내지 않는다. 앱은 서버 AI가 없을 때(오프라인·키 없음) 내 클레임 기록으로 기본 안내를 대신 보여 준다.
 
 **주문서로 자동 채우기**는 업로드와 같은 형식·크기 검사(`checkFile`)를 거친 뒤 파일을 Gemini에 보내고, **서버에는 저장하지 않는다**. 사용 기록(`ai_usage`)은 `claim_id` 없이 남는다. 화면은 읽은 값으로 칸을 채워 보라색으로 표시하고, 그 파일을 4단계 증빙 목록에 넣어 둔다. 증빙은 사용자가 [등록하기]를 누른 뒤 일반 업로드로 저장된다.
 

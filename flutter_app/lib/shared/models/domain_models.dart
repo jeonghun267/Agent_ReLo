@@ -502,3 +502,47 @@ class StagedEvidenceFile {
 
   int get size => bytes.length;
 }
+
+/// AI 도우미 대화 한 줄. 서버 `/api/ai/assistant` 응답과 같은 모양이다.
+/// action: none · open_claim · draft_email · analyze_reply · new_claim
+class AssistantTurn {
+  final bool fromUser;
+  final String text;
+  final String action;
+  final String? claimId;
+  final List<String> suggestions;
+
+  /// 서버 AI 대신 앱 안 기본 안내로 답했을 때 true
+  final bool offline;
+
+  const AssistantTurn({
+    required this.fromUser,
+    required this.text,
+    this.action = 'none',
+    this.claimId,
+    this.suggestions = const [],
+    this.offline = false,
+  });
+
+  const AssistantTurn.user(this.text)
+      : fromUser = true,
+        action = 'none',
+        claimId = null,
+        suggestions = const [],
+        offline = false;
+
+  factory AssistantTurn.fromJson(Map<String, dynamic> json) {
+    return AssistantTurn(
+      fromUser: false,
+      text: (json['reply'] ?? '').toString(),
+      action: (json['action'] ?? 'none').toString(),
+      claimId: json['claimId']?.toString(),
+      suggestions: (json['suggestions'] as List<dynamic>? ?? [])
+          .map((e) => e.toString())
+          .toList(),
+    );
+  }
+
+  Map<String, String> toHistory() =>
+      {'role': fromUser ? 'user' : 'assistant', 'text': text};
+}

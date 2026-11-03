@@ -6,7 +6,9 @@ import '../../core/theme/relo_theme.dart';
 import '../../core/utils/money_format.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
+import '../../shared/widgets/relo_mascot.dart';
 import '../../shared/widgets/relo_primitives.dart';
+import '../assistant/assistant_sheet.dart';
 
 /// @module features/claims/claim_detail_screen
 /// @layer Feature Module — Individual Claim Workspace
@@ -26,6 +28,7 @@ class ClaimDetailScreen extends StatefulWidget {
 
 class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   int _activeSubTab = 0;
+  bool _subTabTaken = false;
 
   final _draftCtrl = TextEditingController();
   final _submissionNoteCtrl = TextEditingController(
@@ -56,6 +59,12 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final store = ReloScope.of(context);
+    // 도우미가 "판매자 메시지 쓰기"·"답장 붙여 넣기"로 열었으면 그 탭부터 보여 준다
+    if (!_subTabTaken) {
+      _subTabTaken = true;
+      _activeSubTab = store.pendingDetailSubTab;
+      store.pendingDetailSubTab = 0;
+    }
     final claim = store.findClaim(widget.claimId);
     if (claim != null) {
       if (_draftCtrl.text.isEmpty && claim.drafts.isNotEmpty) {
@@ -533,6 +542,8 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                   ],
                 ),
               ),
+              const SizedBox(height: 12),
+              _buildAskAssistant(store, claim, palette),
               const SizedBox(height: 14),
               SingleChildScrollView(
                 scrollDirection: Axis.horizontal,
@@ -592,6 +603,57 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  // 이 건을 담은 채로 도우미를 연다. 같은 건의 메시지·답장 버튼은 이 화면의 탭을 바꾼다.
+  Widget _buildAskAssistant(
+      ReloStore store, ClaimView claim, ReloPalette palette) {
+    void onAction(AssistantTurn turn) {
+      final sameClaim = turn.claimId == claim.id;
+      if (sameClaim && turn.action == 'draft_email') {
+        setState(() => _activeSubTab = 0);
+      } else if (sameClaim && turn.action == 'analyze_reply') {
+        setState(() => _activeSubTab = 1);
+      } else if (!(sameClaim && turn.action == 'open_claim')) {
+        if (widget.onClose != null) widget.onClose!();
+        runAssistantAction(store, turn);
+      }
+    }
+
+    return Material(
+      color: palette.brandSoft,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        onTap: () =>
+            showReloAssistant(context, claimId: claim.id, onAction: onAction),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
+          child: Row(
+            children: [
+              const ReloMascot(size: 30, animate: false),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  store.strings.assistantClaimStarters.first,
+                  style: TextStyle(fontSize: 13, color: palette.body),
+                ),
+              ),
+              Text(
+                store.strings.assistantAskThisClaim,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w800,
+                  color: palette.brandHover,
+                ),
+              ),
+              Icon(Icons.chevron_right_rounded,
+                  size: 18, color: palette.brandHover),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
