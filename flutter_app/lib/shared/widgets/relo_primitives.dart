@@ -262,6 +262,48 @@ class _ReloCardState extends State<ReloCard> {
 /// 배지 색은 파랑·회색·빨강(오류) 셋만 쓴다. 초록·주황 알약은 쓰지 않는다 (DESIGN.md 2절).
 enum ReloBadgeTone { brand, danger, neutral }
 
+/// 약속 → 입금 막대. 판매자가 약속한 몫은 옅은 파랑, 실제로 들어온 몫은 진한 파랑.
+/// 두 값은 요청 금액 대비 비율(0~1)이다.
+class ReloProgressBar extends StatelessWidget {
+  final double promised;
+  final double cash;
+  final double height;
+  const ReloProgressBar({
+    super.key,
+    required this.promised,
+    required this.cash,
+    this.height = 8,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(height),
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          children: [
+            Positioned.fill(child: ColoredBox(color: palette.sunken)),
+            // heightFactor가 없으면 Stack 안에서 높이 0으로 접혀 막대가 안 보인다
+            FractionallySizedBox(
+              widthFactor: promised.clamp(0.0, 1.0),
+              heightFactor: 1,
+              child: ColoredBox(
+                  color: palette.brandHover.withValues(alpha: 0.4)),
+            ),
+            FractionallySizedBox(
+              widthFactor: cash.clamp(0.0, 1.0),
+              heightFactor: 1,
+              child: ColoredBox(color: palette.brandHover),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// 마감까지 남은 날을 배지 없이 글자로 보여 준다. 마감이 지났을 때만 빨강.
 class ReloDdayText extends StatelessWidget {
   final String? deadline;
@@ -430,6 +472,11 @@ class ReloTextField extends StatelessWidget {
   final bool obscureText;
   final ValueChanged<String>? onChanged;
 
+  /// 날짜처럼 직접 치지 않고 고르는 칸 (onTap으로 고르는 창을 연다)
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final IconData? trailingIcon;
+
   const ReloTextField({
     super.key,
     required this.label,
@@ -439,6 +486,9 @@ class ReloTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.obscureText = false,
     this.onChanged,
+    this.readOnly = false,
+    this.onTap,
+    this.trailingIcon,
   });
 
   @override
@@ -450,9 +500,9 @@ class ReloTextField extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: palette.body,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: palette.muted,
           ),
         ),
         const SizedBox(height: 6),
@@ -462,6 +512,8 @@ class ReloTextField extends StatelessWidget {
           keyboardType: keyboardType,
           obscureText: obscureText,
           onChanged: onChanged,
+          readOnly: readOnly,
+          onTap: onTap,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -475,16 +527,20 @@ class ReloTextField extends StatelessWidget {
             ),
             filled: true,
             fillColor: palette.sunken,
+            suffixIcon: trailingIcon == null
+                ? null
+                : Icon(trailingIcon, size: 18, color: palette.muted),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
-              vertical: 12,
+              vertical: 14,
             ),
+            // 테두리는 포커스 때만 (DESIGN.md 2절: 면은 밝기 차이로 구분)
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: palette.line),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: palette.focusRing, width: 2.0),
             ),
           ),

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 
+import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/dday.dart';
@@ -12,9 +13,9 @@ import '../../shared/widgets/relo_primitives.dart';
 
 /// @module features/home/home_screen
 /// @layer Feature Module — Home
-/// @purpose 위에는 지구본을 배경으로 한 소개와 "3분 만에 환불 신청하기" 버튼,
-///          아래에는 돌려받을 돈과 오늘 할 일. 처음 쓰는 사람에게는 버튼이,
-///          이미 쓰는 사람에게는 내 상황이 먼저 보인다 (DESIGN.md 1절).
+/// @purpose 환불 건이 있으면 맨 위에 "돌려받을 돈"(지구본은 오른쪽 배경), 그 아래
+///          신청 버튼 하나와 오늘 할 일. 환불 건이 하나도 없을 때만 소개 글을 보여 준다.
+///          화면마다 큰 글자 하나 + 버튼 하나, 설명은 한 줄까지 (DESIGN.md 6절).
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
 
@@ -69,22 +70,19 @@ class _HomeScreenState extends State<HomeScreen> {
     }
 
     return SingleChildScrollView(
-      padding: const EdgeInsets.only(bottom: 32),
+      // 떠 있는 도우미 캐릭터에 마지막 카드가 가리지 않도록 아래를 넉넉히 둔다
+      padding: const EdgeInsets.only(bottom: 88),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          _buildHero(context, store, palette, s, corridors, inFlight.length,
-              reduceMotion, entrance),
-          if (active.isNotEmpty) ...[
-            const SizedBox(height: 8),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20),
-              child:
-                  entrance(_buildMoneyCard(active, palette, reduceMotion), 3),
-            ),
-          ],
+          if (active.isEmpty)
+            _buildIntroHero(
+                store, palette, s, corridors, reduceMotion, entrance)
+          else
+            _buildMoneyHero(store, palette, s, active, inFlight.length,
+                corridors, reduceMotion, entrance),
           if (inFlight.isNotEmpty) ...[
-            const SizedBox(height: 24),
+            const SizedBox(height: 28),
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 20),
               child: entrance(
@@ -132,22 +130,20 @@ class _HomeScreenState extends State<HomeScreen> {
     return da.compareTo(db);
   }
 
-  Widget _buildHero(
-    BuildContext context,
+  /// 환불 건이 하나도 없을 때: 지구본 + 소개 + 신청 버튼
+  Widget _buildIntroHero(
     ReloStore store,
     ReloPalette palette,
-    dynamic s,
+    ReloStrings s,
     List<GlobeCorridor> corridors,
-    int inFlightCount,
     bool reduceMotion,
     Widget Function(Widget, int) entrance,
   ) {
     const globeHeight = 300.0;
     return SizedBox(
-      height: 440,
+      height: 420,
       child: Stack(
         children: [
-          // 배경 지구본. 아래쪽은 바탕색으로 녹아들게 한다.
           Positioned(
             top: -20,
             left: 0,
@@ -155,11 +151,12 @@ class _HomeScreenState extends State<HomeScreen> {
             height: globeHeight,
             child: _buildGlobe(corridors, reduceMotion),
           ),
+          // 지구본 아래쪽은 바탕색으로 녹여서 글자가 지구본 선 위에 놓이지 않게 한다
           Positioned(
-            top: globeHeight - 120,
+            top: globeHeight - 150,
             left: 0,
             right: 0,
-            height: 140,
+            height: 170,
             child: DecoratedBox(
               decoration: BoxDecoration(
                 gradient: LinearGradient(
@@ -177,19 +174,6 @@ class _HomeScreenState extends State<HomeScreen> {
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                if (inFlightCount > 0)
-                  entrance(
-                    Text(
-                      '$inFlightCount건이 서울로 돌아오는 중',
-                      textAlign: TextAlign.center,
-                      style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w600,
-                          color: palette.subtle),
-                    ),
-                    0,
-                  ),
-                if (inFlightCount > 0) const SizedBox(height: 12),
                 entrance(
                   Column(
                     children: [
@@ -222,7 +206,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         s.heroSubtitle,
                         textAlign: TextAlign.center,
                         style: TextStyle(
-                            fontSize: 13, color: palette.muted, height: 1.5),
+                            fontSize: 14, color: palette.muted, height: 1.5),
                       ),
                     ],
                   ),
@@ -230,19 +214,9 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 const SizedBox(height: 20),
                 entrance(
-                  Column(
-                    children: [
-                      ReloButton(
-                        text: s.ctaPrimary,
-                        onPressed: () => store.navigateToTab(1),
-                      ),
-                      const SizedBox(height: 8),
-                      ReloButton(
-                        text: s.ctaSecondary,
-                        isPrimary: false,
-                        onPressed: () => store.navigateToTab(2),
-                      ),
-                    ],
+                  ReloButton(
+                    text: s.ctaPrimary,
+                    onPressed: () => store.navigateToTab(1),
                   ),
                   2,
                 ),
@@ -254,10 +228,18 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  /// 돌려받을 돈. 건수가 가장 많은 통화를 기준으로 보여 주고,
-  /// 다른 통화의 입금 완료 건은 아래 초록 칩으로 알린다.
-  Widget _buildMoneyCard(
-      List<ClaimView> active, ReloPalette palette, bool reduceMotion) {
+  /// 환불 건이 있을 때: 돌려받을 돈을 맨 위에. 지구본은 오른쪽 뒤에서 은은하게 돈다.
+  /// 건수가 가장 많은 통화를 기준으로 보여 주고, 다른 통화의 입금 완료 건은 한 줄로 알린다.
+  Widget _buildMoneyHero(
+    ReloStore store,
+    ReloPalette palette,
+    ReloStrings s,
+    List<ClaimView> active,
+    int inFlightCount,
+    List<GlobeCorridor> corridors,
+    bool reduceMotion,
+    Widget Function(Widget, int) entrance,
+  ) {
     final counts = <String, int>{};
     for (final c in active) {
       counts[c.currency] = (counts[c.currency] ?? 0) + 1;
@@ -280,95 +262,131 @@ class _HomeScreenState extends State<HomeScreen> {
     final promisedRatio =
         claimed == 0 ? 0.0 : (promised / claimed).clamp(0.0, 1.0);
     final cashRatio = claimed == 0 ? 0.0 : (cash / claimed).clamp(0.0, 1.0);
+    final caption =
+        inFlightCount > 0 ? '돌려받을 돈 · $inFlightCount건 진행 중' : '돌려받을 돈';
+    final secondary = TextStyle(
+      fontSize: 13,
+      color: palette.muted,
+      fontFeatures: const [FontFeature.tabularFigures()],
+    );
 
-    return ReloCard(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('돌려받을 돈', style: TextStyle(fontSize: 14, color: palette.muted)),
-          const SizedBox(height: 4),
-          TweenAnimationBuilder<double>(
-            tween: Tween(begin: reduceMotion ? 1 : 0, end: 1),
-            duration: ReloMotion.ticker,
-            curve: ReloMotion.enter,
-            builder: (context, t, _) => MoneyDisplay(
-              minorAmount: (claimed * t).round(),
-              currency: currency,
-              size: MoneySize.xl,
-              color: palette.ink,
-            ),
-          ),
-          const SizedBox(height: 16),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(4),
-            child: SizedBox(
-              height: 8,
-              child: Stack(
-                children: [
-                  Positioned.fill(child: ColoredBox(color: palette.sunken)),
-                  // 약속은 옅은 파랑, 실제 입금은 진한 파랑 (색은 파랑 하나만)
-                  FractionallySizedBox(
-                    widthFactor: promisedRatio,
-                    child: ColoredBox(
-                        color: palette.brand.withValues(alpha: 0.35)),
-                  ),
-                  FractionallySizedBox(
-                    widthFactor: cashRatio,
-                    child: ColoredBox(color: palette.brand),
-                  ),
-                ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SizedBox(
+          height: 172,
+          child: Stack(
+            clipBehavior: Clip.hardEdge,
             children: [
-              _legend('판매자 약속', MoneyFormat.formatMinor(promised, currency),
-                  palette),
-              _legend('입금', MoneyFormat.formatMinor(cash, currency), palette),
+              Positioned(
+                top: -50,
+                right: -100,
+                width: 320,
+                height: 320,
+                child: _buildGlobe(corridors, reduceMotion),
+              ),
+              // 글자가 놓이는 왼쪽은 바탕색으로 덮어 지구본 선과 겹치지 않게 한다
+              Positioned.fill(
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.centerLeft,
+                      end: Alignment.centerRight,
+                      stops: const [0, 0.5, 0.85],
+                      colors: [
+                        palette.canvas,
+                        palette.canvas.withValues(alpha: 0.85),
+                        palette.canvas.withValues(alpha: 0),
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 0,
+                right: 0,
+                bottom: 0,
+                height: 60,
+                child: DecoratedBox(
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      begin: Alignment.topCenter,
+                      end: Alignment.bottomCenter,
+                      colors: [
+                        palette.canvas.withValues(alpha: 0),
+                        palette.canvas
+                      ],
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                left: 20,
+                right: 20,
+                top: 28,
+                child: entrance(
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        caption,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: palette.muted,
+                        ),
+                      ),
+                      const SizedBox(height: 6),
+                      TweenAnimationBuilder<double>(
+                        tween: Tween(begin: reduceMotion ? 1 : 0, end: 1),
+                        duration: ReloMotion.ticker,
+                        curve: ReloMotion.enter,
+                        builder: (context, t, _) => MoneyDisplay(
+                          minorAmount: (claimed * t).round(),
+                          currency: currency,
+                          size: MoneySize.xl,
+                          color: palette.ink,
+                        ),
+                      ),
+                      const SizedBox(height: 8),
+                      Text(
+                        '판매자 약속 ${MoneyFormat.formatMinor(promised, currency)}'
+                        ' · 입금 ${MoneyFormat.formatMinor(cash, currency)}',
+                        style: secondary,
+                      ),
+                    ],
+                  ),
+                  0,
+                ),
+              ),
             ],
           ),
-          for (final c in recoveredElsewhere) ...[
-            const SizedBox(height: 12),
-            Row(
+        ),
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 20),
+          child: entrance(
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Icon(Icons.check_rounded, size: 16, color: palette.muted),
-                const SizedBox(width: 6),
-                Expanded(
-                  child: Text(
-                    '${_shortTitle(c.title)} ${MoneyFormat.formatMinor(c.summary.cash, c.currency)} 들어왔어요',
-                    style: TextStyle(fontSize: 12, color: palette.muted),
+                ReloProgressBar(promised: promisedRatio, cash: cashRatio),
+                for (final c in recoveredElsewhere) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    '✓ ${_shortTitle(c.title)} ${MoneyFormat.formatMinor(c.summary.cash, c.currency)} 들어왔어요',
+                    style: secondary,
                   ),
+                ],
+                const SizedBox(height: 20),
+                ReloButton(
+                  text: s.ctaPrimary,
+                  onPressed: () => store.navigateToTab(1),
                 ),
               ],
             ),
-          ],
-        ],
-      ),
-    );
-  }
-
-  Widget _legend(String label, String value, ReloPalette palette,
-      {Color? color}) {
-    return Text.rich(
-      TextSpan(
-        children: [
-          TextSpan(
-              text: '$label ',
-              style: TextStyle(fontSize: 12, color: palette.subtle)),
-          TextSpan(
-            text: value,
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w700,
-              color: color ?? palette.muted,
-              fontFeatures: const [FontFeature.tabularFigures()],
-            ),
+            1,
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -378,34 +396,14 @@ class _HomeScreenState extends State<HomeScreen> {
     return words.take(3).join(' ');
   }
 
+  // 할 일 한 줄: 무엇을(제목) · 지금 할 일 · 남은 날. 판매처와 금액은 내 환불에서 본다.
   Widget _buildTaskCard(ReloStore store, ClaimView claim, ReloPalette palette) {
-    final dday = DDay.label(claim.deadline);
-    final code =
-        GlobeCorridor.fromClaim(claim).city.substring(0, 2).toUpperCase();
-
     return ReloCard(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       semanticLabel: '${claim.title} 상세 열기',
       onTap: () => store.openClaimDetail(claim.id),
       child: Row(
         children: [
-          Container(
-            width: 40,
-            height: 40,
-            decoration: BoxDecoration(
-              color: palette.sunken,
-              borderRadius: BorderRadius.circular(12),
-            ),
-            alignment: Alignment.center,
-            child: Text(
-              code,
-              style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w700,
-                  color: palette.muted),
-            ),
-          ),
-          const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -416,23 +414,25 @@ class _HomeScreenState extends State<HomeScreen> {
                   overflow: TextOverflow.ellipsis,
                   style: TextStyle(
                       fontSize: 15,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
                       color: palette.ink),
                 ),
-                const SizedBox(height: 2),
+                const SizedBox(height: 3),
                 Text(
-                  '${claim.vendor} · ${_humanNextStep(claim)}',
+                  _humanNextStep(claim),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: TextStyle(fontSize: 12, color: palette.subtle),
+                  style: TextStyle(fontSize: 13, color: palette.muted),
                 ),
               ],
             ),
           ),
-          if (dday != null) ...[
-            const SizedBox(width: 8),
-            ReloDdayText(deadline: claim.deadline),
+          if (claim.deadline != null) ...[
+            const SizedBox(width: 12),
+            ReloDdayText(deadline: claim.deadline, fontSize: 13),
           ],
+          const SizedBox(width: 4),
+          Icon(Icons.chevron_right_rounded, size: 20, color: palette.subtle),
         ],
       ),
     );
@@ -440,11 +440,11 @@ class _HomeScreenState extends State<HomeScreen> {
 
   static String _humanNextStep(ClaimView claim) {
     return switch (claim.state) {
-      'preparing' || 'review' => '외국어 요청서를 보내세요',
-      'awaiting' => '판매자 답장을 기다리는 중',
+      'preparing' || 'review' => '판매자에게 메시지 보내기',
+      'awaiting' => '판매자 답장 기다리는 중',
       'negotiating' => claim.agreed != null
-          ? '판매자 제안 ${MoneyFormat.formatMinor(claim.agreed!, claim.currency)} 확인'
-          : '조건을 조율하는 중',
+          ? '판매자 제안 ${MoneyFormat.formatMinor(claim.agreed!, claim.currency)} 확인하기'
+          : '조건 정하는 중',
       _ => claim.nextStep,
     };
   }
