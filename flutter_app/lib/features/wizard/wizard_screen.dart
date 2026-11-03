@@ -769,7 +769,7 @@ class _WizardScreenState extends State<WizardScreen> {
                 ),
                 const ReloBadge(
                   label: '집 주소 마스킹 완료',
-                  tone: ReloBadgeTone.mint,
+                  tone: ReloBadgeTone.neutral,
                 ),
               ],
             ),
@@ -810,7 +810,7 @@ class _WizardScreenState extends State<WizardScreen> {
                     ),
                     const ReloBadge(
                       label: '주소 가려짐',
-                      tone: ReloBadgeTone.mint,
+                      tone: ReloBadgeTone.neutral,
                     ),
                     if (_stagedFiles.length > 1) ...[
                       const SizedBox(width: 6),

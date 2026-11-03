@@ -307,14 +307,15 @@ class _HomeScreenState extends State<HomeScreen> {
               child: Stack(
                 children: [
                   Positioned.fill(child: ColoredBox(color: palette.sunken)),
+                  // 약속은 옅은 파랑, 실제 입금은 진한 파랑 (색은 파랑 하나만)
                   FractionallySizedBox(
                     widthFactor: promisedRatio,
                     child: ColoredBox(
-                        color: palette.brandHover.withValues(alpha: 0.5)),
+                        color: palette.brand.withValues(alpha: 0.35)),
                   ),
                   FractionallySizedBox(
                     widthFactor: cashRatio,
-                    child: ColoredBox(color: palette.mint),
+                    child: ColoredBox(color: palette.brand),
                   ),
                 ],
               ),
@@ -326,17 +327,22 @@ class _HomeScreenState extends State<HomeScreen> {
             children: [
               _legend('판매자 약속', MoneyFormat.formatMinor(promised, currency),
                   palette),
-              _legend('입금', MoneyFormat.formatMinor(cash, currency), palette,
-                  color: cash > 0 ? palette.mint : null),
+              _legend('입금', MoneyFormat.formatMinor(cash, currency), palette),
             ],
           ),
           for (final c in recoveredElsewhere) ...[
-            const SizedBox(height: 14),
-            ReloBadge(
-              label:
-                  '${_shortTitle(c.title)} ${MoneyFormat.formatMinor(c.summary.cash, c.currency)} 입금 확인',
-              tone: ReloBadgeTone.mint,
-              icon: Icons.circle,
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Icon(Icons.check_rounded, size: 16, color: palette.muted),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    '${_shortTitle(c.title)} ${MoneyFormat.formatMinor(c.summary.cash, c.currency)} 들어왔어요',
+                    style: TextStyle(fontSize: 12, color: palette.muted),
+                  ),
+                ),
+              ],
             ),
           ],
         ],
@@ -374,7 +380,6 @@ class _HomeScreenState extends State<HomeScreen> {
 
   Widget _buildTaskCard(ReloStore store, ClaimView claim, ReloPalette palette) {
     final dday = DDay.label(claim.deadline);
-    final urgent = DDay.isUrgent(claim.deadline);
     final code =
         GlobeCorridor.fromClaim(claim).city.substring(0, 2).toUpperCase();
 
@@ -426,9 +431,7 @@ class _HomeScreenState extends State<HomeScreen> {
           ),
           if (dday != null) ...[
             const SizedBox(width: 8),
-            ReloBadge(
-                label: dday,
-                tone: urgent ? ReloBadgeTone.sunny : ReloBadgeTone.neutral),
+            ReloDdayText(deadline: claim.deadline),
           ],
         ],
       ),

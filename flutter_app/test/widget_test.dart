@@ -1,5 +1,7 @@
+import 'dart:convert';
 import 'dart:ui';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:relo_flutter/core/config/sdk_registry.dart';
 import 'package:relo_flutter/core/utils/money_format.dart';
 import 'package:relo_flutter/features/assistant/assistant_sheet.dart';
@@ -107,12 +109,27 @@ void main() {
   );
 
   testWidgets(
-    '떠 있는 도우미를 누르면 대화 창이 열리고, 서버 없이도 내 환불 기록으로 답한다',
+    '떠 있는 도우미를 누르면 대화 창이 열리고, 서버 없이도 내 환불 기록으로 답하며, 대화는 기기에 남는다',
     (WidgetTester tester) async {
       tester.view.physicalSize = const Size(390, 960);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
+
+      // 지난번에 저장해 둔 대화 하나
+      SharedPreferences.setMockInitialValues({
+        'relo.assistant.history.v1': jsonEncode([
+          AssistantConversation(
+            id: 'conv_old',
+            title: 'AliExpress 답장 해석',
+            updatedAt: DateTime(2026, 10, 28, 14, 33),
+            turns: const [
+              AssistantTurn.user('AliExpress 답장 해석'),
+              AssistantTurn(fromUser: false, text: '답장을 붙여 넣어 주세요.'),
+            ],
+          ).toStored(),
+        ]),
+      });
 
       final store = ReloStore()..isOfflineFallback = true;
       await tester.pumpWidget(ReloFlutterApp(store: store, showIntro: false));
@@ -135,6 +152,27 @@ void main() {
       expect(reply.offline, true);
       expect(reply.action, 'open_claim');
       expect(find.textContaining('단계예요'), findsOneWidget);
+
+      // ☰ 대화 기록: 방금 대화가 맨 위, 지난번 대화가 그 아래
+      await tester.tap(find.byTooltip('대화 기록'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('지난 대화'), findsOneWidget);
+      expect(store.assistantHistory.map((c) => c.title).toList(),
+          ['내 환불 어디까지 왔어?', 'AliExpress 답장 해석']);
+      expect(find.text('AliExpress 답장 해석'), findsOneWidget);
+      final saved = (await SharedPreferences.getInstance())
+          .getString('relo.assistant.history.v1');
+      expect(saved, contains('내 환불 어디까지 왔어?'));
+
+      // 지난 대화를 누르면 그 대화가 다시 열린다
+      await tester.tap(find.text('AliExpress 답장 해석'));
+      await tester.pump(const Duration(milliseconds: 500));
+      expect(find.text('답장을 붙여 넣어 주세요.'), findsOneWidget);
+
+      await tester.tap(find.byTooltip('대화 기록'));
+      await tester.pump(const Duration(milliseconds: 500));
+      await tester.tap(find.text('내 환불 어디까지 왔어?'));
+      await tester.pump(const Duration(milliseconds: 500));
 
       await tester.tap(find.text('상세 열기'));
       await tester.pump();

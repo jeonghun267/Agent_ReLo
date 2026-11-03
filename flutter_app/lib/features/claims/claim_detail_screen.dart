@@ -325,7 +325,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                               vertical: 8,
                             ),
                             decoration: BoxDecoration(
-                              color: palette.mintSoft,
+                              color: palette.sunken,
                               borderRadius: BorderRadius.circular(12),
                             ),
                             child: Text(
@@ -333,7 +333,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.w800,
-                                color: palette.mint,
+                                color: palette.body,
                               ),
                             ),
                           ),
@@ -369,26 +369,27 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Wrap(
-                      spacing: 6,
-                      runSpacing: 6,
+                    Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        ReloBadge(
-                          label: claim.vendor,
-                          tone: ReloBadgeTone.brand,
-                          icon: Icons.storefront_rounded,
-                        ),
-                        ReloBadge(
-                          label: '주문번호 #${claim.orderRef}',
-                          tone: ReloBadgeTone.neutral,
+                        Text(
+                          '${claim.vendor} · 주문번호 #${claim.orderRef}',
+                          style: TextStyle(fontSize: 12, color: palette.muted),
                         ),
                         if (claim.deadline != null &&
-                            claim.deadline!.isNotEmpty)
-                          ReloBadge(
-                            label: '마감 ${claim.deadline}',
-                            tone: ReloBadgeTone.sunny,
-                            icon: Icons.schedule_rounded,
+                            claim.deadline!.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          Row(
+                            children: [
+                              Text(
+                                '마감 ${claim.deadline} · ',
+                                style: TextStyle(
+                                    fontSize: 12, color: palette.muted),
+                              ),
+                              ReloDdayText(deadline: claim.deadline),
+                            ],
                           ),
+                        ],
                       ],
                     ),
                     const SizedBox(height: 10),
@@ -440,9 +441,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                                     minorAmount: claim.summary.cash,
                                     currency: claim.currency,
                                     size: MoneySize.lg,
-                                    color: claim.summary.cash > 0
-                                        ? palette.mint
-                                        : palette.ink,
+                                    color: palette.ink,
                                   ),
                                 ],
                               ),
@@ -477,11 +476,8 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                               value: progressRatio,
                               minHeight: 8,
                               backgroundColor: palette.surface,
-                              valueColor: AlwaysStoppedAnimation<Color>(
-                                progressRatio >= 1.0
-                                    ? palette.mint
-                                    : palette.brand,
-                              ),
+                              valueColor:
+                                  AlwaysStoppedAnimation<Color>(palette.brand),
                             ),
                           ),
                         ],
@@ -595,12 +591,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           blastDirectionality: BlastDirectionality.explosive,
           numberOfParticles: 24,
           gravity: 0.25,
-          colors: [
-            palette.brandHover,
-            palette.mint,
-            palette.sunny,
-            Colors.white
-          ],
+          colors: [palette.brand, palette.brandHover, Colors.white],
         ),
       ],
     );
@@ -963,9 +954,9 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                       color: palette.ink,
                     ),
                   ),
-                  const ReloBadge(
-                    label: '10MB 암호화 격리 보관',
-                    tone: ReloBadgeTone.mint,
+                  Text(
+                    '10MB까지 · 암호화 보관',
+                    style: TextStyle(fontSize: 11, color: palette.muted),
                   ),
                 ],
               ),
@@ -1151,7 +1142,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                     margin: const EdgeInsets.only(bottom: 8),
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
-                      color: palette.mintSoft,
+                      color: palette.sunken,
                       borderRadius: BorderRadius.circular(12),
                     ),
                     child: Row(
@@ -1184,7 +1175,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                           minorAmount: entry.amount,
                           currency: claim.currency,
                           size: MoneySize.sm,
-                          color: palette.mint,
+                          color: palette.ink,
                         ),
                       ],
                     ),

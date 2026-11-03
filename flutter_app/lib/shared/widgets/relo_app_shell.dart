@@ -17,7 +17,7 @@ const double kReloShellMaxWidth = 480;
 
 /// @module shared/widgets/relo_app_shell
 /// @layer Shared Application Shell (Top Bar + Keyboard Navigation + 4-Tab Bar)
-/// @purpose 상단에는 로고와 프로필만, 하단에는 홈 · 내 환불 · ＋신청 · 설정 네 탭을 둔다.
+/// @purpose 상단에는 로고와 프로필만, 하단에는 홈 · 신청 · 내 환불 · 설정 네 탭을 같은 모양으로 둔다.
 ///          언어·테마·고대비는 설정 화면에 있고, 약관·정책은 설정 안에서 연다.
 ///          키보드(Tab, Shift+Tab, Enter, Alt+1~5)만으로도 모든 화면을 이동할 수 있다.
 class ReloAppShell extends StatelessWidget {
@@ -165,7 +165,7 @@ class ReloAppShell extends StatelessWidget {
     final activeColor =
         palette.isDark ? const Color(0xFFF8FAFC) : palette.brand;
 
-    Widget item(int index, IconData icon, String label) {
+    Widget item(int index, IconData icon, IconData activeIcon, String label) {
       final on = active == index;
       final color = on ? activeColor : palette.subtle;
       return Expanded(
@@ -181,7 +181,7 @@ class ReloAppShell extends StatelessWidget {
                 AnimatedScale(
                   scale: on ? 1.0 : 0.92,
                   duration: ReloMotion.press,
-                  child: Icon(icon, size: 22, color: color),
+                  child: Icon(on ? activeIcon : icon, size: 22, color: color),
                 ),
                 const SizedBox(height: 4),
                 Text(
@@ -206,71 +206,17 @@ class ReloAppShell extends StatelessWidget {
       decoration: BoxDecoration(
         color: palette.isDark ? const Color(0xFF111A2E) : palette.surface,
       ),
+      // 네 칸 모두 같은 모양. 신청을 따로 튀게 두지 않고, 홈 가운데 큰 버튼이 신청을 맡는다.
       child: Row(
         children: [
-          item(0, Icons.home_rounded, s.navHome),
-          item(2, Icons.receipt_long_outlined, s.navClaims),
-          Expanded(
-            child: Semantics(
-              button: true,
-              label: '${s.navWizard} (단축키 Alt+2)',
-              child: Center(
-                child: _AddButton(
-                  onTap: () => store.navigateToTab(1),
-                  highlighted: active == 1,
-                ),
-              ),
-            ),
-          ),
-          item(4, Icons.person_outline_rounded, s.navSettings),
+          item(0, Icons.home_outlined, Icons.home_rounded, s.navHome),
+          item(1, Icons.add_circle_outline_rounded, Icons.add_circle_rounded,
+              s.navWizard),
+          item(2, Icons.receipt_long_outlined, Icons.receipt_long_rounded,
+              s.navClaims),
+          item(4, Icons.person_outline_rounded, Icons.person_rounded,
+              s.navSettings),
         ],
-      ),
-    );
-  }
-}
-
-class _AddButton extends StatefulWidget {
-  final VoidCallback onTap;
-  final bool highlighted;
-  const _AddButton({required this.onTap, required this.highlighted});
-
-  @override
-  State<_AddButton> createState() => _AddButtonState();
-}
-
-class _AddButtonState extends State<_AddButton> {
-  bool _pressed = false;
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = ReloPalette.of(context);
-    return GestureDetector(
-      onTapDown: (_) {
-        HapticFeedback.lightImpact();
-        setState(() => _pressed = true);
-      },
-      onTapUp: (_) => setState(() => _pressed = false),
-      onTapCancel: () => setState(() => _pressed = false),
-      onTap: widget.onTap,
-      child: AnimatedScale(
-        scale: _pressed ? ReloMotion.pressScale : 1.0,
-        duration: ReloMotion.press,
-        child: Container(
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: widget.highlighted ? palette.brandHover : palette.brand,
-            shape: BoxShape.circle,
-            boxShadow: [
-              BoxShadow(
-                color: palette.brand.withValues(alpha: 0.45),
-                blurRadius: 20,
-                offset: const Offset(0, 6),
-              ),
-            ],
-          ),
-          child: const Icon(Icons.add_rounded, color: Colors.white, size: 26),
-        ),
       ),
     );
   }

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import 'package:smooth_sheets/smooth_sheets.dart';
 
+import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../shared/models/domain_models.dart';
@@ -63,6 +64,23 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
   late String? _claimId = widget.claimId;
   final _input = TextEditingController();
   final _focus = FocusNode();
+  bool _showHistory = false;
+  bool _started = false;
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // 다른 건에서 "이 건 물어보기"로 열었으면 새 대화로 시작한다 (지금 대화는 기록에 남아 있다)
+    if (_started) return;
+    _started = true;
+    final store = ReloScope.of(context);
+    if (widget.claimId != null &&
+        store.assistantTurns.isNotEmpty &&
+        store.activeAssistantClaimId != widget.claimId) {
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => store.clearAssistantConversation());
+    }
+  }
 
   @override
   void dispose() {
@@ -113,29 +131,58 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
             final needsConsent = store.user != null &&
                 store.user!.aiConsentAt == null &&
                 !store.isOfflineFallback;
+            final chat = Column(
+              key: const ValueKey('chat'),
+              children: [
+                _buildHeader(store, palette),
+                if (claim != null) _buildContextPill(store, claim, palette),
+                Expanded(
+                  child: store.assistantTurns.isEmpty
+                      ? _buildWelcome(store, claim != null, palette)
+                      : _buildConversation(store, palette),
+                ),
+                needsConsent
+                    ? _buildConsent(store, palette)
+                    : _buildInput(store, palette),
+                Padding(
+                  padding: EdgeInsets.fromLTRB(
+                      20, 0, 20, 10 + screen.padding.bottom),
+                  child: Text(
+                    s.assistantDisclaimer,
+                    textAlign: TextAlign.center,
+                    style: TextStyle(fontSize: 11, color: palette.subtle),
+                  ),
+                ),
+              ],
+            );
             return Center(
               child: ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 560),
                 child: Column(
                   children: [
                     _buildHandle(palette),
-                    _buildHeader(store, palette),
-                    if (claim != null) _buildContextPill(store, claim, palette),
                     Expanded(
-                      child: store.assistantTurns.isEmpty
-                          ? _buildWelcome(store, claim != null, palette)
-                          : _buildConversation(store, palette),
-                    ),
-                    needsConsent
-                        ? _buildConsent(store, palette)
-                        : _buildInput(store, palette),
-                    Padding(
-                      padding: EdgeInsets.fromLTRB(
-                          20, 0, 20, 10 + screen.padding.bottom),
-                      child: Text(
-                        s.assistantDisclaimer,
-                        textAlign: TextAlign.center,
-                        style: TextStyle(fontSize: 11, color: palette.subtle),
+                      // ☰ 대화 기록은 옆에서 밀려 들어온다
+                      child: AnimatedSwitcher(
+                        duration: ReloMotion.wizardStep,
+                        transitionBuilder: (child, animation) {
+                          final fromLeft =
+                              child.key == const ValueKey('history');
+                          return FadeTransition(
+                            opacity: animation,
+                            child: SlideTransition(
+                              position: Tween(
+                                begin: Offset(fromLeft ? -0.08 : 0.08, 0),
+                                end: Offset.zero,
+                              ).animate(CurvedAnimation(
+                                  parent: animation, curve: ReloMotion.enter)),
+                              child: child,
+                            ),
+                          );
+                        },
+                        child: _showHistory
+                            ? _buildHistory(store, palette, screen)
+                            : chat,
                       ),
                     ),
                   ],
@@ -146,6 +193,170 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
         ),
       ),
     );
+  }
+
+  // 바이낸스 More 화면처럼: 설정 한 줄 + 지난 대화 목록 + 모두 지우기
+  Widget _buildHistory(
+      ReloStore store, ReloPalette palette, MediaQueryData screen) {
+    final s = store.strings;
+    final history = store.assistantHistory;
+
+    Widget section(String label) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 20, 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 12,
+              fontWeight: FontWeight.w700,
+              color: palette.subtle,
+            ),
+          ),
+        );
+
+    return Column(
+      key: const ValueKey('history'),
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 8),
+          child: Row(
+            children: [
+              IconButton(
+                tooltip: MaterialLocalizations.of(context).backButtonTooltip,
+                onPressed: () => setState(() => _showHistory = false),
+                icon: Icon(Icons.chevron_left_rounded,
+                    size: 28, color: palette.body),
+              ),
+              Expanded(
+                child: Text(
+                  s.assistantHistory,
+                  textAlign: TextAlign.center,
+                  style: TextStyle(
+                    fontSize: 16,
+                    fontWeight: FontWeight.w800,
+                    color: palette.ink,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 48),
+            ],
+          ),
+        ),
+        Expanded(
+          child: ListView(
+            padding: EdgeInsets.only(bottom: 16 + screen.padding.bottom),
+            children: [
+              section(s.navSettings),
+              ListTile(
+                contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                leading: const ReloMascot(size: 26, animate: false),
+                title: Text(
+                  s.assistantFloatingToggle,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: palette.ink,
+                  ),
+                ),
+                trailing: Switch(
+                  value: store.showAssistantButton,
+                  activeThumbColor: palette.brand,
+                  onChanged: store.setAssistantButtonVisible,
+                ),
+              ),
+              section(s.assistantHistoryPast),
+              if (history.isEmpty)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
+                  child: Text(
+                    s.assistantHistoryEmpty,
+                    style: TextStyle(fontSize: 13, color: palette.muted),
+                  ),
+                ),
+              for (final c in history)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  leading: Icon(Icons.chat_outlined, color: palette.muted),
+                  title: Text(
+                    c.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: palette.ink,
+                    ),
+                  ),
+                  subtitle: Text(
+                    _when(s, c.updatedAt),
+                    style: TextStyle(fontSize: 12, color: palette.subtle),
+                  ),
+                  onTap: () {
+                    final claimId = store.openAssistantConversation(c.id);
+                    setState(() {
+                      _claimId = claimId;
+                      _showHistory = false;
+                    });
+                  },
+                ),
+              const SizedBox(height: 12),
+              Text(
+                s.assistantHistoryLocal,
+                textAlign: TextAlign.center,
+                style: TextStyle(fontSize: 12, color: palette.subtle),
+              ),
+              if (history.isNotEmpty)
+                Center(
+                  child: TextButton(
+                    onPressed: () => _confirmDeleteAll(store),
+                    child: Text(
+                      s.assistantHistoryDeleteAll,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w700,
+                        color: palette.danger,
+                      ),
+                    ),
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+
+  String _when(ReloStrings s, DateTime t) {
+    final loc = MaterialLocalizations.of(context);
+    final time = loc.formatTimeOfDay(TimeOfDay.fromDateTime(t));
+    final now = DateTime.now();
+    final today =
+        t.year == now.year && t.month == now.month && t.day == now.day;
+    return '${today ? s.assistantToday : loc.formatShortMonthDay(t)} $time';
+  }
+
+  Future<void> _confirmDeleteAll(ReloStore store) async {
+    final s = store.strings;
+    final loc = MaterialLocalizations.of(context);
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (context) => AlertDialog(
+        content: Text(s.assistantHistoryDeleteConfirm),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context, false),
+            child: Text(loc.cancelButtonLabel),
+          ),
+          TextButton(
+            onPressed: () => Navigator.pop(context, true),
+            child: Text(s.assistantHistoryDeleteAll),
+          ),
+        ],
+      ),
+    );
+    if (ok == true) {
+      await store.deleteAssistantHistory();
+      setState(() => _claimId = widget.claimId);
+    }
   }
 
   Widget _buildHandle(ReloPalette palette) {
@@ -167,9 +378,9 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
       child: Row(
         children: [
           IconButton(
-            tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-            onPressed: () => Navigator.of(context).pop(),
-            icon: Icon(Icons.close_rounded, color: palette.body),
+            tooltip: s.assistantHistory,
+            onPressed: () => setState(() => _showHistory = true),
+            icon: Icon(Icons.menu_rounded, color: palette.body),
           ),
           Expanded(
             child: Row(
@@ -246,12 +457,13 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
     );
   }
 
+  // 아이콘은 모두 같은 회색 (색을 여러 개 섞지 않는다)
   static const _starterIcons = [
-    (Icons.local_shipping_outlined, Color(0xFF34D399)),
-    (Icons.edit_note_rounded, Color(0xFF60A5FA)),
-    (Icons.translate_rounded, Color(0xFFA78BFA)),
-    (Icons.compare_arrows_rounded, Color(0xFFFBBF24)),
-    (Icons.schedule_rounded, Color(0xFFF472B6)),
+    Icons.local_shipping_outlined,
+    Icons.edit_note_rounded,
+    Icons.translate_rounded,
+    Icons.compare_arrows_rounded,
+    Icons.schedule_rounded,
   ];
 
   Widget _buildWelcome(ReloStore store, bool aboutClaim, ReloPalette palette) {
@@ -286,8 +498,8 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
             child: Padding(
               padding: const EdgeInsets.only(bottom: 10),
               child: _StarterRow(
-                icon: _starterIcons[i % _starterIcons.length].$1,
-                color: _starterIcons[i % _starterIcons.length].$2,
+                icon: _starterIcons[i % _starterIcons.length],
+                color: palette.muted,
                 text: starters[i],
                 onTap: () => _send(store, starters[i]),
               ),

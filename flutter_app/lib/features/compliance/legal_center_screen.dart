@@ -77,7 +77,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                   children: [
                     const ReloBadge(
                       label: '모두 적용됨',
-                      tone: ReloBadgeTone.mint,
+                      tone: ReloBadgeTone.neutral,
                       icon: Icons.verified_user_rounded,
                     ),
                     GestureDetector(
@@ -85,7 +85,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                       child: ReloBadge(
                         label: store.isHighContrast ? '고대비 켜짐' : '고대비 켜기',
                         tone: store.isHighContrast
-                            ? ReloBadgeTone.sunny
+                            ? ReloBadgeTone.neutral
                             : ReloBadgeTone.brand,
                         icon: Icons.contrast_rounded,
                       ),
@@ -208,7 +208,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                   width: 30,
                   height: 30,
                   decoration: BoxDecoration(
-                    color: palette.mintSoft,
+                    color: palette.sunken,
                     borderRadius: BorderRadius.circular(10),
                   ),
                   alignment: Alignment.center,
@@ -217,7 +217,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                     style: TextStyle(
                       fontSize: 12,
                       fontWeight: FontWeight.w900,
-                      color: palette.mint,
+                      color: palette.body,
                     ),
                   ),
                 ),
@@ -335,7 +335,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             style: TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w800,
-              color: palette.mint,
+              color: palette.body,
             ),
           ),
           const SizedBox(height: 12),
@@ -408,7 +408,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             children: [
               const ReloBadge(
                 label: '이메일 수신 거부',
-                tone: ReloBadgeTone.sunny,
+                tone: ReloBadgeTone.neutral,
               ),
               const SizedBox(height: 8),
               Row(
@@ -434,8 +434,8 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                           style: TextStyle(
                             fontSize: 12,
                             color: store.emailUnsubscribed
-                                ? palette.sunny
-                                : palette.mint,
+                                ? palette.muted
+                                : palette.body,
                             fontWeight: FontWeight.w700,
                           ),
                         ),
@@ -536,7 +536,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                           else
                             const ReloBadge(
                               label: '로컬 필수 SDK',
-                              tone: ReloBadgeTone.mint,
+                              tone: ReloBadgeTone.neutral,
                             ),
                         ],
                       ),
@@ -559,7 +559,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w900,
-                  color: palette.mint,
+                  color: palette.body,
                 ),
               ),
               const SizedBox(height: 6),
@@ -571,7 +571,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                       Icon(
                         Icons.block_rounded,
                         size: 14,
-                        color: palette.mint,
+                        color: palette.body,
                       ),
                       const SizedBox(width: 6),
                       Expanded(
@@ -601,7 +601,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         children: [
           const ReloBadge(
             label: '글꼴·이미지 라이선스',
-            tone: ReloBadgeTone.mint,
+            tone: ReloBadgeTone.neutral,
           ),
           const SizedBox(height: 8),
           Text(
@@ -649,7 +649,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                       ),
                       ReloBadge(
                         label: lic.licenseType,
-                        tone: ReloBadgeTone.mint,
+                        tone: ReloBadgeTone.neutral,
                       ),
                     ],
                   ),
@@ -704,7 +704,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: palette.mintSoft,
+                color: palette.sunken,
                 borderRadius: BorderRadius.circular(12),
               ),
               child: Text(
@@ -712,7 +712,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w800,
-                  color: palette.mint,
+                  color: palette.body,
                 ),
               ),
             ),

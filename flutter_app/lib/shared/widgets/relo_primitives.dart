@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
+import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
 
 /// @module shared/widgets/relo_primitives
@@ -258,7 +259,31 @@ class _ReloCardState extends State<ReloCard> {
   }
 }
 
-enum ReloBadgeTone { brand, mint, sunny, danger, neutral }
+/// 배지 색은 파랑·회색·빨강(오류) 셋만 쓴다. 초록·주황 알약은 쓰지 않는다 (DESIGN.md 2절).
+enum ReloBadgeTone { brand, danger, neutral }
+
+/// 마감까지 남은 날을 배지 없이 글자로 보여 준다. 마감이 지났을 때만 빨강.
+class ReloDdayText extends StatelessWidget {
+  final String? deadline;
+  final double fontSize;
+  const ReloDdayText({super.key, required this.deadline, this.fontSize = 12});
+
+  @override
+  Widget build(BuildContext context) {
+    final label = DDay.label(deadline);
+    if (label == null) return const SizedBox.shrink();
+    final palette = ReloPalette.of(context);
+    final overdue = (DDay.daysLeft(deadline) ?? 0) < 0;
+    return Text(
+      label,
+      style: TextStyle(
+        fontSize: fontSize,
+        fontWeight: FontWeight.w800,
+        color: overdue ? palette.danger : palette.ink,
+      ),
+    );
+  }
+}
 
 class ReloBadge extends StatelessWidget {
   final String label;
@@ -282,14 +307,6 @@ class ReloBadge extends StatelessWidget {
       case ReloBadgeTone.brand:
         bg = palette.brandSoft;
         fg = palette.isDark ? const Color(0xFF93C5FD) : palette.brand;
-        break;
-      case ReloBadgeTone.mint:
-        bg = palette.mintSoft;
-        fg = palette.mint;
-        break;
-      case ReloBadgeTone.sunny:
-        bg = palette.sunnySoft;
-        fg = palette.sunny;
         break;
       case ReloBadgeTone.danger:
         bg = palette.dangerSoft;
@@ -655,28 +672,22 @@ class _ConfettiBurstBannerState extends State<ConfettiBurstBanner>
         return Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                palette.brandSoft,
-                palette.mintSoft,
-              ],
-            ),
-            borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: palette.mint.withValues(alpha: 0.5)),
+            color: palette.surface,
+            borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
             children: [
               Container(
-                width: 44,
-                height: 44,
+                width: 40,
+                height: 40,
                 decoration: BoxDecoration(
-                  color: palette.mint,
+                  color: palette.brand,
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.celebration_rounded,
+                  Icons.check_rounded,
                   color: Colors.white,
-                  size: 24,
+                  size: 22,
                 ),
               ),
               const SizedBox(width: 14),

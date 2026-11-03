@@ -26,10 +26,10 @@ class ReloStrings {
       };
 
   String get navWizard => switch (locale) {
-        ReloLocale.ko => '신청하기',
-        ReloLocale.en => 'New Claim',
-        ReloLocale.ja => '返金申請',
-        ReloLocale.zh => '申请退款',
+        ReloLocale.ko => '신청',
+        ReloLocale.en => 'New',
+        ReloLocale.ja => '申請',
+        ReloLocale.zh => '申请',
       };
 
   String get navClaims => switch (locale) {
@@ -307,5 +307,61 @@ class ReloStrings {
         ReloLocale.en => 'Agree and start',
         ReloLocale.ja => '同意して始める',
         ReloLocale.zh => '同意并开始',
+      };
+
+  String get assistantHistory => switch (locale) {
+        ReloLocale.ko => '대화 기록',
+        ReloLocale.en => 'Chat history',
+        ReloLocale.ja => '会話履歴',
+        ReloLocale.zh => '对话记录',
+      };
+
+  String get assistantHistoryPast => switch (locale) {
+        ReloLocale.ko => '지난 대화',
+        ReloLocale.en => 'Past chats',
+        ReloLocale.ja => '過去の会話',
+        ReloLocale.zh => '历史对话',
+      };
+
+  String get assistantFloatingToggle => switch (locale) {
+        ReloLocale.ko => '도우미 캐릭터 띄우기',
+        ReloLocale.en => 'Show floating helper',
+        ReloLocale.ja => 'アシスタントを画面に表示',
+        ReloLocale.zh => '显示悬浮助手',
+      };
+
+  String get assistantHistoryEmpty => switch (locale) {
+        ReloLocale.ko => '아직 저장된 대화가 없어요',
+        ReloLocale.en => 'No saved chats yet',
+        ReloLocale.ja => '保存された会話はまだありません',
+        ReloLocale.zh => '还没有保存的对话',
+      };
+
+  String get assistantHistoryLocal => switch (locale) {
+        ReloLocale.ko => '대화 기록은 이 기기에만 저장돼요',
+        ReloLocale.en => 'Chats are saved only on this device',
+        ReloLocale.ja => '会話履歴はこの端末にだけ保存されます',
+        ReloLocale.zh => '对话记录只保存在本设备上',
+      };
+
+  String get assistantHistoryDeleteAll => switch (locale) {
+        ReloLocale.ko => '대화 기록 모두 지우기',
+        ReloLocale.en => 'Delete all chats',
+        ReloLocale.ja => '会話履歴をすべて削除',
+        ReloLocale.zh => '删除全部对话',
+      };
+
+  String get assistantHistoryDeleteConfirm => switch (locale) {
+        ReloLocale.ko => '지난 대화를 모두 지울까요? 되돌릴 수 없어요.',
+        ReloLocale.en => 'Delete all past chats? This cannot be undone.',
+        ReloLocale.ja => '過去の会話をすべて削除しますか？元に戻せません。',
+        ReloLocale.zh => '要删除全部历史对话吗？删除后无法恢复。',
+      };
+
+  String get assistantToday => switch (locale) {
+        ReloLocale.ko => '오늘',
+        ReloLocale.en => 'Today',
+        ReloLocale.ja => '今日',
+        ReloLocale.zh => '今天',
       };
 }

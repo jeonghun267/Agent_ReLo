@@ -22,12 +22,13 @@ flutter_app/
     │   ├── i18n/relo_i18n.dart                   # 4개국어(KO/EN/JA/ZH) 다국어 사전
     │   ├── network/api_client.dart               # 세션 쿠키, CSRF, If-Match, Idempotency-Key HTTP 클라이언트
     │   ├── theme/relo_theme.dart                 # 미드나잇 다크(#0F172A) / 라이트(#F9FAFB) / 초고대비(WCAG AAA) 테마
+    │   ├── storage/assistant_history_storage.dart # 도우미 지난 대화 (shared_preferences, 이 기기에만)
     │   └── utils/money_format.dart               # 8개국 통화 무오차 정수(Minor Unit) 계산기
     ├── shared/                                   # [2계층: 앱 전역 공유 모델·상태·접근성 프리미티브]
     │   ├── models/domain_models.dart             # User, ClaimView, CookieConsentChoice 등 불변 모델
     │   ├── state/relo_store.dart                 # 전역 스토어 (실서버 API 연동 + 오프라인 폴백 + 법적 동의 상태)
     │   └── widgets/
-    │       ├── relo_app_shell.dart               # 상단바(로고·프로필) + 키보드 단축키(Alt+1~5) + 4탭 바
+    │       ├── relo_app_shell.dart               # 상단바(로고·프로필) + 키보드 단축키(Alt+1~5) + 같은 모양 4탭 바 (홈·신청·내 환불·설정)
     │       ├── relo_intro.dart                   # 시작 연출 (로고 고리 → 상단 바 이동)
     │       ├── relo_mascot.dart                  # ReLo 도우미 캐릭터 (깜빡임·생각 중·웃음)
     │       ├── refund_globe.dart                 # 지구본 (웹 globeCanvasRenderer.ts 포팅)

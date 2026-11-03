@@ -125,9 +125,7 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 ReloBadge(
                   label: store.isOfflineFallback ? '오프라인 데모' : '서버 연결됨',
-                  tone: store.isOfflineFallback
-                      ? ReloBadgeTone.sunny
-                      : ReloBadgeTone.mint,
+                  tone: ReloBadgeTone.neutral,
                 ),
               ],
             ),
@@ -204,7 +202,7 @@ class SettingsScreen extends StatelessWidget {
                     ),
                     Switch(
                       value: store.isHighContrast,
-                      activeThumbColor: palette.sunny,
+                      activeThumbColor: palette.brand,
                       onChanged: (_) => store.toggleHighContrast(),
                     ),
                   ],

@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import '../../core/i18n/relo_i18n.dart';
 import '../../core/network/api_client.dart';
+import '../../core/storage/assistant_history_storage.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
@@ -40,10 +41,16 @@ class ReloStore extends ChangeNotifier {
   bool isLoading = false;
   bool isOfflineFallback = false;
 
-  // AI 도우미. 대화는 앱을 켜 둔 동안만 기억한다.
+  // AI 도우미. 지난 대화와 캐릭터 표시 여부는 이 기기에만 저장한다.
+  final AssistantHistoryStorage _assistantStorage = AssistantHistoryStorage();
   bool showAssistantButton = true;
   final List<AssistantTurn> assistantTurns = [];
   bool assistantBusy = false;
+
+  /// 지난 대화 (최근 것이 앞). 지금 대화도 첫 답이 오면 여기에 들어간다.
+  List<AssistantConversation> assistantHistory = [];
+  String? _activeConversationId;
+  String? _activeConversationClaimId;
 
   /// 도우미가 상세 화면을 열 때 고른 하위 탭 (0 판매자 메시지, 1 답장 해석)
   int pendingDetailSubTab = 0;
@@ -58,6 +65,7 @@ class ReloStore extends ChangeNotifier {
   ReloStore() {
     _seedInitialDemoData();
     bootstrap();
+    _loadAssistantHistory();
   }
 
   void _seedInitialDemoData() {
@@ -448,11 +456,84 @@ class ReloStore extends ChangeNotifier {
   void setAssistantButtonVisible(bool visible) {
     showAssistantButton = visible;
     notifyListeners();
+    _assistantStorage.saveFloatingVisible(visible);
   }
 
+  Future<void> _loadAssistantHistory() async {
+    final floating = await _assistantStorage.loadFloatingVisible();
+    final stored = await _assistantStorage.loadConversations();
+    final loaded = stored
+        .map(AssistantConversation.fromStored)
+        .whereType<AssistantConversation>()
+        .toList();
+    if (floating == null && loaded.isEmpty) return;
+    if (floating != null) showAssistantButton = floating;
+    // 불러오는 사이에 새 대화가 시작됐으면 그 대화를 앞에 둔다
+    final current = {for (final c in assistantHistory) c.id};
+    assistantHistory = [
+      ...assistantHistory,
+      ...loaded.where((c) => !current.contains(c.id)),
+    ];
+    notifyListeners();
+  }
+
+  /// 지금 대화가 어느 건에 대한 것인지 (없으면 null)
+  String? get activeAssistantClaimId => _activeConversationClaimId;
+
+  /// 새 대화를 시작한다. 지금 대화는 지난 대화에 남아 있다.
   void clearAssistantConversation() {
     assistantTurns.clear();
+    _activeConversationId = null;
+    _activeConversationClaimId = null;
     notifyListeners();
+  }
+
+  /// 지난 대화를 열어 이어서 묻는다. 그 대화가 특정 건에 대한 것이었으면 그 건 id를 돌려준다.
+  String? openAssistantConversation(String id) {
+    for (final c in assistantHistory) {
+      if (c.id != id) continue;
+      assistantTurns
+        ..clear()
+        ..addAll(c.turns);
+      _activeConversationId = c.id;
+      _activeConversationClaimId = c.claimId;
+      notifyListeners();
+      return c.claimId;
+    }
+    return null;
+  }
+
+  Future<void> deleteAssistantHistory() async {
+    assistantHistory = [];
+    clearAssistantConversation();
+    await _assistantStorage.clear();
+  }
+
+  // 지금 대화를 지난 대화 맨 앞에 넣고 기기에 저장한다.
+  void _rememberAssistantConversation(String? claimId) {
+    final turns = assistantTurns.length > AssistantHistoryStorage.maxTurnsPerConversation
+        ? assistantTurns.sublist(
+            assistantTurns.length - AssistantHistoryStorage.maxTurnsPerConversation)
+        : List<AssistantTurn>.of(assistantTurns);
+    final firstQuestion = assistantTurns.firstWhere((t) => t.fromUser).text;
+    _activeConversationId ??= 'conv_${DateTime.now().microsecondsSinceEpoch}';
+    _activeConversationClaimId ??= claimId;
+    final conversation = AssistantConversation(
+      id: _activeConversationId!,
+      title: firstQuestion.length > 40
+          ? '${firstQuestion.substring(0, 40)}…'
+          : firstQuestion,
+      claimId: _activeConversationClaimId,
+      updatedAt: DateTime.now(),
+      turns: turns,
+    );
+    assistantHistory = [
+      conversation,
+      ...assistantHistory.where((c) => c.id != conversation.id),
+    ].take(AssistantHistoryStorage.maxConversations).toList();
+    _assistantStorage.saveConversations(
+      assistantHistory.map((c) => c.toStored()).toList(),
+    );
   }
 
   /// AI 도우미에게 묻는다. 서버 AI가 답하지 못하면(오프라인·AI 꺼짐) 내 환불 기록으로
@@ -492,6 +573,7 @@ class ReloStore extends ChangeNotifier {
 
     assistantTurns.add(reply);
     assistantBusy = false;
+    _rememberAssistantConversation(claimId);
     notifyListeners();
   }
 
@@ -731,6 +813,8 @@ class ReloStore extends ChangeNotifier {
     } catch (_) {}
     api.clearSession();
     user = null;
+    // 다른 사람이 이 기기로 로그인할 수 있으니 도우미 대화도 지운다
+    await deleteAssistantHistory();
     notifyListeners();
   }
 
@@ -751,6 +835,7 @@ class ReloStore extends ChangeNotifier {
     user = null;
     claims = [];
     selectedClaimId = null;
+    await deleteAssistantHistory();
     notifyListeners();
     return '계정 및 모든 영수증·사진·환불 기록이 즉시 영구 파기되었습니다. (파기 증명 번호: $code)';
   }
