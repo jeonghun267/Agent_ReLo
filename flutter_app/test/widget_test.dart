@@ -64,9 +64,12 @@ void main() {
       await tester.pump(const Duration(milliseconds: 1200));
 
       // 1. 홈: 신청 버튼, 돌려받을 돈, 오늘 할 일
+      // 환불 건이 있으면 돈이 맨 위, 신청 버튼은 하나, 소개 글은 없다
       expect(find.textContaining('지금 3분 만에 환불 신청하기'), findsOneWidget);
-      expect(find.text('돌려받을 돈'), findsOneWidget);
+      expect(find.textContaining('돌려받을 돈'), findsOneWidget);
       expect(find.text('오늘 할 일'), findsOneWidget);
+      expect(find.text('내 환불 내역 보기'), findsNothing);
+      expect(find.text(store.strings.heroSubtitle), findsNothing);
 
       // 2. 쿠키 배너는 띄우지 않는다 (필수 쿠키만 사용)
       expect(find.text('전체 쿠키 동의'), findsNothing);
@@ -75,13 +78,25 @@ void main() {
       // 3. 신청하기(Tab 1)
       store.navigateToTab(1);
       await tester.pumpAndSettle();
-      expect(find.textContaining('어디서 주문하셨나요?'), findsOneWidget);
+      expect(find.text('어디서 샀어요?'), findsOneWidget);
+      expect(find.text('영수증으로 자동 채우기'), findsOneWidget);
+      expect(find.text('쇼핑몰 이름'), findsNothing, reason: '칩으로 고르면 이름 칸은 숨긴다');
 
       // 4. 내 환불(Tab 2)과 상세
       store.navigateToTab(2);
       await tester.pumpAndSettle();
-      expect(find.text('내 환불 통장'), findsOneWidget);
-      expect(find.textContaining('아직 입금 전이에요'), findsWidgets);
+      expect(find.text('들어온 돈'), findsOneWidget);
+      expect(find.textContaining('아직 입금 전'), findsWidgets);
+      expect(find.textContaining('답장 왔어요'), findsWidgets);
+
+      // 필터는 셋: 입금 완료만 고르면 입금 끝난 건만 남는다
+      store.setFilter(state: 'done');
+      expect(
+          store.filteredClaims.every(
+              (c) => c.state == 'recovered' || c.state == 'completed'),
+          true);
+      expect(store.filteredClaims, isNotEmpty);
+      store.setFilter(state: '');
 
       store.openClaimDetail('clm_amz_xm5');
       await tester.pumpAndSettle();

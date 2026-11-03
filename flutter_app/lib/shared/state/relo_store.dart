@@ -687,8 +687,15 @@ class ReloStore extends ChangeNotifier {
   List<ClaimView> get filteredClaims {
     return claims.where((c) {
       if (showTrash != c.deleted) return false;
-      if (!showTrash && stateFilter.isNotEmpty && c.state != stateFilter) {
-        return false;
+      if (!showTrash && stateFilter.isNotEmpty) {
+        // 'open'·'done'은 목록 필터 묶음, 그 밖에는 상태 하나와 같아야 한다
+        final done = c.state == 'recovered' || c.state == 'completed';
+        final keep = switch (stateFilter) {
+          'open' => !done,
+          'done' => done,
+          _ => c.state == stateFilter,
+        };
+        if (!keep) return false;
       }
       if (searchQuery.trim().isNotEmpty) {
         final q = searchQuery.trim().toLowerCase();

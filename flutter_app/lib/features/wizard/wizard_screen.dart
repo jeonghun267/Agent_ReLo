@@ -85,22 +85,28 @@ class _WizardScreenState extends State<WizardScreen> {
     ),
   ];
 
-  static const List<({int step, String title, String sub})> _stepsMeta = [
-    (step: 1, title: '어디서 주문하셨나요?', sub: '쇼핑몰 · 주문번호'),
-    (step: 2, title: '어떤 상품인가요?', sub: '상품 이름 · 결제 금액'),
-    (step: 3, title: '어떻게 해결해 드릴까요?', sub: '환불 방법 · 문제 설명'),
-    (step: 4, title: '영수증이나 불량 사진이 있나요?', sub: '집 주소 가리기 · 10MB 보관'),
-    (step: 5, title: '마지막으로 확인해 볼까요?', sub: '동의 항목 확인 · 등록 완료'),
+  // 한 화면에 질문 하나. 말투는 DESIGN.md 6절("어디서 샀어요?")
+  static const List<String> _stepTitles = [
+    '어디서 샀어요?',
+    '어떤 상품이에요?',
+    '어떻게 해결할까요?',
+    '영수증이나 사진이 있어요?',
+    '마지막으로 확인해요',
   ];
 
-  static const List<({String name, String currency})> _quickMalls = [
-    (name: 'Amazon US', currency: 'USD'),
-    (name: 'AliExpress', currency: 'USD'),
-    (name: 'Taobao · Tmall', currency: 'CNY'),
-    (name: 'Mercari · Amazon JP', currency: 'JPY'),
-    (name: 'iHerb', currency: 'USD'),
-    (name: 'Farfetch · SSENSE', currency: 'EUR'),
+  // label은 칩에 짧게 보이는 이름, name은 저장되는 쇼핑몰 이름
+  static const List<({String label, String name, String currency})>
+      _quickMalls = [
+    (label: 'Amazon US', name: 'Amazon US', currency: 'USD'),
+    (label: 'AliExpress', name: 'AliExpress', currency: 'USD'),
+    (label: 'Taobao', name: 'Taobao · Tmall', currency: 'CNY'),
+    (label: 'Mercari', name: 'Mercari · Amazon JP', currency: 'JPY'),
+    (label: 'iHerb', name: 'iHerb', currency: 'USD'),
+    (label: 'Farfetch', name: 'Farfetch · SSENSE', currency: 'EUR'),
   ];
+
+  /// "직접 입력"을 눌렀을 때만 쇼핑몰 이름 칸을 보여 준다
+  bool _customVendor = false;
 
   static const List<String> _quickIssues = [
     '택배 상자를 열었을 때 겉상자와 상품 외관이 깨진 상태로 도착했습니다.',
@@ -141,6 +147,77 @@ class _WizardScreenState extends State<WizardScreen> {
     _issueCtrl.dispose();
     _issueEnCtrl.dispose();
     super.dispose();
+  }
+
+  Future<void> _pickOrderedOn() async {
+    final now = DateTime.now();
+    final current = DateTime.tryParse(_orderedOnCtrl.text) ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current.isAfter(now) ? now : current,
+      firstDate: DateTime(now.year - 3),
+      lastDate: now,
+    );
+    if (picked == null || !mounted) return;
+    setState(
+        () => _orderedOnCtrl.text = picked.toIso8601String().substring(0, 10));
+  }
+
+  // 영수증으로 채우기. 사진·파일 올리기가 아직 없어서 지금은 데모용 샘플 영수증만 고른다.
+  Future<void> _openSampleReceipts(ReloPalette p) async {
+    const samples = [
+      (label: 'Amazon US 영수증', file: 'Amazon_Order_Receipt.pdf'),
+      (label: 'AliExpress 주문서', file: 'AliExpress_Order_Slip.jpg'),
+      (label: 'Mercari JP 영수증', file: 'Mercari_JP_Receipt.jpg'),
+    ];
+    final file = await showModalBottomSheet<String>(
+      context: context,
+      backgroundColor: p.canvas,
+      showDragHandle: true,
+      shape: const RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      builder: (context) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(8, 0, 8, 12),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
+                child: Text(
+                  '샘플 영수증으로 해 보기',
+                  style: TextStyle(
+                      fontSize: 16, fontWeight: FontWeight.w800, color: p.ink),
+                ),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
+                child: Text(
+                  '사진·파일 올리기는 아직 준비 중이에요.',
+                  style: TextStyle(fontSize: 13, color: p.muted),
+                ),
+              ),
+              for (final s in samples)
+                ListTile(
+                  leading:
+                      Icon(Icons.receipt_long_outlined, color: p.muted),
+                  title: Text(
+                    s.label,
+                    style: TextStyle(
+                        fontSize: 14,
+                        fontWeight: FontWeight.w600,
+                        color: p.ink),
+                  ),
+                  onTap: () => Navigator.pop(context, s.file),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+    if (file != null) await _handleScanSampleReceipt(file);
   }
 
   Future<void> _handleScanSampleReceipt(String sampleFileName) async {
@@ -286,18 +363,20 @@ class _WizardScreenState extends State<WizardScreen> {
       return _buildSuccess(store, p, _createdClaim!);
     }
 
-    final currentMeta = _stepsMeta[_step - 1];
+    final title = _stepTitles[_step - 1];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // 뒤로 · 몇 단계째인지 · 진행 막대. 머리말은 이것만 둔다.
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              GestureDetector(
-                onTap: () {
+              IconButton(
+                tooltip: _step > 1 ? '이전 단계' : '홈으로',
+                visualDensity: VisualDensity.compact,
+                onPressed: () {
                   if (_step > 1) {
                     setState(() {
                       _stepReverse = true;
@@ -307,50 +386,38 @@ class _WizardScreenState extends State<WizardScreen> {
                     store.navigateToTab(0);
                   }
                 },
-                child: Text(
-                  _step > 1 ? '← 이전 단계' : '← 홈으로',
-                  style: TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w800,
-                    color: p.muted,
-                  ),
-                ),
+                icon: Icon(Icons.arrow_back_rounded, color: p.body),
               ),
+              const SizedBox(width: 4),
               Text(
-                '환불 신청 $_step/5',
+                '$_step / 5',
                 style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w900,
-                  color: p.ink,
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: p.muted,
                 ),
               ),
-              const SizedBox(width: 60),
             ],
           ),
-          const SizedBox(height: 12),
+          const SizedBox(height: 6),
           ClipRRect(
             borderRadius: BorderRadius.circular(999),
             child: LinearProgressIndicator(
               value: _step / 5.0,
-              minHeight: 7,
-              backgroundColor: p.line,
+              minHeight: 4,
+              backgroundColor: p.sunken,
               valueColor: AlwaysStoppedAnimation<Color>(p.brand),
             ),
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 22),
           Text(
-            currentMeta.title,
+            title,
             style: TextStyle(
-              fontSize: 20,
-              fontWeight: FontWeight.w900,
+              fontSize: 22,
+              fontWeight: FontWeight.w800,
               letterSpacing: -0.5,
               color: p.ink,
             ),
-          ),
-          const SizedBox(height: 4),
-          Text(
-            currentMeta.sub,
-            style: TextStyle(fontSize: 12, color: p.muted),
           ),
           if (_formError != null) ...[
             const SizedBox(height: 12),
@@ -371,7 +438,7 @@ class _WizardScreenState extends State<WizardScreen> {
               ),
             ),
           ],
-          const SizedBox(height: 14),
+          const SizedBox(height: 20),
           PageTransitionSwitcher(
             duration: ReloMotion.wizardStep,
             reverse: _stepReverse,
@@ -391,16 +458,29 @@ class _WizardScreenState extends State<WizardScreen> {
           const SizedBox(height: 16),
           if (_step < 5)
             ReloButton(
-              text: '다음: ${_stepsMeta[_step].sub}',
-              showTrailingArrow: true,
+              text: '다음',
               onPressed: _goNextStep,
             )
           else
             ReloButton(
               text: _isSubmitting ? '등록 중…' : '환불 신청 등록하기',
-              showTrailingArrow: true,
               onPressed: _isSubmitting ? null : _handleSubmitWizard,
             ),
+          // [항목 #7 불필요한 개인정보 미수집 안내] 첫 단계 맨 아래 한 줄
+          if (_step == 1) ...[
+            const SizedBox(height: 14),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Icon(Icons.lock_outline_rounded, size: 14, color: p.muted),
+                const SizedBox(width: 6),
+                Text(
+                  '주민번호·통관번호·카드번호는 받지 않아요',
+                  style: TextStyle(fontSize: 12, color: p.muted),
+                ),
+              ],
+            ),
+          ],
         ],
       ),
     );
@@ -459,7 +539,7 @@ class _WizardScreenState extends State<WizardScreen> {
           blastDirectionality: BlastDirectionality.explosive,
           numberOfParticles: 24,
           gravity: 0.25,
-          colors: [p.brandHover, p.mint, p.sunny, Colors.white],
+          colors: [p.brand, p.brandHover, Colors.white],
         ),
       ],
     );
@@ -468,150 +548,120 @@ class _WizardScreenState extends State<WizardScreen> {
   Widget _buildStepCard(ReloStore store, ReloPalette p) {
     switch (_step) {
       case 1:
+        final knownMall = _quickMalls.any((m) => m.name == _vendorCtrl.text);
+        final showVendorField = _customVendor || !knownMall;
+        Widget mallChip(String label, bool selected, VoidCallback onTap) {
+          return GestureDetector(
+            onTap: onTap,
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+              decoration: BoxDecoration(
+                color: selected ? p.brand : p.surface,
+                borderRadius: BorderRadius.circular(999),
+              ),
+              child: Text(
+                label,
+                style: TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w700,
+                  color: selected ? Colors.white : p.body,
+                ),
+              ),
+            ),
+          );
+        }
+
         return Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // [항목 #7 불필요한 개인정보 미수집 안내]
-            Container(
-              margin: const EdgeInsets.only(bottom: 12),
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: p.mintSoft,
+            // 영수증으로 채우기 하나만 크게. 샘플 고르기는 누르면 아래에서 열린다.
+            Material(
+              color: p.surface,
+              borderRadius: BorderRadius.circular(14),
+              child: InkWell(
                 borderRadius: BorderRadius.circular(14),
-              ),
-              child: Row(
-                children: [
-                  Icon(Icons.shield_outlined, size: 16, color: p.mint),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      '개인정보 최소수집 원칙: 주민등록번호, 개인통관고유부호, 상세 집 주소, 카드 전체 번호는 입력받지 않습니다.',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w700,
-                        color: p.ink,
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: p.brandSoft.withValues(alpha: 0.65),
-                borderRadius: BorderRadius.circular(16),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                onTap: _isScanning ? null : () => _openSampleReceipts(p),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+                  child: Row(
                     children: [
-                      Text(
-                        '주문 영수증 자동 스캔',
-                        style: TextStyle(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w900,
-                          color: p.ink,
+                      Icon(Icons.receipt_long_outlined,
+                          size: 20, color: p.brandHover),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          _isScanning ? '영수증 읽는 중…' : '영수증으로 자동 채우기',
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: p.ink,
+                          ),
                         ),
                       ),
-                      const ReloBadge(
-                        label: 'AI 자동 입력',
-                        tone: ReloBadgeTone.brand,
-                      ),
+                      if (_isScanning)
+                        const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      else
+                        Icon(Icons.chevron_right_rounded, color: p.subtle),
                     ],
                   ),
-                  const SizedBox(height: 6),
-                  Text(
-                    '영수증을 선택하면 쇼핑몰·주문번호·결제금액을 자동으로 채워드립니다.',
-                    style: TextStyle(fontSize: 11.5, color: p.body),
-                  ),
-                  const SizedBox(height: 10),
-                  if (_isScanning)
-                    const Center(child: CircularProgressIndicator())
-                  else
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _buildActionChip(
-                          label: 'Amazon 영수증 샘플',
-                          onTap: () => _handleScanSampleReceipt(
-                            'Amazon_Order_Receipt.pdf',
-                          ),
-                          p: p,
-                        ),
-                        _buildActionChip(
-                          label: 'AliExpress 영수증 샘플',
-                          onTap: () => _handleScanSampleReceipt(
-                            'AliExpress_Order_Slip.jpg',
-                          ),
-                          p: p,
-                        ),
-                        _buildActionChip(
-                          label: 'Mercari JP 영수증 샘플',
-                          onTap: () => _handleScanSampleReceipt(
-                            'Mercari_JP_Receipt.jpg',
-                          ),
-                          p: p,
-                        ),
-                      ],
-                    ),
-                ],
+                ),
               ),
             ),
-            const SizedBox(height: 14),
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _quickMalls.map((mall) {
-                  final selected = _vendorCtrl.text == mall.name;
-                  return GestureDetector(
-                    onTap: () => setState(() {
+            const SizedBox(height: 18),
+            Text(
+              '또는 직접 고르기',
+              style: TextStyle(fontSize: 13, color: p.muted),
+            ),
+            const SizedBox(height: 10),
+            Wrap(
+              spacing: 6,
+              runSpacing: 8,
+              children: [
+                for (final mall in _quickMalls)
+                  mallChip(
+                    mall.label,
+                    !_customVendor && _vendorCtrl.text == mall.name,
+                    () => setState(() {
+                      _customVendor = false;
                       _vendorCtrl.text = mall.name;
                       _currency = mall.currency;
                     }),
-                    child: Container(
-                      margin: const EdgeInsets.only(right: 6),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: selected ? p.brand : p.sunken,
-                        borderRadius: BorderRadius.circular(999),
-                      ),
-                      child: Text(
-                        mall.name,
-                        style: TextStyle(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: selected ? Colors.white : p.body,
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
+                  ),
+                mallChip(
+                  '직접 입력',
+                  showVendorField,
+                  () => setState(() {
+                    _customVendor = true;
+                    _vendorCtrl.clear();
+                  }),
+                ),
+              ],
+            ),
+            if (showVendorField) ...[
+              const SizedBox(height: 14),
+              ReloTextField(
+                label: '쇼핑몰 이름',
+                controller: _vendorCtrl,
+                hint: '예: Coupang Global, eBay',
               ),
-            ),
-            const SizedBox(height: 14),
-            ReloTextField(
-              label: '구매한 쇼핑몰 이름',
-              controller: _vendorCtrl,
-              hint: '예: Amazon US, AliExpress, Mercari',
-            ),
-            const SizedBox(height: 12),
+            ],
+            const SizedBox(height: 18),
             ReloTextField(
               label: '주문번호',
               controller: _orderRefCtrl,
               hint: '예: 114-8920411-33012',
             ),
-            const SizedBox(height: 12),
+            const SizedBox(height: 14),
             ReloTextField(
-              label: '주문한 날짜 (YYYY-MM-DD)',
+              label: '주문일',
               controller: _orderedOnCtrl,
-              hint: '2026-10-25',
+              readOnly: true,
+              onTap: _pickOrderedOn,
+              trailingIcon: Icons.calendar_today_outlined,
             ),
           ],
         );
@@ -867,7 +917,7 @@ class _WizardScreenState extends State<WizardScreen> {
             Container(
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
-                color: p.mintSoft,
+                color: p.surface,
                 borderRadius: BorderRadius.circular(14),
               ),
               child: Row(
@@ -886,7 +936,7 @@ class _WizardScreenState extends State<WizardScreen> {
                     style: TextStyle(
                       fontSize: 13,
                       fontWeight: FontWeight.w900,
-                      color: p.mint,
+                      color: p.ink,
                     ),
                   ),
                 ],

@@ -135,6 +135,9 @@ class _ReloMainNavigation extends StatelessWidget {
           Positioned.fill(
             child: PageTransitionSwitcher(
               duration: ReloMotion.tabSwitch,
+              // 기본값은 가운데 정렬이라 내용이 짧은 화면이 아래로 내려간다. 위에 붙여 꽉 채운다.
+              layoutBuilder: (entries) =>
+                  Stack(fit: StackFit.expand, children: entries),
               transitionBuilder: (child, primary, secondary) =>
                   FadeThroughTransition(
                 animation: primary,
@@ -150,8 +153,9 @@ class _ReloMainNavigation extends StatelessWidget {
               ),
             ),
           ),
-          // 화면을 스크롤해도 제자리에 떠 있는 도우미 캐릭터
-          if (store.showAssistantButton)
+          // 화면을 스크롤해도 제자리에 떠 있는 도우미 캐릭터.
+          // 신청 화면에서는 "다음" 버튼을 가리지 않도록 숨긴다.
+          if (store.showAssistantButton && store.activeTabIndex != 1)
             const Positioned.fill(child: ReloAssistantLauncher()),
         ],
       ),
