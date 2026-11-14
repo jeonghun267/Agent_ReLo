@@ -4,6 +4,7 @@ import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../state/relo_store.dart';
+import 'relo_icons.dart';
 
 class _SwitchTabIntent extends Intent {
   final int index;
@@ -17,17 +18,20 @@ const double kReloShellMaxWidth = 480;
 
 /// @module shared/widgets/relo_app_shell
 /// @layer Shared Application Shell (Top Bar + Keyboard Navigation + 4-Tab Bar)
-/// @purpose 상단에는 로고와 프로필만, 하단에는 홈 · 신청 · 내 환불 · 설정 네 탭을 같은 모양으로 둔다.
+/// @purpose 상단에는 로고 · 대화 기록 · 프로필, 하단에는 홈 · 내 환불 · 설정 세 탭을
+///          같은 모양으로 떠 있는 바에 둔다. 신청은 홈 대화에서 시작한다.
 ///          언어·테마·고대비는 설정 화면에 있고, 약관·정책은 설정 안에서 연다.
 ///          키보드(Tab, Shift+Tab, Enter, Alt+1~5)만으로도 모든 화면을 이동할 수 있다.
 class ReloAppShell extends StatelessWidget {
   final Widget body;
   final VoidCallback onUserTap;
+  final VoidCallback onHistoryTap;
 
   const ReloAppShell({
     super.key,
     required this.body,
     required this.onUserTap,
+    required this.onHistoryTap,
   });
 
   @override
@@ -69,9 +73,11 @@ class ReloAppShell extends StatelessWidget {
                       const BoxConstraints(maxWidth: kReloShellMaxWidth),
                   child: Column(
                     children: [
-                      _buildTopBar(context, store, palette),
+                      _buildTopBar(context, store, palette, s),
                       Expanded(child: body),
-                      _buildBottomNav(context, store, palette, s),
+                      // 글자를 칠 때는 탭 바를 내려서 대화가 보이는 자리를 넓힌다
+                      if (MediaQuery.viewInsetsOf(context).bottom == 0)
+                        _buildBottomNav(context, store, palette, s),
                     ],
                   ),
                 ),
@@ -87,6 +93,7 @@ class ReloAppShell extends StatelessWidget {
     BuildContext context,
     ReloStore store,
     ReloPalette palette,
+    ReloStrings s,
   ) {
     final user = store.user;
     return SizedBox(
@@ -119,6 +126,14 @@ class ReloAppShell extends StatelessWidget {
                 ),
               ),
             ),
+            const Spacer(),
+            IconButton(
+              tooltip: s.assistantHistory,
+              onPressed: onHistoryTap,
+              visualDensity: VisualDensity.compact,
+              icon: Icon(ReloIcons.history, size: 22, color: palette.muted),
+            ),
+            const SizedBox(width: 6),
             Semantics(
               button: true,
               label: user != null ? '${user.name}님 계정 설정 열기' : '로그인 및 회원가입 열기',
@@ -128,7 +143,7 @@ class ReloAppShell extends StatelessWidget {
                   width: 34,
                   height: 34,
                   decoration: BoxDecoration(
-                    color: palette.surface,
+                    color: palette.raised,
                     borderRadius: BorderRadius.circular(999),
                   ),
                   alignment: Alignment.center,
@@ -143,7 +158,7 @@ class ReloAppShell extends StatelessWidget {
                             color: palette.body,
                           ),
                         )
-                      : Icon(Icons.person_outline_rounded,
+                      : Icon(ReloIcons.person,
                           size: 18, color: palette.body),
                 ),
               ),
@@ -160,12 +175,20 @@ class ReloAppShell extends StatelessWidget {
     ReloPalette palette,
     ReloStrings s,
   ) {
-    // 약관·정책(탭 3)은 설정 안에서 열리므로 설정 탭을 켜진 상태로 보여 준다
-    final active = store.activeTabIndex == 3 ? 4 : store.activeTabIndex;
+    // 신청(탭 1)은 홈 대화에서 시작하므로 홈을, 약관·정책(탭 3)은 설정 안에서
+    // 열리므로 설정을 켜진 상태로 보여 준다
+    final active = switch (store.activeTabIndex) {
+      1 => 0,
+      3 => 4,
+      final i => i,
+    };
     final activeColor =
         palette.isDark ? const Color(0xFFF8FAFC) : palette.brand;
+    // 면은 밝기 차이로 구분한다: 바는 한 단계, 켜진 칸은 한 단계 더
+    final barColor = palette.raised;
+    final onColor = palette.isDark ? palette.surfaceElevated : palette.surface;
 
-    Widget item(int index, IconData icon, IconData activeIcon, String label) {
+    Widget item(int index, IconData icon, String label) {
       final on = active == index;
       final color = on ? activeColor : palette.subtle;
       return Expanded(
@@ -173,50 +196,60 @@ class ReloAppShell extends StatelessWidget {
           button: true,
           selected: on,
           label: '$label 탭 (단축키 Alt+${index + 1})',
-          child: InkWell(
-            onTap: () => store.navigateToTab(index),
-            child: Column(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                AnimatedScale(
-                  scale: on ? 1.0 : 0.92,
-                  duration: ReloMotion.press,
-                  child: Icon(on ? activeIcon : icon, size: 22, color: color),
+          child: Material(
+            color: Colors.transparent,
+            child: InkWell(
+              borderRadius: BorderRadius.circular(24),
+              onTap: () => store.navigateToTab(index),
+              child: AnimatedContainer(
+                duration: ReloMotion.tabSwitch,
+                curve: ReloMotion.enter,
+                decoration: BoxDecoration(
+                  color: on ? onColor : onColor.withValues(alpha: 0),
+                  borderRadius: BorderRadius.circular(24),
                 ),
-                const SizedBox(height: 4),
-                Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: on ? FontWeight.w700 : FontWeight.w500,
-                    color: color,
-                  ),
+                child: Column(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Icon(icon, size: 22, color: color),
+                    const SizedBox(height: 2),
+                    Text(
+                      label,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: on ? FontWeight.w700 : FontWeight.w500,
+                        color: color,
+                      ),
+                    ),
+                  ],
                 ),
-              ],
+              ),
             ),
           ),
         ),
       );
     }
 
-    return Container(
-      height: 68,
-      decoration: BoxDecoration(
-        color: palette.isDark ? const Color(0xFF111A2E) : palette.surface,
-      ),
-      // 네 칸 모두 같은 모양. 신청을 따로 튀게 두지 않고, 홈 가운데 큰 버튼이 신청을 맡는다.
-      child: Row(
-        children: [
-          item(0, Icons.home_outlined, Icons.home_rounded, s.navHome),
-          item(1, Icons.add_circle_outline_rounded, Icons.add_circle_rounded,
-              s.navWizard),
-          item(2, Icons.receipt_long_outlined, Icons.receipt_long_rounded,
-              s.navClaims),
-          item(4, Icons.person_outline_rounded, Icons.person_rounded,
-              s.navSettings),
-        ],
+    // 세 칸 모두 같은 모양(선 아이콘 + 이름). 켜진 칸은 그림을 바꾸지 않고 색과 밝은 면으로만 알린다.
+    // 화면 가장자리에서 띄운 둥근 바 하나에 담는다.
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 6, 20, 8),
+      child: Container(
+        height: 60,
+        padding: const EdgeInsets.all(6),
+        decoration: BoxDecoration(
+          color: barColor,
+          borderRadius: BorderRadius.circular(30),
+        ),
+        child: Row(
+          children: [
+            item(0, ReloIcons.chat, s.navHome),
+            item(2, ReloIcons.receipt, s.navClaims),
+            item(4, ReloIcons.person, s.navSettings),
+          ],
+        ),
       ),
     );
   }

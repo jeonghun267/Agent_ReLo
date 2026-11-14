@@ -8,6 +8,7 @@ import 'compliance_data.dart';
 /// @purpose [법적 안전장치 #1~#4, #16 사업자 정보 추가, #18 이메일 수신거부, #19 라이선스, #20 삭제요청]
 ///          홈 화면 및 주요 페이지 하단에 전자상거래법 제10조 필수 사업자 정보와
 ///          6대 법적 정책 바로가기 버튼을 상시 노출합니다.
+///          내용은 그대로 두고, 상자와 칩 없이 회색 글자로만 둔다 (DESIGN.md 7절 "설정").
 class BusinessFooter extends StatelessWidget {
   const BusinessFooter({super.key});
 
@@ -20,60 +21,54 @@ class BusinessFooter extends StatelessWidget {
     return Semantics(
       container: true,
       label: '사업자 등록 정보 및 법적 정책 안내 푸터',
-      child: Container(
-        margin: const EdgeInsets.only(top: 24),
-        padding: const EdgeInsets.all(18),
-        decoration: BoxDecoration(
-          color: palette.sunken,
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: palette.line),
-        ),
+      child: Padding(
+        padding: const EdgeInsets.only(top: 32),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // 상단 법적 정책 퀵 링크 바
+            // 법적 정책 바로가기 (개인정보 처리방침만 굵게)
             Wrap(
-              spacing: 8,
-              runSpacing: 8,
+              spacing: 16,
+              runSpacing: 4,
               children: [
-                _PolicyLinkChip(
+                _PolicyLink(
                   label: '개인정보 처리방침',
                   isBold: true,
                   onTap: () => store.openLegalDocument('privacy'),
                 ),
-                _PolicyLinkChip(
+                _PolicyLink(
                   label: '서비스 이용약관',
                   onTap: () => store.openLegalDocument('terms'),
                 ),
-                _PolicyLinkChip(
+                _PolicyLink(
                   label: '환불·요금 정책',
                   onTap: () => store.openLegalDocument('refund'),
                 ),
-                _PolicyLinkChip(
+                _PolicyLink(
                   label: '쿠키 운영 정책',
                   onTap: () => store.openLegalDocument('cookie'),
                 ),
-                _PolicyLinkChip(
+                _PolicyLink(
                   label: '외부 SDK 점검·수신거부',
                   onTap: () => store.openLegalDocument('sdk'),
                 ),
-                _PolicyLinkChip(
+                _PolicyLink(
                   label: '글꼴·이미지 라이선스',
                   onTap: () => store.openLegalDocument('licenses'),
                 ),
-                _PolicyLinkChip(
+                _PolicyLink(
                   label: '개인정보 즉시 삭제요청',
                   onTap: () => store.openLegalDocument('delete'),
                 ),
               ],
             ),
-            Divider(color: palette.line, height: 24),
+            const SizedBox(height: 16),
             Text(
               info['companyName']!,
               style: TextStyle(
                 fontSize: 13,
-                fontWeight: FontWeight.w900,
-                color: palette.ink,
+                fontWeight: FontWeight.w700,
+                color: palette.muted,
               ),
             ),
             const SizedBox(height: 6),
@@ -85,26 +80,18 @@ class BusinessFooter extends StatelessWidget {
               '고객센터: ${info['supportPhone']} | 이메일: ${info['supportEmail']}\n'
               '호스팅 제공자: ${info['hostingProvider']}',
               style: TextStyle(
-                fontSize: 11,
-                color: palette.muted,
-                height: 1.55,
+                fontSize: 12,
+                color: palette.subtle,
+                height: 1.6,
               ),
             ),
-            const SizedBox(height: 10),
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: palette.surface,
-                borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: palette.line),
-              ),
-              child: Text(
-                '※ 법적 고지 (근거없는 주장 배제): ReLo는 해외직구 반품·교환·환불 증빙 정리, 8개국 통화 계산, 외국어 문의 초안 작성 및 실제 카드 취소 입금 확인 기록을 돕는 B2C 소프트웨어 도구이며, 법률 소송 대리인이 아닙니다.',
-                style: TextStyle(
-                  fontSize: 10.5,
-                  color: palette.body,
-                  height: 1.4,
-                ),
+            const SizedBox(height: 12),
+            Text(
+              '※ 법적 고지 (근거없는 주장 배제): ReLo는 해외직구 반품·교환·환불 증빙 정리, 8개국 통화 계산, 외국어 문의 초안 작성 및 실제 카드 취소 입금 확인 기록을 돕는 B2C 소프트웨어 도구이며, 법률 소송 대리인이 아닙니다.',
+              style: TextStyle(
+                fontSize: 12,
+                color: palette.subtle,
+                height: 1.5,
               ),
             ),
           ],
@@ -114,12 +101,13 @@ class BusinessFooter extends StatelessWidget {
   }
 }
 
-class _PolicyLinkChip extends StatelessWidget {
+/// 정책 바로가기 한 개. 칩으로 만들지 않고 글자로만 둔다.
+class _PolicyLink extends StatelessWidget {
   final String label;
   final bool isBold;
   final VoidCallback onTap;
 
-  const _PolicyLinkChip({
+  const _PolicyLink({
     required this.label,
     this.isBold = false,
     required this.onTap,
@@ -128,25 +116,22 @@ class _PolicyLinkChip extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final palette = ReloPalette.of(context);
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        decoration: BoxDecoration(
-          color: isBold ? palette.brandSoft : palette.surface,
-          borderRadius: BorderRadius.circular(10),
-          border: Border.all(
-            color: isBold ? palette.brandLine : palette.line,
-          ),
-        ),
-        child: Text(
-          label,
-          style: TextStyle(
-            fontSize: 11,
-            fontWeight: isBold ? FontWeight.w900 : FontWeight.w700,
-            color: isBold
-                ? (palette.isDark ? const Color(0xFF93C5FD) : palette.brand)
-                : palette.body,
+    return Semantics(
+      link: true,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(6),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(vertical: 6),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: isBold ? FontWeight.w700 : FontWeight.w500,
+              color: isBold ? palette.ink : palette.muted,
+            ),
           ),
         ),
       ),

@@ -18,6 +18,9 @@ import 'shared/widgets/relo_intro.dart';
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
   final store = ReloStore();
+  // 처음 화면(환불 건이 하나도 없을 때)을 확인하려면:
+  //   flutter run --dart-define=RELO_FIRST_RUN=true
+  if (const bool.fromEnvironment('RELO_FIRST_RUN')) store.claims = [];
   runApp(ReloFlutterApp(store: store));
 }
 
@@ -25,7 +28,8 @@ void main() {
 /// @layer Application Root
 /// @purpose 다국어(KO/EN/JA/ZH), 다크·라이트·고대비 테마, 키보드 이동(Alt+1~5),
 ///          탭 화면 라우팅과 시작 연출을 맡는다.
-///          탭 번호: 0 홈 · 1 신청 · 2 내 환불(상세 포함) · 3 약관·정책 · 4 설정
+///          화면 번호: 0 홈(도우미와의 대화) · 1 신청 · 2 내 환불(상세 포함) · 3 약관·정책 · 4 설정
+///          하단 탭은 0 · 2 · 4 세 칸이고, 신청(1)은 홈 대화에서 연다.
 class ReloFlutterApp extends StatelessWidget {
   final ReloStore store;
 
@@ -122,6 +126,7 @@ class _ReloMainNavigation extends StatelessWidget {
     }
 
     return ReloAppShell(
+      onHistoryTap: () => showReloAssistant(context, historyOnly: true),
       onUserTap: () {
         if (store.user == null) {
           _openAuthModal(context);
@@ -154,8 +159,12 @@ class _ReloMainNavigation extends StatelessWidget {
             ),
           ),
           // 화면을 스크롤해도 제자리에 떠 있는 도우미 캐릭터.
-          // 신청 화면에서는 "다음" 버튼을 가리지 않도록 숨긴다.
-          if (store.showAssistantButton && store.activeTabIndex != 1)
+          // 홈과 내 환불(목록·상세)에는 아래에 도우미에게 말 거는 칸이 있어서 띄우지 않고,
+          // 신청 화면에서는 "다음" 버튼을 가리지 않도록 숨긴다. 약관·정책과 설정에서만 뜬다.
+          // 로그아웃한 설정 화면은 로그인 화면이고 맨 위에 말랑이가 있으니 또 띄우지 않는다.
+          if (store.showAssistantButton &&
+              store.activeTabIndex > 2 &&
+              !(store.activeTabIndex == 4 && store.user == null))
             const Positioned.fill(child: ReloAssistantLauncher()),
         ],
       ),

@@ -364,4 +364,174 @@ class ReloStrings {
         ReloLocale.ja => '今日',
         ReloLocale.zh => '今天',
       };
+
+  // ── 홈 (도우미와의 대화) ──────────────────────────────────────────────
+
+  String get homeInputHint => switch (locale) {
+        ReloLocale.ko => '무엇이든 부탁하세요',
+        ReloLocale.en => 'Ask ReLo anything',
+        ReloLocale.ja => '何でも頼んでください',
+        ReloLocale.zh => '有什么都可以交给我',
+      };
+
+  String homeMoneyDue(int count) => switch (locale) {
+        ReloLocale.ko => count > 0 ? '받을 돈 · $count건' : '받을 돈',
+        ReloLocale.en => count > 0 ? 'To receive · $count' : 'To receive',
+        ReloLocale.ja => count > 0 ? '受け取る金額 · $count件' : '受け取る金額',
+        ReloLocale.zh => count > 0 ? '待收款 · $count笔' : '待收款',
+      };
+
+  String get homeMoneyReceived => switch (locale) {
+        ReloLocale.ko => '받은 돈',
+        ReloLocale.en => 'Received',
+        ReloLocale.ja => '受け取り済み',
+        ReloLocale.zh => '已到账',
+      };
+
+  String get homeNewClaim => switch (locale) {
+        ReloLocale.ko => '새 환불 신청',
+        ReloLocale.en => 'New claim',
+        ReloLocale.ja => '新しい返金申請',
+        ReloLocale.zh => '新的退款申请',
+      };
+
+  String get homeTodo => switch (locale) {
+        ReloLocale.ko => '지금 할 일',
+        ReloLocale.en => 'To do now',
+        ReloLocale.ja => '今やること',
+        ReloLocale.zh => '现在要做的',
+      };
+
+  /// 입력칸 위 고르는 말. 짧게 보여 주고, 물을 때는 assistantStarters의 온전한 문장을 보낸다.
+  String get homeAskStatus => switch (locale) {
+        ReloLocale.ko => '어디까지 왔어?',
+        ReloLocale.en => 'Where is it now?',
+        ReloLocale.ja => '今どこまで？',
+        ReloLocale.zh => '到哪一步了？',
+      };
+
+  // ── 처음 화면 (환불 건이 하나도 없을 때) ──────────────────────────────
+
+  String get homeFirstTitle => switch (locale) {
+        ReloLocale.ko => '무슨 일이 있었어요?',
+        ReloLocale.en => 'What went wrong?',
+        ReloLocale.ja => '何がありましたか？',
+        ReloLocale.zh => '遇到了什么问题？',
+      };
+
+  String get homeFirstSub => switch (locale) {
+        ReloLocale.ko => '하나만 고르면 환불 신청을 바로 시작해요',
+        ReloLocale.en => 'Pick one and we will start your refund claim',
+        ReloLocale.ja => '一つ選ぶと、すぐに返金申請を始めます',
+        ReloLocale.zh => '选一个，马上开始退款申请',
+      };
+
+  /// 고르는 세 가지. label은 화면에 보이는 말, issue는 신청 화면의 "무슨 문제인지" 칸에
+  /// 미리 채워 두는 문장(사용자가 고칠 수 있다).
+  List<({String label, String issue})> get homeFirstOptions => switch (locale) {
+        ReloLocale.ko => const [
+            (
+              label: '물건이 안 왔어요',
+              issue: '배송 완료로 표시되었지만 실제로 택배를 받지 못했습니다.',
+            ),
+            (
+              label: '다른 물건이 왔거나 망가졌어요',
+              issue: '주문한 것과 다른 상품이 왔거나 망가진 상태로 도착했습니다.',
+            ),
+            (
+              label: '환불해 준다더니 돈이 안 들어와요',
+              issue: '판매자가 환불을 약속했지만 아직 입금되지 않았습니다.',
+            ),
+          ],
+        ReloLocale.ja => const [
+            (
+              label: '商品が届きません',
+              issue: 'The order is marked as delivered, but I never received it.',
+            ),
+            (
+              label: '違う商品が届いた・壊れていた',
+              issue: 'I received a different item, or it arrived damaged.',
+            ),
+            (
+              label: '返金すると言われたのに入金がない',
+              issue: 'The seller promised a refund, but I have not received it.',
+            ),
+          ],
+        ReloLocale.zh => const [
+            (
+              label: '没收到货',
+              issue: 'The order is marked as delivered, but I never received it.',
+            ),
+            (
+              label: '发错货或商品损坏',
+              issue: 'I received a different item, or it arrived damaged.',
+            ),
+            (
+              label: '说好退款却没到账',
+              issue: 'The seller promised a refund, but I have not received it.',
+            ),
+          ],
+        ReloLocale.en => const [
+            (
+              label: 'My order never arrived',
+              issue: 'The order is marked as delivered, but I never received it.',
+            ),
+            (
+              label: 'Wrong or damaged item',
+              issue: 'I received a different item, or it arrived damaged.',
+            ),
+            (
+              label: 'Refund promised but not paid',
+              issue: 'The seller promised a refund, but I have not received it.',
+            ),
+          ],
+      };
+
+  String get homeFirstReceipt => switch (locale) {
+        ReloLocale.ko => '영수증으로 시작하기',
+        ReloLocale.en => 'Start from a receipt',
+        ReloLocale.ja => '領収書から始める',
+        ReloLocale.zh => '用收据开始',
+      };
+
+  // ── 내 환불 ─────────────────────────────────────────────────────────
+
+  String get claimsAsk => switch (locale) {
+        ReloLocale.ko => 'ReLo에게 물어보기',
+        ReloLocale.en => 'Ask ReLo',
+        ReloLocale.ja => 'ReLoに聞く',
+        ReloLocale.zh => '问问 ReLo',
+      };
+
+  /// 내 환불 맨 위, 말랑이의 한 줄 요약
+  String claimsSummary(int inFlight, int replied) => switch (locale) {
+        ReloLocale.ko => inFlight == 0
+            ? '지금 진행 중인 환불은 없어요.'
+            : replied > 0
+                ? '$inFlight건이 진행 중이에요. $replied건은 답장이 와 있어요.'
+                : '$inFlight건이 진행 중이에요.',
+        ReloLocale.ja => inFlight == 0
+            ? '進行中の返金はありません。'
+            : replied > 0
+                ? '$inFlight件が進行中です。$replied件は返信が届いています。'
+                : '$inFlight件が進行中です。',
+        ReloLocale.zh => inFlight == 0
+            ? '目前没有进行中的退款。'
+            : replied > 0
+                ? '$inFlight笔正在进行，其中$replied笔已有回复。'
+                : '$inFlight笔正在进行。',
+        ReloLocale.en => inFlight == 0
+            ? 'No refunds in progress.'
+            : replied > 0
+                ? '$inFlight in progress. $replied ${replied == 1 ? 'has' : 'have'} a reply waiting.'
+                : '$inFlight in progress.',
+      };
+
+  String get homeIdle => switch (locale) {
+        ReloLocale.ko => '지금 진행 중인 환불은 없어요. 새로 돌려받을 게 생기면 말해 주세요.',
+        ReloLocale.en =>
+          'No refunds in progress. Tell me when there is something to get back.',
+        ReloLocale.ja => '進行中の返金はありません。返金が必要になったら教えてください。',
+        ReloLocale.zh => '目前没有进行中的退款。有需要退款的订单时告诉我。',
+      };
 }

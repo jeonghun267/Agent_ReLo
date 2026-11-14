@@ -55,6 +55,15 @@ class ReloPalette {
     required this.dangerSoft,
   });
 
+  /// 바탕 위에 바로 놓는 면 (입력칸 · 아이콘 타일 · 보조 버튼 · 물어보기 칸 · 말풍선 · 탭 바).
+  /// 바탕과 구분되려면 다크에서는 한 단계 밝아야 하고, 라이트에서는 한 단계 어두워야 한다.
+  /// (라이트의 카드 색은 흰색이라 거의 흰 바탕 위에서는 보이지 않는다)
+  Color get raised => isDark ? surface : const Color(0xFFECEFF3);
+
+  /// [raised] 면 안에 다시 놓는 면 (상자 안의 아이콘 타일 · 입력칸 안의 보내기 버튼).
+  /// 다크에서는 움푹한 색, 라이트에서는 흰색.
+  Color get inset => isDark ? sunken : surface;
+
   /// 사용자가 승인한 실배포 미드나잇 다크 블루 팔레트 (명도 대비 7.1:1 이상 개선 완료)
   static const ReloPalette dark = ReloPalette(
     isDark: true,
