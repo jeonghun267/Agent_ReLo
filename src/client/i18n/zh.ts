@@ -25,6 +25,7 @@ export const zhMessages: TranslationDictionary = {
 		login: "登录",
 		applyCta: "立即申请退款",
 		userSuffix: "",
+		verifyNoticeShort: "邮箱尚未验证",
 		verifyNoticePrefix: "为及时接收退款进度通知，请查收",
 		verifyNoticeSuffix: "邮箱。",
 		resendVerify: "重新发送验证邮件",
@@ -37,11 +38,12 @@ export const zhMessages: TranslationDictionary = {
 		titleHighlight: "不懂外语也能轻松退回您的银行卡。",
 		subtitle:
 			"从自动识别订单小票、遮挡快递单家庭住址、生成发给海外商城的外语申请，到核对银行卡真实到账，一站式轻松搞定。",
+		subtitleShort: "从上传小票到核对退款到账，一站搞定。",
 		primaryCta: "3分钟快速申请退款",
 		secondaryWallet: "查看我的退款记录",
 		secondaryGlobe: "查看全球退款航线",
 		trust1: "支持8国货币精准换算",
-		trust2: "10MB凭证照片加密隔离保存",
+		trust2: "10MB凭证照片隔离保存",
 		trust3: "核对银行卡真实退款，不怕口头承诺",
 	},
 	malls: {
@@ -104,6 +106,9 @@ export const zhMessages: TranslationDictionary = {
 		eyebrow: "滑动查看3分钟解决流程",
 		headline: "繁琐步骤，在一部手机里自动完成",
 		scrollHint: "向下滚动页面，核心功能卡片将立体浮现",
+		rowPromised: "承诺金额",
+		rowActual: "实际退款到账",
+		myWordsSample: "“打开箱子发现边角破了。”",
 		scenes: [
 			{
 				step: "01",
@@ -221,8 +226,8 @@ export const zhMessages: TranslationDictionary = {
 				subtitle: "遮挡住址·突出瑕疵",
 				badge: "裁剪照片",
 				guide: "裁掉带有家庭住址的快递标签，只把破裂或划痕部位清晰留存。",
-				previewTitle: "专属加密相册（最大 10MB）",
-				sample: "[裁剪完成] 边角破损特写.png (1.4 MB · 仅限您本人账号加密查看)",
+				previewTitle: "专属相册（最大 10MB）",
+				sample: "[裁剪完成] 边角破损特写.png (1.4 MB · 仅限您本人账号查看)",
 				points: [
 					"用鼠标或手指轻松框选需要保留的区域",
 					"上传的照片仅您本人登录账号可见",
@@ -278,19 +283,21 @@ export const zhMessages: TranslationDictionary = {
 		],
 	},
 	simulator: {
-		eyebrow: "预计可退金额计算器",
+		eyebrow: "先试填一份退款申请",
 		title: "出问题的海淘商品花了多少钱？",
 		subtitle: "可直接带着您选择的商城与金额进入申请页面。",
 		mallLabel: "购买商城",
 		issueLabel: "遇到了什么问题？",
 		priceLabel: "实付金额",
 		previewBadge: "自动生成的英文申请预览",
-		barSolo: "自己用普通翻译沟通时",
-		barRelo: "使用 ReLo 规范申请时",
-		expectedLabel: "预计退回金额",
-		completenessLabel: "材料完整度",
-		extraTitle: "相比独自摸索，预计可多挽回的退款金额",
-		extraSuffix: "更有保障",
+		summaryTitle: "按这些条件生成的申请",
+		requestLabel: "申请金额",
+		rowIssue: "问题",
+		rowKind: "解决方式",
+		kindRefund: "退款",
+		kindExchange: "换货",
+		nextTitle: "申请后的流程",
+		nextSteps: ["上传小票和照片", "复制外语申请发给商城", "核对退款到账并记录"],
 		applyWithPreset: "按此条件立即申请",
 		scenarios: {
 			damaged: {
@@ -315,7 +322,7 @@ export const zhMessages: TranslationDictionary = {
 	},
 	footer: {
 		sloganLine1: "从海淘拆箱到退款入账",
-		sloganLine2: "终于，一个 ReLo 就够了。",
+		sloganLine2: "ReLo 陪你跟到底。",
 		colService: "服务指南",
 		serviceLinks: [
 			{ label: "服务介绍首页", to: "/" },
@@ -336,9 +343,9 @@ export const zhMessages: TranslationDictionary = {
 		colSupport: "使用帮助",
 		supportLinks: [
 			{ label: "5步流程图解", to: "/#interactive-tour" },
-			{ label: "退款金额计算器", to: "/#refund-calculator" },
+			{ label: "退款申请预览", to: "/#refund-calculator" },
 			{ label: "全球退款航线", to: "/#global-network" },
-			{ label: "10MB照片加密说明", to: "/settings" },
+			{ label: "10MB照片保管说明", to: "/settings" },
 		],
 		colAccount: "账户管理",
 		accountLinks: [

@@ -186,7 +186,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 							<span className="rounded-lg bg-[#f2f4f6] px-2 py-0.5 text-[11px] font-extrabold text-[#333d4b]">
 								{claim.currency}
 							</span>
-							<Badge tone="brand">
+							<Badge tone={claim.state === "disputed" ? "danger" : "neutral"}>
 								{config?.states[claim.state] ?? claim.state}
 							</Badge>
 							<span className="text-xs font-medium text-relo-muted">

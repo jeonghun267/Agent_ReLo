@@ -25,6 +25,7 @@ export const enMessages: TranslationDictionary = {
 		login: "Log in",
 		applyCta: "Start Refund",
 		userSuffix: "",
+		verifyNoticeShort: "Email not verified yet",
 		verifyNoticePrefix: "To receive refund alerts, please check",
 		verifyNoticeSuffix: "your inbox.",
 		resendVerify: "Resend email",
@@ -37,6 +38,8 @@ export const enMessages: TranslationDictionary = {
 		titleHighlight: "Get refunded to your bank without foreign languages.",
 		subtitle:
 			"Auto-fill your order receipt, hide your home address on box photos, generate polite store messages, and verify actual card refunds—all in one place.",
+		subtitleShort:
+			"From dropping in your receipt to confirming the card refund, all in one place.",
 		primaryCta: "Start Refund in 3 Minutes",
 		secondaryWallet: "View My Refunds",
 		secondaryGlobe: "Explore Global Routes",
@@ -104,6 +107,9 @@ export const enMessages: TranslationDictionary = {
 		eyebrow: "3-Minute Guided Walkthrough",
 		headline: "Every tricky step happens right inside your phone",
 		scrollHint: "Scroll down to watch each 3D step pop out of the screen",
+		rowPromised: "Promised",
+		rowActual: "Card refund",
+		myWordsSample: "“I opened the box and a corner was cracked.”",
 		scenes: [
 			{
 				step: "01",
@@ -112,7 +118,7 @@ export const enMessages: TranslationDictionary = {
 				titleLine1: "Long foreign order receipt?",
 				titleLine2: "Just drop a single screenshot.",
 				description:
-					"No need to type long order numbers or item names by hand. Upload a screenshot or PDF to fill every field automatically while trimming out your home address and phone number.",
+					"No need to type long order numbers or item names by hand. Upload a screenshot or PDF to fill every field automatically, and trim out your home address and phone number with the built-in crop tool.",
 				screenHeader: "Smart Receipt Reader",
 				screenStatus: "Auto-Filled",
 				screenSubTitle: "Detected Order Details",
@@ -224,7 +230,7 @@ export const enMessages: TranslationDictionary = {
 					"Trim away shipping labels with your home address and highlight only the cracked or scratched area.",
 				previewTitle: "Private Photo Vault (Up to 10MB)",
 				sample:
-					"[Trimmed] cracked_corner_photo.png (1.4 MB · Encrypted & visible only to your account)",
+					"[Trimmed] cracked_corner_photo.png (1.4 MB · visible only to your account)",
 				points: [
 					"Drag a simple box around the damaged spot",
 					"Strictly isolated to your signed-in account",
@@ -281,7 +287,7 @@ export const enMessages: TranslationDictionary = {
 		],
 	},
 	simulator: {
-		eyebrow: "Expected Refund Calculator",
+		eyebrow: "Try a Refund Request",
 		title: "How much was the overseas order with an issue?",
 		subtitle:
 			"Open the refund form right away with your selected store and amount.",
@@ -289,12 +295,18 @@ export const enMessages: TranslationDictionary = {
 		issueLabel: "What went wrong?",
 		priceLabel: "Order Amount Paid",
 		previewBadge: "Live English Request Preview",
-		barSolo: "Asking alone with a basic translator",
-		barRelo: "Applying step-by-step with ReLo",
-		expectedLabel: "Expected Refund",
-		completenessLabel: "Readiness",
-		extraTitle: "Extra refund value protected compared to doing it alone",
-		extraSuffix: "better protected",
+		summaryTitle: "Your request with these choices",
+		requestLabel: "Amount to request",
+		rowIssue: "Issue",
+		rowKind: "Resolution",
+		kindRefund: "Refund",
+		kindExchange: "Exchange",
+		nextTitle: "What happens next",
+		nextSteps: [
+			"Add your receipt and photos",
+			"Copy the message and send it to the store",
+			"Check the card refund and record it",
+		],
 		applyWithPreset: "Start Refund With These Details",
 		scenarios: {
 			damaged: {
@@ -322,7 +334,7 @@ export const enMessages: TranslationDictionary = {
 	},
 	footer: {
 		sloganLine1: "From overseas unboxing to card refund,",
-		sloganLine2: "finally all in ReLo.",
+		sloganLine2: "ReLo sees it through with you.",
 		colService: "Service",
 		serviceLinks: [
 			{ label: "Overview Home", to: "/" },
@@ -343,7 +355,7 @@ export const enMessages: TranslationDictionary = {
 		colSupport: "Customer Guide",
 		supportLinks: [
 			{ label: "5-Step Refund Guide", to: "/#interactive-tour" },
-			{ label: "Refund Calculator", to: "/#refund-calculator" },
+			{ label: "Refund Request Preview", to: "/#refund-calculator" },
 			{ label: "Global Flight Routes", to: "/#global-network" },
 			{ label: "10MB Photo Privacy", to: "/settings" },
 		],

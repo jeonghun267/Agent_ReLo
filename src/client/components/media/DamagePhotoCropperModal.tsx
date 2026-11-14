@@ -138,7 +138,7 @@ export function DamagePhotoCropperModal({
 					>
 						<div className="mb-4 flex items-start justify-between gap-3">
 							<div>
-								<span className="inline-flex items-center gap-1 rounded-full bg-relo-brand-soft px-2.5 py-0.5 text-xs font-bold text-relo-brand">
+								<span className="inline-flex items-center gap-1 text-xs font-bold text-relo-brand">
 									<Crop className="h-3.5 w-3.5" aria-hidden="true" />
 									<span>집 주소 가리고 필요한 부분만 자르기</span>
 								</span>

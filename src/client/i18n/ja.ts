@@ -25,6 +25,7 @@ export const jaMessages: TranslationDictionary = {
 		login: "ログイン",
 		applyCta: "返金を申請する",
 		userSuffix: "様",
+		verifyNoticeShort: "メール認証がまだです",
 		verifyNoticePrefix: "返金状況のお知らせを受け取るには",
 		verifyNoticeSuffix: "の受信箱をご確認ください。",
 		resendVerify: "確認メールを再送",
@@ -37,6 +38,8 @@ export const jaMessages: TranslationDictionary = {
 		titleHighlight: "外国語がわからなくても口座へしっかり返金。",
 		subtitle:
 			"注文レシートの自動入力から自宅住所の切り取り、海外ショップへ送る外国語メッセージの作成、実際のカード返金確認までひとつで簡単に完結します。",
+		subtitleShort:
+			"レシートの取り込みから実際のカード返金確認まで、ひとつで完結。",
 		primaryCta: "今すぐ3分で返金を申請する",
 		secondaryWallet: "返金履歴を見る",
 		secondaryGlobe: "世界の返金ルートを見る",
@@ -105,6 +108,9 @@ export const jaMessages: TranslationDictionary = {
 		headline: "面倒な手続きはすべてスマホの中で完結します",
 		scrollHint:
 			"下にスクロールすると、画面からステップカードが立体的に浮かび上がります",
+		rowPromised: "約束の金額",
+		rowActual: "実際のカード返金",
+		myWordsSample: "「箱を開けたら角が割れていました。」",
 		scenes: [
 			{
 				step: "01",
@@ -226,7 +232,7 @@ export const jaMessages: TranslationDictionary = {
 					"配送シールの自宅住所は切り取り、割れたり傷ついたりした部分だけを鮮明に残します。",
 				previewTitle: "専用の写真保管ボックス（最大10MB）",
 				sample:
-					"[切り抜き完了] 角の破損写真.png (1.4 MB · ご本人のアカウントのみで暗号化保管)",
+					"[切り抜き完了] 角の破損写真.png (1.4 MB · ご本人のアカウントのみで閲覧可能)",
 				points: [
 					"指やマウスで必要な部分だけを四角く選択",
 					"アップロードした写真はご本人のみ閲覧可能",
@@ -283,19 +289,25 @@ export const jaMessages: TranslationDictionary = {
 		],
 	},
 	simulator: {
-		eyebrow: "戻ってくる金額シミュレーター",
+		eyebrow: "返金申請を試しに作ってみる",
 		title: "トラブルがあった海外通販の金額はいくらですか？",
 		subtitle: "選んだショップと金額のまま、すぐに申請画面を開けます。",
 		mallLabel: "購入したショップ",
 		issueLabel: "どんな問題がありましたか？",
 		priceLabel: "支払った金額",
 		previewBadge: "自動作成される英語メッセージの例",
-		barSolo: "翻訳アプリだけで問い合わせる場合",
-		barRelo: "ReLoでしっかり準備して申請する場合",
-		expectedLabel: "予想返金額",
-		completenessLabel: "準備の充実度",
-		extraTitle: "ひとりで悩むより守れる見込みの追加返金額",
-		extraSuffix: "しっかり守れます",
+		summaryTitle: "この条件で作られる申請",
+		requestLabel: "請求する金額",
+		rowIssue: "問題",
+		rowKind: "解決方法",
+		kindRefund: "返金",
+		kindExchange: "交換",
+		nextTitle: "申請後の流れ",
+		nextSteps: [
+			"レシートと写真を追加",
+			"メッセージをコピーしてショップへ送信",
+			"カード返金・入金を確認して記録",
+		],
 		applyWithPreset: "この条件ですぐ申請する",
 		scenarios: {
 			damaged: {
@@ -322,7 +334,7 @@ export const jaMessages: TranslationDictionary = {
 	},
 	footer: {
 		sloganLine1: "海外通販の開封から返金の入金まで",
-		sloganLine2: "ついに、ReLo ひとつで。",
+		sloganLine2: "ReLoが最後まで一緒に。",
 		colService: "サービス案内",
 		serviceLinks: [
 			{ label: "サービス紹介ホーム", to: "/" },
@@ -343,9 +355,9 @@ export const jaMessages: TranslationDictionary = {
 		colSupport: "ご利用ガイド",
 		supportLinks: [
 			{ label: "5ステップ進行ガイド", to: "/#interactive-tour" },
-			{ label: "返金額シミュレーター", to: "/#refund-calculator" },
+			{ label: "返金申請プレビュー", to: "/#refund-calculator" },
 			{ label: "世界の返金ルート", to: "/#global-network" },
-			{ label: "10MB写真の暗号化案内", to: "/settings" },
+			{ label: "10MB写真の保管案内", to: "/settings" },
 		],
 		colAccount: "アカウント管理",
 		accountLinks: [
@@ -360,7 +372,7 @@ export const jaMessages: TranslationDictionary = {
 		companyInfoLine1:
 			"ReLo（リロ）海外通販 消費者返金サポート  |  対応通貨: USD · EUR · JPY · CNY · KRW · GBP · CAD · AUD",
 		companyInfoLine2:
-			"注文レシートと不良写真（最大10MB）はご本人のアカウントにのみ分離・暗号化保管され、設定からいつでも即時削除できます。",
+			"注文レシートと不良写真（最大10MB）はご本人のアカウントにのみ分離して保管され、設定からいつでも即時削除できます。",
 		privacyBold: "プライバシーポリシー",
 		terms: "利用規約",
 		dataSafety: "写真データ保護方針",

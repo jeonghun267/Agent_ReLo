@@ -1,36 +1,19 @@
 /**
  * @module client/features/landing/RefundSimulatorSection
- * @layer View (Interactive Expected Refund Calculator)
- * @purpose Lets consumers estimate protected refund value across USD, EUR, JPY, and KRW
- *          using a unified Toss Blue + Slate palette and launch the 3-minute wizard.
+ * @layer View (Interactive Refund Request Preview)
+ * @purpose Lets consumers pick a store, a problem, and the amount they paid (USD, EUR,
+ *          JPY, KRW), shows the request those choices produce, and launches the wizard
+ *          with them filled in. It only echoes what the visitor chose: no success
+ *          rates or "expected refund" figures, because we have no data behind them.
  */
 
-import {
-	ArcElement,
-	BarElement,
-	CategoryScale,
-	Chart as ChartJS,
-	Legend,
-	LinearScale,
-	Tooltip,
-} from "chart.js";
 import { ArrowRight, Languages } from "lucide-react";
 import { motion } from "motion/react";
 import { useId, useMemo, useState } from "react";
-import { Bar, Doughnut } from "react-chartjs-2";
 import { NumberTicker } from "@/client/components/effects/InteractivePrimitives";
 import { Button, Card } from "@/client/components/ui/Primitives";
 import { useI18n } from "@/client/i18n";
 import type { ClaimKind, CurrencyCode } from "@/client/types";
-
-ChartJS.register(
-	CategoryScale,
-	LinearScale,
-	BarElement,
-	ArcElement,
-	Tooltip,
-	Legend,
-);
 
 interface SimulatorMallOption {
 	label: string;
@@ -112,8 +95,6 @@ export function RefundSimulatorSection({
 				id: "damaged" as const,
 				label: t.simulator.scenarios.damaged.label,
 				kind: "refund" as ClaimKind,
-				soloRate: 0.52,
-				reloRate: 0.96,
 				issue: t.simulator.scenarios.damaged.issue,
 				englishSnippet:
 					"The item arrived visibly damaged upon delivery, as shown in the attached defect photos.",
@@ -122,8 +103,6 @@ export function RefundSimulatorSection({
 				id: "wrong" as const,
 				label: t.simulator.scenarios.wrong.label,
 				kind: "refund" as ClaimKind,
-				soloRate: 0.58,
-				reloRate: 0.98,
 				issue: t.simulator.scenarios.wrong.issue,
 				englishSnippet:
 					"The delivered item does not match the ordered option on the receipt, and accessories are missing.",
@@ -132,8 +111,6 @@ export function RefundSimulatorSection({
 				id: "defect" as const,
 				label: t.simulator.scenarios.defect.label,
 				kind: "exchange" as ClaimKind,
-				soloRate: 0.45,
-				reloRate: 0.92,
 				issue: t.simulator.scenarios.defect.issue,
 				englishSnippet:
 					"The unit fails to power on out of the box despite following the official instructions.",
@@ -150,42 +127,18 @@ export function RefundSimulatorSection({
 		setAmount(next.defaultAmount);
 	};
 
-	const soloExpected = Math.round(amount * scenario.soloRate);
-	const reloExpected = Math.round(amount * scenario.reloRate);
-	const extraSaved = Math.max(0, reloExpected - soloExpected);
-
-	const barData = useMemo(
-		() => ({
-			labels: [t.simulator.barSolo, t.simulator.barRelo],
-			datasets: [
-				{
-					label: `${t.simulator.expectedLabel} (${mall.currency})`,
-					data: [soloExpected, reloExpected],
-					backgroundColor: ["#cbd5e1", "#1b64da"],
-					borderRadius: 12,
-					barThickness: 44,
-				},
-			],
-		}),
-		[t, mall.currency, soloExpected, reloExpected],
-	);
-
-	const doughnutData = useMemo(
-		() => ({
-			labels: [t.simulator.expectedLabel, " Gap"],
-			datasets: [
-				{
-					data: [
-						Math.round(scenario.reloRate * 100),
-						Math.round((1 - scenario.reloRate) * 100),
-					],
-					backgroundColor: ["#1b64da", "#e2e8f0"],
-					borderWidth: 0,
-				},
-			],
-		}),
-		[t, scenario.reloRate],
-	);
+	// The request these choices produce: exactly what the visitor picked, nothing estimated.
+	const summaryRows = [
+		{ label: t.simulator.mallLabel, value: mall.vendor },
+		{ label: t.simulator.rowIssue, value: scenario.label },
+		{
+			label: t.simulator.rowKind,
+			value:
+				scenario.kind === "exchange"
+					? t.simulator.kindExchange
+					: t.simulator.kindRefund,
+		},
+	];
 
 	return (
 		<section id="refund-calculator" className="bg-white py-24 sm:py-32">
@@ -309,83 +262,76 @@ export function RefundSimulatorSection({
 							</div>
 						</div>
 
-						{/* Live Chart.js Visualizations (Unified Toss Blue + Slate) */}
-						<div className="flex flex-col justify-between rounded-3xl border border-relo-line bg-white p-5 lg:col-span-6">
-							<div className="grid grid-cols-1 gap-4 sm:grid-cols-12 sm:items-center">
-								<div className="h-52 sm:col-span-8">
-									<Bar
-										aria-label={t.simulator.title}
-										data={barData}
-										options={{
-											responsive: true,
-											maintainAspectRatio: false,
-											plugins: { legend: { display: false } },
-											scales: {
-												y: {
-													beginAtZero: true,
-													grid: { color: "rgba(203, 213, 225, 0.35)" },
-												},
-												x: { grid: { display: false } },
-											},
-										}}
+						{/* Request preview: the choices on the left, laid out as the request they become */}
+						<div className="flex flex-col justify-between rounded-3xl border border-relo-line bg-white p-6 lg:col-span-6">
+							<div>
+								<p className="text-xs font-bold text-relo-brand">
+									{t.simulator.summaryTitle}
+								</p>
+								<p className="mt-4 text-xs font-semibold text-relo-muted">
+									{t.simulator.requestLabel}
+								</p>
+								<p className="mt-1 flex items-baseline gap-2 text-[40px] leading-none font-extrabold tracking-[-0.03em] text-relo-ink tabular-nums">
+									<NumberTicker
+										value={amount}
+										prefix={mall.symbol}
+										decimals={0}
 									/>
-								</div>
+									<span className="text-base font-bold tracking-normal text-relo-muted">
+										{mall.currency}
+									</span>
+								</p>
 
-								<div className="flex flex-col items-center justify-center sm:col-span-4">
-									<div className="relative h-28 w-28">
-										<Doughnut
-											aria-label={`${t.simulator.completenessLabel} ${Math.round(scenario.reloRate * 100)}%`}
-											data={doughnutData}
-											options={{
-												cutout: "74%",
-												plugins: { legend: { display: false } },
-											}}
-										/>
-										<div className="pointer-events-none absolute inset-0 flex flex-col items-center justify-center">
-											<span className="text-lg font-extrabold text-relo-brand tabular-nums">
-												{Math.round(scenario.reloRate * 100)}%
-											</span>
-											<span className="text-[10px] font-bold text-relo-muted">
-												{t.simulator.completenessLabel}
-											</span>
+								<dl className="mt-6 divide-y divide-relo-line border-y border-relo-line text-sm">
+									{summaryRows.map((row) => (
+										<div
+											key={row.label}
+											className="flex items-center justify-between gap-4 py-3"
+										>
+											<dt className="text-relo-muted">{row.label}</dt>
+											<dd className="text-right font-bold text-relo-ink">
+												{row.value}
+											</dd>
 										</div>
-									</div>
-								</div>
+									))}
+								</dl>
+
+								<p className="mt-6 text-xs font-semibold text-relo-muted">
+									{t.simulator.nextTitle}
+								</p>
+								<ol className="mt-2.5 space-y-2.5">
+									{t.simulator.nextSteps.map((step, idx) => (
+										<li
+											key={step}
+											className="flex items-center gap-2.5 text-sm font-medium text-relo-body"
+										>
+											<span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-relo-brand-soft text-[11px] font-bold text-relo-brand tabular-nums">
+												{idx + 1}
+											</span>
+											<span>{step}</span>
+										</li>
+									))}
+								</ol>
 							</div>
 
-							<div className="mt-5 rounded-2xl bg-[#f4f6f9] p-4">
-								<div className="flex flex-wrap items-center justify-between gap-3">
-									<div>
-										<p className="text-xs font-bold text-relo-muted">
-											{t.simulator.extraTitle}
-										</p>
-										<p className="mt-0.5 text-xl font-extrabold text-relo-brand">
-											+{" "}
-											<NumberTicker
-												value={extraSaved}
-												prefix={mall.symbol}
-												decimals={0}
-											/>{" "}
-											{t.simulator.extraSuffix}
-										</p>
-									</div>
-									<Button
-										variant="primary"
-										size="md"
-										onClick={() =>
-											onLaunchWithPreset({
-												vendor: mall.vendor,
-												currency: mall.currency,
-												amount: String(amount),
-												kind: scenario.kind,
-												issue: scenario.issue,
-											})
-										}
-									>
-										<span>{t.simulator.applyWithPreset}</span>
-										<ArrowRight className="h-4 w-4" aria-hidden="true" />
-									</Button>
-								</div>
+							<div className="mt-7">
+								<Button
+									variant="primary"
+									size="lg"
+									fullWidth
+									onClick={() =>
+										onLaunchWithPreset({
+											vendor: mall.vendor,
+											currency: mall.currency,
+											amount: String(amount),
+											kind: scenario.kind,
+											issue: scenario.issue,
+										})
+									}
+								>
+									<span>{t.simulator.applyWithPreset}</span>
+									<ArrowRight className="h-4 w-4" aria-hidden="true" />
+								</Button>
 							</div>
 						</div>
 					</div>

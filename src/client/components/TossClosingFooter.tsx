@@ -1,17 +1,59 @@
 /**
  * @module client/components/TossClosingFooter
  * @layer View (Global Atmospheric Sitemap Footer)
- * @purpose Toss-inspired twilight slate-navy closing footer featuring orbital horizon arcs,
- *          a 2-line closing statement, a 4-column structured directory, 4-language switcher,
- *          and bold privacy/consumer protection policies across desktop and mobile.
+ * @purpose Two footers. The landing page gets the full twilight slate-navy closing footer
+ *          (orbital horizon arcs, a 2-line closing statement, a 5-column directory, the
+ *          4-language switcher, policies). Every other page is a working screen (my refunds,
+ *          a claim, the wizard, settings, sign-in), where a footer taller than the screen
+ *          buried the content, so those get one compact row: who we are and the policies.
  */
 
 import { ShieldCheck } from "lucide-react";
 import { LanguageSwitcher, useI18n } from "@/client/i18n";
 import { AppLink } from "@/client/lib/router";
 
-export function TossClosingFooter() {
+/** One quiet row for working screens: service line on the left, policy links on the right. */
+function CompactFooter() {
 	const { t } = useI18n();
+	const links = [
+		{ to: "/settings", label: t.footer.privacyBold, strong: true },
+		{ to: "/settings", label: t.footer.terms, strong: false },
+		{ to: "/settings", label: t.footer.dataSafety, strong: false },
+		{ to: "/#why-relo", label: t.footer.disputeNotice, strong: false },
+	];
+
+	return (
+		<footer
+			data-testid="relo-global-footer"
+			className="border-t border-relo-line bg-white"
+		>
+			{/* Extra bottom space on small screens keeps the row clear of the fixed tab bar */}
+			<div className="mx-auto flex max-w-6xl flex-col gap-3 px-5 pt-6 pb-24 text-xs leading-relaxed text-relo-muted sm:px-6 md:flex-row md:items-center md:justify-between md:gap-8 md:pb-6">
+				<p className="text-pretty">{t.footer.companyInfoLine1}</p>
+				<div className="flex shrink-0 flex-wrap items-center gap-x-4 gap-y-1.5">
+					{links.map((link) => (
+						<AppLink
+							key={link.label}
+							to={link.to}
+							className={
+								link.strong
+									? "font-bold text-relo-ink hover:underline"
+									: "transition-colors hover:text-relo-ink hover:underline"
+							}
+						>
+							{link.label}
+						</AppLink>
+					))}
+				</div>
+			</div>
+		</footer>
+	);
+}
+
+export function TossClosingFooter({ compact = false }: { compact?: boolean }) {
+	const { t } = useI18n();
+
+	if (compact) return <CompactFooter />;
 
 	return (
 		<footer

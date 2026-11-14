@@ -1,6 +1,7 @@
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
+import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../shared/models/domain_models.dart';
@@ -28,14 +29,17 @@ class MyClaimsScreen extends StatefulWidget {
 }
 
 class _MyClaimsScreenState extends State<MyClaimsScreen> {
+  /// 지금 언어의 문구
+  ReloStrings get _s => ReloScope.of(context).strings;
+
   final _searchCtrl = TextEditingController();
   bool _searching = false;
 
   // 단계별 필터 대신 셋만: 전체 · 진행 중 · 입금 완료 (스토어의 'open' · 'done')
-  static const List<({String id, String label})> _filterTabs = [
-    (id: '', label: '전체'),
-    (id: 'open', label: '진행 중'),
-    (id: 'done', label: '입금 완료'),
+  List<({String id, String label})> get _filterTabs => [
+    (id: '', label: _s.mcAll),
+    (id: 'open', label: _s.mcOpen),
+    (id: 'done', label: _s.mcDone),
   ];
 
   @override
@@ -214,26 +218,38 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                   padding: const EdgeInsets.symmetric(horizontal: 20),
                   child: Row(
                     children: [
-                      if (!store.showTrash)
-                        for (final tab in _filterTabs)
-                          ReloTextTab(
-                            label: tab.label,
-                            selected: store.stateFilter == tab.id,
-                            onTap: () => store.setFilter(state: tab.id),
-                          )
-                      else
-                        Text(
-                          '휴지통',
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w700,
-                            color: palette.ink,
+                      // 다른 언어에서 필터 이름이 길어져도 검색 · 휴지통 단추를 밀어내지 않게,
+                      // 필터 쪽만 남는 너비 안에서 옆으로 밀리게 한다
+                      Expanded(
+                        child: SingleChildScrollView(
+                          scrollDirection: Axis.horizontal,
+                          child: Row(
+                            children: [
+                              if (!store.showTrash)
+                                for (final tab in _filterTabs)
+                                  ReloTextTab(
+                                    label: tab.label,
+                                    selected: store.stateFilter == tab.id,
+                                    onTap: () =>
+                                        store.setFilter(state: tab.id),
+                                  )
+                              else
+                                Text(
+                                  _s.mcTrash,
+                                  style: TextStyle(
+                                    fontSize: 15,
+                                    fontWeight: FontWeight.w700,
+                                    color: palette.ink,
+                                  ),
+                                ),
+                            ],
                           ),
                         ),
-                      const Spacer(),
+                      ),
+                      const SizedBox(width: 8),
                       roundIcon(
                         icon: ReloIcons.search,
-                        label: _searching ? '검색 닫기' : '검색',
+                        label: _searching ? _s.mcSearchClose : _s.mcSearch,
                         on: _searching,
                         onTap: () => setState(() {
                           _searching = !_searching;
@@ -246,7 +262,7 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                       const SizedBox(width: 6),
                       roundIcon(
                         icon: ReloIcons.trash,
-                        label: store.showTrash ? '휴지통 닫기' : '휴지통 열기',
+                        label: store.showTrash ? _s.mcTrashClose : _s.mcTrashOpen,
                         on: store.showTrash,
                         onColor: palette.danger,
                         onTap: () => store.setFilter(trash: !store.showTrash),
@@ -263,7 +279,7 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                       onChanged: (v) => store.setFilter(query: v),
                       style: TextStyle(fontSize: 14, color: palette.ink),
                       decoration: InputDecoration(
-                        hintText: '상품명 · 쇼핑몰 · 주문번호',
+                        hintText: _s.mcSearchHint,
                         hintStyle:
                             TextStyle(fontSize: 13, color: palette.subtle),
                         prefixIcon: Icon(ReloIcons.search,
@@ -291,7 +307,7 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                     child: Column(
                       children: [
                         Text(
-                          store.showTrash ? '휴지통이 비어 있어요' : '아직 환불 신청이 없어요',
+                          store.showTrash ? _s.mcTrashEmpty : _s.mcEmpty,
                           style: TextStyle(
                             fontSize: 16,
                             fontWeight: FontWeight.w700,
@@ -301,7 +317,7 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
                         if (!store.showTrash) ...[
                           const SizedBox(height: 16),
                           ReloButton(
-                            text: '환불 신청 시작하기',
+                            text: _s.mcStart,
                             onPressed: () => store.navigateToTab(1),
                           ),
                         ],

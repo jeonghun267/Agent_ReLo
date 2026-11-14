@@ -4,6 +4,7 @@ import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
+import '../state/relo_store.dart';
 import 'relo_mascot.dart';
 import 'relo_icons.dart';
 
@@ -23,6 +24,9 @@ class ReloButton extends StatefulWidget {
   final double height;
   final String? semanticLabel;
 
+  /// 처리하는 중이면 true. 돌아가는 동그라미를 보여 주고, 다시 눌리지 않게 한다.
+  final bool busy;
+
   const ReloButton({
     super.key,
     required this.text,
@@ -33,6 +37,7 @@ class ReloButton extends StatefulWidget {
     this.icon,
     this.height = 52,
     this.semanticLabel,
+    this.busy = false,
   });
 
   @override
@@ -45,13 +50,14 @@ class _ReloButtonState extends State<ReloButton> {
   bool _hovered = false;
 
   void _trigger() {
+    if (widget.busy) return;
     widget.onPressed?.call();
   }
 
   @override
   Widget build(BuildContext context) {
     final palette = ReloPalette.of(context);
-    final disabled = widget.onPressed == null;
+    final disabled = widget.onPressed == null || widget.busy;
 
     Color bgColor;
     Color textColor;
@@ -114,14 +120,14 @@ class _ReloButtonState extends State<ReloButton> {
                 },
           onTapUp: disabled ? null : (_) => setState(() => _pressed = false),
           onTapCancel: disabled ? null : () => setState(() => _pressed = false),
-          onTap: widget.onPressed,
+          onTap: disabled ? null : widget.onPressed,
           child: AnimatedScale(
             scale: _pressed ? ReloMotion.pressScale : 1.0,
             duration: ReloMotion.press,
             curve: ReloMotion.enter,
             child: AnimatedOpacity(
               duration: const Duration(milliseconds: 120),
-              opacity: disabled ? 0.48 : 1.0,
+              opacity: widget.busy ? 0.78 : (disabled ? 0.48 : 1.0),
               child: Container(
                 height: widget.height,
                 padding: const EdgeInsets.symmetric(horizontal: 18),
@@ -144,7 +150,16 @@ class _ReloButtonState extends State<ReloButton> {
                   mainAxisAlignment: MainAxisAlignment.center,
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    if (widget.icon != null) ...[
+                    if (widget.busy) ...[
+                      SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: textColor,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                    ] else if (widget.icon != null) ...[
                       Icon(widget.icon, size: 18, color: textColor),
                       const SizedBox(width: 8),
                     ],
@@ -320,7 +335,7 @@ class ReloDdayText extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final label = DDay.label(deadline);
+    final label = ReloScope.of(context).strings.dday(deadline);
     if (label == null) return const SizedBox.shrink();
     final palette = ReloPalette.of(context);
     final overdue = (DDay.daysLeft(deadline) ?? 0) < 0;
@@ -420,6 +435,12 @@ class ReloTextField extends StatelessWidget {
   /// 칸의 면 색. 카드 안에서는 기본값(움푹한 면), 바탕 위에 바로 놓을 때는 카드 색을 준다.
   final Color? fillColor;
 
+  /// 고칠 것이 있으면 칸 아래에 빨간 글자로 보여 준다 (없으면 null)
+  final String? errorText;
+
+  /// 칠 수 있는 글자를 제한한다 (금액 칸은 숫자와 소수점만)
+  final List<TextInputFormatter>? inputFormatters;
+
   const ReloTextField({
     super.key,
     required this.label,
@@ -433,6 +454,8 @@ class ReloTextField extends StatelessWidget {
     this.onTap,
     this.trailingIcon,
     this.fillColor,
+    this.errorText,
+    this.inputFormatters,
   });
 
   @override
@@ -458,6 +481,7 @@ class ReloTextField extends StatelessWidget {
           onChanged: onChanged,
           readOnly: readOnly,
           onTap: onTap,
+          inputFormatters: inputFormatters,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -479,9 +503,12 @@ class ReloTextField extends StatelessWidget {
               vertical: 14,
             ),
             // 테두리는 포커스 때만 (DESIGN.md 2절: 면은 밝기 차이로 구분)
+            // 고칠 것이 있을 때만 빨간 테두리
             enabledBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
-              borderSide: BorderSide.none,
+              borderSide: errorText == null
+                  ? BorderSide.none
+                  : BorderSide(color: palette.danger, width: 1.5),
             ),
             focusedBorder: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
@@ -489,6 +516,20 @@ class ReloTextField extends StatelessWidget {
             ),
           ),
         ),
+        if (errorText != null) ...[
+          const SizedBox(height: 6),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              errorText!,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w600,
+                color: palette.danger,
+              ),
+            ),
+          ),
+        ],
       ],
     );
   }
@@ -896,7 +937,8 @@ class ReloConsentRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final p = ReloPalette.of(context);
-    final tag = isRequired ? '필수' : '선택';
+    final s = ReloScope.of(context).strings;
+    final tag = isRequired ? s.cmRequired : s.cmOptional;
     return Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -975,7 +1017,7 @@ class ReloConsentRow extends StatelessWidget {
           ),
         ),
         if (onViewDetail != null)
-          ReloTextAction(label: '보기', onTap: onViewDetail),
+          ReloTextAction(label: s.cmView, onTap: onViewDetail),
       ],
     );
   }

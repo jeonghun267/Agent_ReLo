@@ -1,9 +1,10 @@
 /**
  * @module client/features/landing/LandingPage
  * @layer View (B2C Consumer Homepage Composition)
- * @purpose Composes the Toss-inspired editorial hero, store marquee, real-continent 3D
- *          flight globe, sticky 3D smartphone storytelling, plain-language differentiator
- *          table, 5-step interactive map, and refund calculator across 4 languages.
+ * @purpose Composes the first screen (one sentence, one button, the real app screens),
+ *          the coverage strip with the store marquee, real-continent 3D flight globe,
+ *          sticky 3D smartphone storytelling, plain-language differentiator table,
+ *          5-step interactive map, and the refund request preview across 4 languages.
  */
 
 import { ArrowDown, ArrowRight, CheckCircle2 } from "lucide-react";
@@ -19,6 +20,7 @@ import {
 	type FlightCorridor,
 	GlobalRefundGlobe,
 } from "@/client/features/landing/GlobalRefundGlobe";
+import { HeroProductShowcase } from "@/client/features/landing/HeroProductShowcase";
 import { LandingFlowPlayground } from "@/client/features/landing/LandingFlowPlayground";
 import { RefundSimulatorSection } from "@/client/features/landing/RefundSimulatorSection";
 import { TossPhoneScenes } from "@/client/features/landing/TossPhoneScenes";
@@ -72,96 +74,102 @@ export function LandingPage() {
 
 	return (
 		<div className="bg-white">
-			{/* 1. Toss-Style Clean Editorial Hero */}
-			<InteractiveAuroraCanvas className="bg-white pt-14 pb-12 sm:pt-24 sm:pb-16">
+			{/* 1. First screen: one sentence, one button, and the real app screens.
+			       Everything else that used to sit here (badge, trust points, the quick link,
+			       the store marquee) now starts right below, in section 1-b. */}
+			<InteractiveAuroraCanvas className="bg-white pt-14 sm:pt-20">
 				<section className="mx-auto max-w-4xl px-4 text-center sm:px-6">
 					<motion.div
 						initial={{ opacity: 0, y: 18 }}
 						animate={{ opacity: 1, y: 0 }}
 						transition={{ duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
-						className="space-y-6"
+						className="space-y-5"
 					>
-						<p className="inline-flex items-center gap-2 rounded-full bg-relo-sunken px-4 py-1.5 text-xs font-semibold text-relo-body sm:text-sm">
-							<span
-								aria-hidden="true"
-								className="h-2 w-2 rounded-full bg-relo-brand"
-							/>
-							<span>{t.hero.badge}</span>
-						</p>
-
+						{/* Each line balances on its own, so narrow screens never leave one word alone.
+						    (Korean keeps words whole and Japanese/Chinese break normally: styles/index.css.) */}
 						<h1 className="text-[34px] leading-[1.18] font-bold tracking-[-0.04em] text-relo-ink sm:text-[56px]">
-							{t.hero.titleLine1}
-							<br />
-							<span className="text-relo-brand">{t.hero.titleHighlight}</span>
+							<span className="block text-balance">{t.hero.titleLine1}</span>
+							<span className="block text-balance text-relo-brand">
+								{t.hero.titleHighlight}
+							</span>
 						</h1>
 
-						<p className="mx-auto max-w-2xl text-[16px] leading-[1.68] text-relo-muted sm:text-[18px]">
-							{t.hero.subtitle}
+						<p className="mx-auto max-w-2xl text-[16px] leading-[1.6] text-pretty text-relo-muted sm:text-[18px]">
+							{t.hero.subtitleShort}
 						</p>
 
-						<div className="flex flex-col items-center justify-center gap-3 pt-2 sm:flex-row">
+						<div className="flex justify-center pt-2">
 							<MagneticWrap>
 								<Button
 									variant="primary"
 									size="lg"
 									onClick={() => launchWizardWithParams()}
-									className="w-full rounded-full px-8 text-[16px] shadow-[0_14px_30px_rgba(27,100,218,0.26)] sm:w-auto"
+									className="rounded-full px-8 text-[16px] shadow-[0_14px_30px_rgba(27,100,218,0.26)]"
 								>
 									<span>{t.hero.primaryCta}</span>
 									<ArrowRight className="h-4.5 w-4.5" aria-hidden="true" />
 								</Button>
 							</MagneticWrap>
-
-							{session?.user ? (
-								<Button
-									variant="secondary"
-									size="lg"
-									onClick={() => navigate("/claims")}
-									className="w-full rounded-full px-7 text-[15px] sm:w-auto"
-								>
-									<span>{t.hero.secondaryWallet}</span>
-								</Button>
-							) : (
-								<a
-									href="#global-network"
-									className="inline-flex min-h-13.5 items-center justify-center gap-1.5 rounded-full bg-relo-sunken px-6 text-[15px] font-semibold text-relo-body transition hover:bg-[#e5e8eb]"
-								>
-									<span>{t.hero.secondaryGlobe}</span>
-									<ArrowDown className="h-4 w-4" aria-hidden="true" />
-								</a>
-							)}
-						</div>
-
-						<div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 pt-4 text-xs font-medium text-relo-muted sm:text-sm">
-							<span className="inline-flex items-center gap-1.5">
-								<CheckCircle2
-									className="h-4 w-4 text-relo-brand"
-									aria-hidden="true"
-								/>
-								<span>{t.hero.trust1}</span>
-							</span>
-							<span className="inline-flex items-center gap-1.5">
-								<CheckCircle2
-									className="h-4 w-4 text-relo-brand"
-									aria-hidden="true"
-								/>
-								<span>{t.hero.trust2}</span>
-							</span>
-							<span className="inline-flex items-center gap-1.5">
-								<CheckCircle2
-									className="h-4 w-4 text-relo-brand"
-									aria-hidden="true"
-								/>
-								<span>{t.hero.trust3}</span>
-							</span>
 						</div>
 					</motion.div>
 				</section>
 
-				<div className="mx-auto mt-14 max-w-6xl px-4 sm:px-6">
+				<HeroProductShowcase />
+			</InteractiveAuroraCanvas>
+
+			{/* 1-b. What the service covers, the quick link, and the stores you can start from */}
+			<section className="border-t border-relo-line bg-white py-12 sm:py-14">
+				<div className="mx-auto max-w-4xl space-y-5 px-4 text-center sm:px-6">
+					<p className="inline-flex items-center gap-2 rounded-full bg-relo-sunken px-4 py-1.5 text-xs font-semibold text-relo-body sm:text-sm">
+						<span
+							aria-hidden="true"
+							className="h-2 w-2 rounded-full bg-relo-brand"
+						/>
+						<span>{t.hero.badge}</span>
+					</p>
+
+					<p className="mx-auto max-w-2xl text-[16px] leading-[1.68] text-pretty text-relo-muted sm:text-[18px]">
+						{t.hero.subtitle}
+					</p>
+
+					<div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-2 text-xs font-medium text-relo-muted sm:text-sm">
+						{[t.hero.trust1, t.hero.trust2, t.hero.trust3].map((point) => (
+							<span key={point} className="inline-flex items-center gap-1.5">
+								<CheckCircle2
+									className="h-4 w-4 text-relo-brand"
+									aria-hidden="true"
+								/>
+								<span>{point}</span>
+							</span>
+						))}
+					</div>
+
+					<div className="flex justify-center pt-1">
+						{session?.user ? (
+							<Button
+								variant="secondary"
+								size="lg"
+								onClick={() => navigate("/claims")}
+								className="rounded-full px-7 text-[15px]"
+							>
+								<span>{t.hero.secondaryWallet}</span>
+							</Button>
+						) : (
+							<a
+								href="#global-network"
+								className="inline-flex min-h-13.5 items-center justify-center gap-1.5 rounded-full bg-relo-sunken px-6 text-[15px] font-semibold text-relo-body transition hover:bg-[#e5e8eb]"
+							>
+								<span>{t.hero.secondaryGlobe}</span>
+								<ArrowDown className="h-4 w-4" aria-hidden="true" />
+							</a>
+						)}
+					</div>
+				</div>
+
+				<div className="mx-auto mt-10 max-w-6xl px-4 sm:px-6">
 					<MallMarquee onSelectMall={handleSelectMall} />
 				</div>
-			</InteractiveAuroraCanvas>
+			</section>
 
 			{/* 2. Real-Continent 3D Globe with Airplanes Flying into Seoul */}
 			<div id="global-network">

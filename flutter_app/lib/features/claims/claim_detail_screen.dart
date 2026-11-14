@@ -4,12 +4,15 @@ import 'package:flutter/services.dart';
 import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
+import '../../core/utils/input_rules.dart';
 import '../../core/utils/money_format.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
 import '../../shared/widgets/claim_row.dart';
+import '../../shared/widgets/evidence_source_sheet.dart';
 import '../../shared/widgets/relo_primitives.dart';
 import '../assistant/assistant_sheet.dart';
+import 'deadline_sheet.dart';
 import '../../shared/widgets/relo_icons.dart';
 
 /// @module features/claims/claim_detail_screen
@@ -32,15 +35,17 @@ class ClaimDetailScreen extends StatefulWidget {
 }
 
 class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
-  static const List<String> _tabs = ['메시지', '답장', '입금', '기록'];
+  /// 지금 언어의 문구
+  ReloStrings get _s => ReloScope.of(context).strings;
+
+  List<String> get _tabs => [_s.dTabMessage, _s.dTabReply, _s.dTabDeposit, _s.dTabHistory];
 
   int _activeTab = 0;
   bool _tabTaken = false;
 
   final _draftCtrl = TextEditingController();
-  final _submissionNoteCtrl = TextEditingController(
-    text: '쇼핑몰 고객센터 채팅/이메일로 전송 완료',
-  );
+  final _submissionNoteCtrl = TextEditingController();
+  bool _noteSeeded = false;
   bool _generatingDraft = false;
   bool _submittingDraft = false;
 
@@ -58,7 +63,11 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     text: DateTime.now().toIso8601String().substring(0, 10),
   );
   bool _recordingDeposit = false;
+  bool _addingFile = false;
   bool _showDepositConfetti = false;
+
+  /// 칸마다의 오류 (칸 아래 빨간 글자). 키: draft, reply, agreed, deposit, receivedOn
+  final Map<String, String> _fieldErrors = {};
   late final ConfettiController _confetti =
       ConfettiController(duration: ReloMotion.celebrate);
 
@@ -74,6 +83,11 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       _activeTab = store.pendingDetailSubTab ??
           (claim == null ? 0 : _tabForState(claim));
       store.pendingDetailSubTab = null;
+    }
+    // 보낸 곳 메모의 기본 글은 지금 언어로 한 번만 채운다
+    if (!_noteSeeded) {
+      _noteSeeded = true;
+      _submissionNoteCtrl.text = _s.dNoteDefault;
     }
     if (claim != null) {
       if (_draftCtrl.text.isEmpty && claim.drafts.isNotEmpty) {
@@ -134,6 +148,27 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
+  void _clearFieldError(String key) {
+    if (_fieldErrors.containsKey(key)) setState(() => _fieldErrors.remove(key));
+  }
+
+  /// 돈이 들어온 것을 확인한 날은 달력에서 고른다 (오늘까지만 고를 수 있다)
+  Future<void> _pickReceivedOn() async {
+    final now = DateTime.now();
+    final current = DateTime.tryParse(_receivedOnCtrl.text) ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: current.isAfter(now) ? now : current,
+      firstDate: DateTime(now.year - 3),
+      lastDate: now,
+    );
+    if (picked == null || !mounted) return;
+    setState(() {
+      _receivedOnCtrl.text = picked.toIso8601String().substring(0, 10);
+      _fieldErrors.remove('receivedOn');
+    });
+  }
+
   Future<void> _handleGenerateDraft(ReloStore store, ClaimView claim) async {
     setState(() => _generatingDraft = true);
     final generated = await store.generateForeignDraft(claim);
@@ -141,11 +176,15 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     setState(() {
       _generatingDraft = false;
       _draftCtrl.text = generated;
+      _fieldErrors.remove('draft');
     });
   }
 
   Future<void> _handleSaveSubmitDraft(ReloStore store, ClaimView claim) async {
-    if (_draftCtrl.text.trim().isEmpty) return;
+    if (_draftCtrl.text.trim().isEmpty) {
+      setState(() => _fieldErrors['draft'] = _s.dErrDraft);
+      return;
+    }
     setState(() => _submittingDraft = true);
     await store.saveAndSubmitDraft(
       claim.id,
@@ -154,7 +193,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     );
     if (!mounted) return;
     setState(() => _submittingDraft = false);
-    _toast('저장했어요. 이제 답장을 기다리면 돼요.');
+    _toast(_s.dToastSent);
   }
 
   Future<void> _handleAnalyzeReply(ReloStore store, ClaimView claim) async {
@@ -167,6 +206,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     if (!mounted) return;
     setState(() {
       _analyzingReply = false;
+      _fieldErrors.remove('reply');
       _summaryKo = res.summaryKo;
       _translationKo = res.translationKo;
       if (res.mentionedAmount != null && res.mentionedAmount!.isNotEmpty) {
@@ -176,7 +216,19 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   }
 
   Future<void> _handleSaveReply(ReloStore store, ClaimView claim) async {
-    if (_replyCtrl.text.trim().isEmpty) return;
+    final errors = <String, String>{};
+    if (_replyCtrl.text.trim().isEmpty) {
+      errors['reply'] = _s.dErrReply;
+    }
+    // 약속한 금액은 비워 둘 수 있다 (아직 약속이 없을 때). 적었다면 금액이어야 한다.
+    final agreedText = _agreedAmountCtrl.text.trim();
+    if (agreedText.isNotEmpty && InputRules.amount(agreedText) == null) {
+      errors['agreed'] = _s.cmErrAmount;
+    }
+    if (errors.isNotEmpty) {
+      setState(() => _fieldErrors.addAll(errors));
+      return;
+    }
     setState(() => _savingReply = true);
     await store.saveReplyAndAgreedAmount(
       claimId: claim.id,
@@ -189,11 +241,21 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     );
     if (!mounted) return;
     setState(() => _savingReply = false);
-    _toast('답장과 약속한 금액을 저장했어요.');
+    _toast(_s.dToastReplySaved);
   }
 
   Future<void> _handleRecordDeposit(ReloStore store, ClaimView claim) async {
-    if (_depositAmountCtrl.text.trim().isEmpty) return;
+    final errors = <String, String>{};
+    if (InputRules.amount(_depositAmountCtrl.text) == null) {
+      errors['deposit'] = _s.cmErrAmount;
+    }
+    if (!InputRules.isoDate(_receivedOnCtrl.text)) {
+      errors['receivedOn'] = _s.dErrDate;
+    }
+    if (errors.isNotEmpty) {
+      setState(() => _fieldErrors.addAll(errors));
+      return;
+    }
     setState(() => _recordingDeposit = true);
     await store.recordRealDeposit(
       claimId: claim.id,
@@ -207,19 +269,31 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       _showDepositConfetti = true;
     });
     _confetti.play();
-    _toast('들어온 돈을 기록했어요.');
+    _toast(_s.dToastDeposit);
   }
 
+  /// 판매자가 정한 기한을 적는다 (마감 알림이 이 날짜를 본다)
+  Future<void> _handleDeadline(ClaimView claim) async {
+    final saved = await showDeadlineSheet(context, claim);
+    if (saved == null || !mounted) return;
+    _toast(saved ? _s.dToastDeadline : _s.dToastDeadlineCleared);
+  }
+
+  /// 영수증 · 사진을 기기에서 골라 이 건에 붙인다
   Future<void> _handleAddFile(ReloStore store, ClaimView claim) async {
+    if (_addingFile) return;
+    final picked = await pickEvidenceWithSheet(context);
+    if (picked == null || !mounted) return;
+    setState(() => _addingFile = true);
     await store.uploadClaimFile(
       claimId: claim.id,
-      fileName:
-          'Card_Cancel_Slip_${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}.pdf',
-      mime: 'application/pdf',
-      bytes: const [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34],
+      fileName: picked.name,
+      mime: picked.mime,
+      bytes: picked.bytes,
     );
     if (!mounted) return;
-    _toast('파일을 추가했어요.');
+    setState(() => _addingFile = false);
+    _toast(_s.dToastFileAdded);
   }
 
   Future<void> _handleMore(
@@ -227,12 +301,12 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     if (choice == 'done') {
       await store.completeClaim(claim.id);
       if (!mounted) return;
-      _toast('끝난 건으로 표시했어요.');
+      _toast(_s.dToastDone);
     } else {
       final wasDeleted = claim.deleted;
       await store.toggleTrashClaim(claim.id);
       if (!mounted) return;
-      _toast(wasDeleted ? '휴지통에서 꺼냈어요.' : '휴지통으로 옮겼어요.');
+      _toast(wasDeleted ? _s.dToastRestored : _s.dToastTrashed);
     }
   }
 
@@ -275,7 +349,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                '이 환불 건을 찾을 수 없어요',
+                _s.dNotFound,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -284,7 +358,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
               ),
               const SizedBox(height: 16),
               ReloButton(
-                text: '내 환불로 돌아가기',
+                text: _s.dBackToClaims,
                 isPrimary: false,
                 onPressed: () => _close(store),
               ),
@@ -364,13 +438,13 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       child: Row(
         children: [
           IconButton(
-            tooltip: '내 환불 목록',
+            tooltip: _s.dBackTooltip,
             icon: Icon(ReloIcons.back, color: palette.ink),
             onPressed: () => _close(store),
           ),
           const Spacer(),
           PopupMenuButton<String>(
-            tooltip: '더 보기',
+            tooltip: _s.dMore,
             icon: Icon(ReloIcons.more, color: palette.muted),
             color: palette.surfaceElevated,
             elevation: 6,
@@ -379,8 +453,8 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             ),
             onSelected: (choice) => _handleMore(store, claim, choice),
             itemBuilder: (_) => [
-              if (claim.state != 'completed') item('done', '끝난 건으로 표시'),
-              item('trash', claim.deleted ? '휴지통에서 꺼내기' : '휴지통으로 옮기기'),
+              if (claim.state != 'completed') item('done', _s.dMenuDone),
+              item('trash', claim.deleted ? _s.dMenuRestore : _s.dMenuTrash),
             ],
           ),
         ],
@@ -399,8 +473,8 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
 
     final stepIndex = _stepIndex(claim.state);
     final status = claim.state == 'completed'
-        ? '모두 끝났어요'
-        : claimStatusText(claim, korean: store.locale == ReloLocale.ko);
+        ? _s.dAllDone
+        : claimStatusText(claim, store.strings);
 
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
@@ -408,7 +482,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            '${claim.vendor} · 주문번호 ${claim.orderRef}',
+            _s.dOrderLine(claim.vendor, claim.orderRef),
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 13, color: palette.subtle),
@@ -431,7 +505,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             child: Row(
               children: [
                 _MoneyCell(
-                  label: claim.agreed != null ? '받기로 한 돈' : '요청한 돈',
+                  label: claim.agreed != null ? _s.dAgreedMoney : _s.dClaimedMoney,
                   amount: MoneyFormat.formatMinor(target, claim.currency),
                   strong: true,
                 ),
@@ -441,7 +515,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                   color: palette.line.withValues(alpha: 0.5),
                 ),
                 _MoneyCell(
-                  label: '받은 돈',
+                  label: _s.homeMoneyReceived,
                   amount: MoneyFormat.formatMinor(cash, claim.currency),
                   strong: cash > 0,
                 ),
@@ -451,7 +525,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           if (showBar) ...[
             const SizedBox(height: 12),
             Semantics(
-              label: '약속과 입금 진행',
+              label: _s.dProgressLabel,
               child: ReloProgressBar(
                 promised: ratio(claim.agreed ?? 0),
                 cash: ratio(cash),
@@ -460,15 +534,29 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
               ),
             ),
           ],
-          if (hasDeadline && !isClaimDone(claim)) ...[
-            const SizedBox(height: 10),
-            Row(
+          if (!isClaimDone(claim)) ...[
+            const SizedBox(height: 4),
+            // 마감일이 있으면 "마감 · 남은 날 · 바꾸기", 없으면 "마감일 정하기".
+            // 다른 언어에서 길어져도 넘치지 않게, 자리가 모자라면 다음 줄로 내린다.
+            Wrap(
+              crossAxisAlignment: WrapCrossAlignment.center,
               children: [
-                Text(
-                  '마감 ${claim.deadline} · ',
-                  style: TextStyle(fontSize: 13, color: palette.subtle),
+                if (hasDeadline) ...[
+                  Text(
+                    _s.dDeadline(claim.deadline!),
+                    style: TextStyle(fontSize: 13, color: palette.subtle),
+                  ),
+                  ReloDdayText(deadline: claim.deadline, fontSize: 13),
+                  const SizedBox(width: 6),
+                ],
+                Transform.translate(
+                  // 글자 버튼의 안쪽 여백만큼 당겨서, 왼쪽 줄을 다른 글자와 맞춘다
+                  offset: Offset(hasDeadline ? 0 : -6, 0),
+                  child: ReloTextAction(
+                    label: hasDeadline ? _s.dDeadlineChange : _s.dDeadlineSet,
+                    onTap: () => _handleDeadline(claim),
+                  ),
                 ),
-                ReloDdayText(deadline: claim.deadline, fontSize: 13),
               ],
             ),
           ],
@@ -488,7 +576,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                 ),
               ),
               Semantics(
-                label: '여섯 단계 중 ${stepIndex + 1}단계',
+                label: _s.dStepOf(stepIndex + 1),
                 child: Row(
                   children: [
                     for (var i = 0; i < 6; i++)
@@ -510,7 +598,10 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            claim.nextStep,
+            // 서버가 주는 문장은 한국어다. 다른 언어에서는 단계에 맞는 문장을 쓴다.
+            store.locale == ReloLocale.ko
+                ? claim.nextStep
+                : _s.dNextStep(claim.state),
             style: TextStyle(fontSize: 14, color: palette.muted, height: 1.45),
           ),
         ],
@@ -528,15 +619,19 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             bottom: BorderSide(color: palette.line.withValues(alpha: 0.5)),
           ),
         ),
-        child: Row(
-          children: [
-            for (var i = 0; i < _tabs.length; i++)
-              ReloTextTab(
-                label: _tabs[i],
-                selected: _activeTab == i,
-                onTap: () => setState(() => _activeTab = i),
-              ),
-          ],
+        // 다른 언어에서 탭 이름이 길어져도 넘치지 않게, 옆으로 밀 수 있게 둔다
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              for (var i = 0; i < _tabs.length; i++)
+                ReloTextTab(
+                  label: _tabs[i],
+                  selected: _activeTab == i,
+                  onTap: () => setState(() => _activeTab = i),
+                ),
+            ],
+          ),
         ),
       ),
     );
@@ -576,9 +671,9 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _sectionHead(
-          '판매자에게 보낼 메시지',
+          _s.dMsgTitle,
           action: ReloTextAction(
-            label: _generatingDraft ? '쓰는 중…' : 'AI로 쓰기',
+            label: _generatingDraft ? _s.dAiWriting : _s.dAiWrite,
             onTap: _generatingDraft
                 ? null
                 : () => _handleGenerateDraft(store, claim),
@@ -586,15 +681,17 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
         ),
         const SizedBox(height: 12),
         ReloTextField(
-          label: '보낼 메시지',
-          hint: 'AI로 쓰기를 누르면 판매자 나라 말로 써 드려요',
+          label: _s.dMsgField,
+          hint: _s.dMsgHint,
           controller: _draftCtrl,
           maxLines: 6,
           fillColor: palette.raised,
+          errorText: _fieldErrors['draft'],
+          onChanged: (_) => _clearFieldError('draft'),
         ),
         const SizedBox(height: 12),
         ReloTextField(
-          label: '어디로 보냈는지 (선택)',
+          label: _s.dNoteLabel,
           controller: _submissionNoteCtrl,
           fillColor: palette.raised,
         ),
@@ -603,19 +700,20 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           children: [
             Expanded(
               child: ReloButton(
-                text: '복사하기',
+                text: _s.cmCopy,
                 isPrimary: false,
                 icon: ReloIcons.copy,
                 onPressed: () {
                   Clipboard.setData(ClipboardData(text: _draftCtrl.text));
-                  _toast('메시지를 복사했어요.');
+                  _toast(_s.dToastCopied);
                 },
               ),
             ),
             const SizedBox(width: 8),
             Expanded(
               child: ReloButton(
-                text: _submittingDraft ? '저장하는 중…' : '보냈어요',
+                text: _submittingDraft ? _s.cmSaving : _s.dSent,
+                busy: _submittingDraft,
                 onPressed: _submittingDraft
                     ? null
                     : () => _handleSaveSubmitDraft(store, claim),
@@ -623,10 +721,34 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             ),
           ],
         ),
+        // 쓴 메시지를 메일 · 메신저 앱으로 바로 넘긴다 (어디로 보낼지는 기기의 공유 화면에서 고른다)
+        if (store.textSharer.isSupported) ...[
+          const SizedBox(height: 6),
+          Center(
+            child: ReloTextAction(
+              label: _s.dSendVia,
+              onTap: () => _handleSendVia(store, claim),
+            ),
+          ),
+        ],
         const SizedBox(height: 10),
-        _caption('ReLo가 대신 보내지는 않아요. 복사해서 쇼핑몰에 보낸 다음 "보냈어요"를 눌러 주세요.'),
+        _caption(_s.dMsgCaption),
       ],
     );
+  }
+
+  Future<void> _handleSendVia(ReloStore store, ClaimView claim) async {
+    final text = _draftCtrl.text.trim();
+    if (text.isEmpty) {
+      setState(() => _fieldErrors['draft'] = _s.dErrDraft);
+      return;
+    }
+    final opened = await store.textSharer.share(
+      text: text,
+      subject: _s.dSendSubject(claim.orderRef),
+    );
+    if (!mounted) return;
+    _toast(opened ? _s.dSendThenMark : _s.evUnavailable);
   }
 
   // ── 2. 답장 ──────────────────────────────────────────────────────────
@@ -636,20 +758,22 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _sectionHead(
-          '판매자 답장',
+          _s.dReplyTitle,
           action: ReloTextAction(
-            label: _analyzingReply ? '읽는 중…' : 'AI로 요약',
+            label: _analyzingReply ? _s.dAiReading : _s.dAiSummary,
             onTap:
                 _analyzingReply ? null : () => _handleAnalyzeReply(store, claim),
           ),
         ),
         const SizedBox(height: 12),
         ReloTextField(
-          label: '답장 원문',
-          hint: '판매자가 보낸 답장을 붙여 넣어 주세요',
+          label: _s.dReplyField,
+          hint: _s.dReplyHint,
           controller: _replyCtrl,
           maxLines: 4,
           fillColor: palette.raised,
+          errorText: _fieldErrors['reply'],
+          onChanged: (_) => _clearFieldError('reply'),
         ),
         if (hasSummary) ...[
           const SizedBox(height: 12),
@@ -690,7 +814,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
         ],
         const SizedBox(height: 16),
         Text(
-          '어떤 답장이에요?',
+          _s.dReplyKind,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -704,7 +828,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           children: [
             for (final entry in store.config.replyKinds.entries)
               ReloChoiceChip(
-                label: entry.value,
+                label: _s.replyKind(entry.key, entry.value),
                 selected: _replyKind == entry.key,
                 onTap: () => setState(() => _replyKind = entry.key),
               ),
@@ -712,14 +836,18 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
         ),
         const SizedBox(height: 16),
         ReloTextField(
-          label: '약속한 환불 금액 (${claim.currency})',
+          label: _s.dAgreedField(claim.currency),
           controller: _agreedAmountCtrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           fillColor: palette.raised,
+          inputFormatters: [MoneyInputFormatter.of(claim.currency)],
+          errorText: _fieldErrors['agreed'],
+          onChanged: (_) => _clearFieldError('agreed'),
         ),
         const SizedBox(height: 16),
         ReloButton(
-          text: _savingReply ? '저장하는 중…' : '저장하기',
+          text: _savingReply ? _s.cmSaving : _s.cmSave,
+          busy: _savingReply,
           onPressed: _savingReply ? null : () => _handleSaveReply(store, claim),
         ),
       ],
@@ -735,47 +863,58 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (_showDepositConfetti) ...[
-          const ConfettiBurstBanner(
-            title: '돈이 돌아왔어요',
-            subtitle: '들어온 금액을 기록했어요.',
+          ConfettiBurstBanner(
+            title: _s.dBannerTitle,
+            subtitle: _s.dBannerSub,
           ),
           const SizedBox(height: 20),
         ],
-        _sectionHead('들어온 돈 기록'),
+        _sectionHead(_s.dDepositTitle),
         const SizedBox(height: 12),
         Row(
+          // 한쪽에만 오류 글자가 나와도 칸 높이가 어긋나지 않게 위에 맞춘다
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: ReloTextField(
-                label: '들어온 금액 (${claim.currency})',
+                label: _s.dDepositField(claim.currency),
                 controller: _depositAmountCtrl,
                 keyboardType: const TextInputType.numberWithOptions(
                   decimal: true,
                 ),
                 fillColor: palette.raised,
+                inputFormatters: [MoneyInputFormatter.of(claim.currency)],
+                errorText: _fieldErrors['deposit'],
+                onChanged: (_) => _clearFieldError('deposit'),
               ),
             ),
             const SizedBox(width: 10),
             Expanded(
               child: ReloTextField(
-                label: '확인한 날',
+                label: _s.dDateField,
                 controller: _receivedOnCtrl,
                 fillColor: palette.raised,
+                // 글자로 치지 않고 달력에서 고른다
+                readOnly: true,
+                onTap: _pickReceivedOn,
+                trailingIcon: ReloIcons.calendar,
+                errorText: _fieldErrors['receivedOn'],
               ),
             ),
           ],
         ),
         const SizedBox(height: 12),
         ReloTextField(
-          label: '승인번호 · 메모',
+          label: _s.dRefField,
           controller: _txRefCtrl,
           fillColor: palette.raised,
         ),
         const SizedBox(height: 8),
-        _caption('카드 전체 번호는 적지 마세요. 취소 금액과 승인번호만 기록해요.'),
+        _caption(_s.dCardCaption),
         const SizedBox(height: 16),
         ReloButton(
-          text: _recordingDeposit ? '기록하는 중…' : '입금 기록하기',
+          text: _recordingDeposit ? _s.dRecording : _s.dRecord,
+          busy: _recordingDeposit,
           onPressed: _recordingDeposit
               ? null
               : () => _handleRecordDeposit(store, claim),
@@ -783,7 +922,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
         if (claim.ledger.isNotEmpty) ...[
           const SizedBox(height: 28),
           Text(
-            '기록한 입금 ${claim.ledger.length}건',
+            _s.dLedgerCount(claim.ledger.length),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -840,14 +979,14 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             ),
         ],
         const SizedBox(height: 32),
-        _sectionHead('증빙 파일 ${claim.files.length}개'),
+        _sectionHead(_s.dFilesCount(claim.files.length)),
         const SizedBox(height: 4),
-        _caption('10MB까지 올릴 수 있고, 내 계정에서만 볼 수 있어요.'),
+        _caption(_s.dFilesCaption),
         if (claim.files.isEmpty)
           Padding(
             padding: const EdgeInsets.only(top: 14),
             child: Text(
-              '아직 올린 파일이 없어요.',
+              _s.dNoFiles,
               style: TextStyle(fontSize: 14, color: palette.subtle),
             ),
           )
@@ -882,7 +1021,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                           ),
                           const SizedBox(height: 2),
                           Text(
-                            '${(file.size / 1024).toStringAsFixed(1)} KB · ${file.usedAsProof ? '입금 증빙으로 씀' : '보관 중'}',
+                            '${(file.size / 1024).toStringAsFixed(1)} KB · ${file.usedAsProof ? _s.dFileUsed : _s.dFileKept}',
                             style: TextStyle(
                               fontSize: 13,
                               color: palette.subtle,
@@ -893,7 +1032,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                     ),
                     if (!file.usedAsProof)
                       IconButton(
-                        tooltip: '파일 지우기',
+                        tooltip: _s.dDeleteFile,
                         icon: Icon(
                           ReloIcons.trash,
                           size: 20,
@@ -910,10 +1049,11 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             ),
         const SizedBox(height: 16),
         ReloButton(
-          text: '영수증 · 사진 추가',
+          text: _s.dAddFile,
           isPrimary: false,
           height: 48,
           icon: ReloIcons.add,
+          busy: _addingFile,
           onPressed: () => _handleAddFile(store, claim),
         ),
       ],
@@ -925,11 +1065,11 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _sectionHead('지금까지 한 일'),
+        _sectionHead(_s.dHistoryTitle),
         const SizedBox(height: 16),
         if (claim.events.isEmpty)
           Text(
-            '아직 기록이 없어요.',
+            _s.dNoHistory,
             style: TextStyle(fontSize: 14, color: palette.subtle),
           ),
         for (final ev in claim.events)
@@ -963,7 +1103,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        MoneyFormat.formatDateKo(ev.createdAt),
+                        _s.date(ev.createdAt),
                         style: TextStyle(fontSize: 12, color: palette.subtle),
                       ),
                     ],

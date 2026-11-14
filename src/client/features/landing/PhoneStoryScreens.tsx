@@ -7,6 +7,7 @@
 
 import { CheckCircle2, FileText, Languages, Scissors } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
+import { useI18n } from "@/client/i18n";
 import type { TranslationDictionary } from "@/client/i18n/types";
 
 type PhoneSceneCopy = TranslationDictionary["phoneStory"]["scenes"][number];
@@ -20,6 +21,7 @@ export function PhoneStoryScreens({
 	activeScene,
 	current,
 }: PhoneStoryScreensProps) {
+	const { t } = useI18n();
 	return (
 		<AnimatePresence mode="wait">
 			{activeScene === 0 && current ? (
@@ -119,7 +121,7 @@ export function PhoneStoryScreens({
 								{current.screenSubTitle}
 							</p>
 							<p className="mt-1 rounded-xl bg-[#f2f4f6] px-3 py-2 text-xs font-semibold text-relo-ink">
-								“상자를 열었는데 모서리가 깨져 있어요.”
+								{t.phoneStory.myWordsSample}
 							</p>
 						</div>
 
@@ -179,13 +181,17 @@ export function PhoneStoryScreens({
 
 						<div className="space-y-2 rounded-2xl bg-white p-3.5 text-xs shadow-2xs">
 							<div className="flex items-center justify-between">
-								<span className="text-relo-muted">약속 금액</span>
+								<span className="text-relo-muted">
+									{t.phoneStory.rowPromised}
+								</span>
 								<span className="font-bold text-relo-ink tabular-nums">
 									$184.00
 								</span>
 							</div>
 							<div className="flex items-center justify-between">
-								<span className="text-relo-muted">실제 카드 취소</span>
+								<span className="text-relo-muted">
+									{t.phoneStory.rowActual}
+								</span>
 								<span className="font-extrabold text-relo-brand tabular-nums">
 									$184.00
 								</span>

@@ -34,7 +34,14 @@ class ReloApiClient {
   ReloApiClient({String? initialBaseUrl})
       : baseUrl = initialBaseUrl ?? _defaultBaseUrl();
 
+  /// 서버 주소. 빌드할 때 정한다:
+  ///   flutter build apk --dart-define=RELO_API_BASE=https://api.example.com
+  /// 정하지 않으면 개발용 주소(내 컴퓨터의 4180번 포트)를 쓴다.
+  static const String _configuredBaseUrl =
+      String.fromEnvironment('RELO_API_BASE');
+
   static String _defaultBaseUrl() {
+    if (_configuredBaseUrl.isNotEmpty) return _configuredBaseUrl;
     try {
       if (Platform.isAndroid) {
         return 'http://10.0.2.2:4180';

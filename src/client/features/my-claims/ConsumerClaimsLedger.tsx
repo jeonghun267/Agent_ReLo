@@ -40,14 +40,10 @@ const features = tableFeatures({
 
 const columnHelper = createColumnHelper<typeof features, ClaimView>();
 
-function stateTone(
-	state: ClaimState,
-): "brand" | "sunny" | "danger" | "neutral" {
-	if (state === "disputed") return "danger";
-	if (state === "awaiting" || state === "negotiating" || state === "partial")
-		return "sunny";
-	if (state === "waived") return "neutral";
-	return "brand";
+// A state is written in dark gray like any other fact about the claim. Only a dispute,
+// which needs the person to act, is written in red. (The blue line on each row is the next step.)
+function stateTone(state: ClaimState): "danger" | "neutral" {
+	return state === "disputed" ? "danger" : "neutral";
 }
 
 export function ConsumerClaimsLedger({

@@ -201,10 +201,11 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('고대비 모드'), findsOneWidget);
       expect(find.text('약관 · 개인정보 처리방침 · 정책'), findsOneWidget);
-      // 상자 없이 줄로: 구역 이름표 둘, 켜고 끄는 줄 다섯, 언어는 고르는 칩
+      // 상자 없이 줄로: 구역 이름표 둘, 켜고 끄는 줄 여섯(마감 알림 포함), 언어는 고르는 칩
       expect(find.text('화면'), findsOneWidget);
       expect(find.text('내 정보'), findsOneWidget);
-      expect(find.byType(Switch), findsNWidgets(5));
+      expect(find.text('마감 알림'), findsOneWidget);
+      expect(find.byType(Switch), findsNWidgets(6));
       expect(find.text('한국어'), findsOneWidget);
       expect(find.text('회원 탈퇴 · 내 정보 모두 삭제'), findsOneWidget);
       // 켜고 끄는 줄은 글자를 눌러도 바뀐다

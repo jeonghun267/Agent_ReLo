@@ -24,6 +24,7 @@ export const koMessages = {
 		login: "로그인",
 		applyCta: "환불 신청하기",
 		userSuffix: "님",
+		verifyNoticeShort: "이메일 인증이 아직 안 됐어요",
 		verifyNoticePrefix: "환불 진행 알림을 받으려면",
 		verifyNoticeSuffix: "메일함을 확인해 주세요.",
 		resendVerify: "인증 메일 다시 보내기",
@@ -36,6 +37,7 @@ export const koMessages = {
 		titleHighlight: "외국어 한 줄 몰라도 내 통장으로 환불.",
 		subtitle:
 			"주문 영수증 자동 입력부터 집 주소 가리기, 쇼핑몰에 보낼 외국어 환불 메시지 작성, 그리고 실제 카드 취소 확인까지 한곳에서 쉽게 끝내세요.",
+		subtitleShort: "영수증 넣기부터 실제 카드 취소 확인까지, 한곳에서 끝내요.",
 		primaryCta: "지금 3분 만에 환불 신청하기",
 		secondaryWallet: "내 환불 내역 보기",
 		secondaryGlobe: "전 세계 환불 경로 보기",
@@ -103,6 +105,9 @@ export const koMessages = {
 		eyebrow: "스크롤로 보는 3분 해결 과정",
 		headline: "복잡한 일은 휴대폰 안에서 알아서 끝납니다",
 		scrollHint: "아래로 스크롤하면 휴대폰 화면 밖으로 핵심 카드가 떠오릅니다",
+		rowPromised: "약속 금액",
+		rowActual: "실제 카드 취소",
+		myWordsSample: "“상자를 열었는데 모서리가 깨져 있어요.”",
 		scenes: [
 			{
 				step: "01",
@@ -111,7 +116,7 @@ export const koMessages = {
 				titleLine1: "길고 복잡한 외국어 영수증,",
 				titleLine2: "사진 한 장만 툭 넣으세요.",
 				description:
-					"해외 쇼핑몰 결제 내역서에서 주문번호와 가격을 일일이 찾을 필요가 없습니다. 캡처나 PDF를 올리면 자동으로 칸이 채워지고, 택배 상자에 적힌 집 주소와 전화번호는 깔끔하게 잘라냅니다.",
+					"해외 쇼핑몰 결제 내역서에서 주문번호와 가격을 일일이 찾을 필요가 없습니다. 캡처나 PDF를 올리면 자동으로 칸이 채워지고, 택배 상자에 적힌 집 주소와 전화번호는 사진 자르기로 깔끔하게 잘라낼 수 있습니다.",
 				screenHeader: "주문 영수증 자동 읽기",
 				screenStatus: "자동 입력 완료",
 				screenSubTitle: "자동으로 찾은 주문 정보",
@@ -224,7 +229,7 @@ export const koMessages = {
 					"택배 스티커의 집 주소는 잘라내고, 깨지거나 긁힌 부분만 선명하게 남겨보세요.",
 				previewTitle: "내 전용 사진 보관함 (최대 10MB)",
 				sample:
-					"[자르기 완료] 깨진_모서리_사진.png (1.4 MB · 내 계정에만 안전하게 암호화 보관됨)",
+					"[자르기 완료] 깨진_모서리_사진.png (1.4 MB · 내 계정에서만 열람 가능)",
 				points: [
 					"손가락이나 마우스로 필요한 부분만 네모로 자르기",
 					"내가 올린 사진은 오직 내 계정에서만 열람 가능",
@@ -281,19 +286,25 @@ export const koMessages = {
 		],
 	},
 	simulator: {
-		eyebrow: "내가 돌려받을 금액 계산기",
+		eyebrow: "환불 신청 미리 써 보기",
 		title: "얼마짜리 직구 상품에 문제가 생겼나요?",
 		subtitle: "선택한 쇼핑몰과 금액 그대로 신청 화면을 바로 열 수 있어요.",
 		mallLabel: "구매한 쇼핑몰",
 		issueLabel: "어떤 문제가 생겼나요?",
 		priceLabel: "결제했던 금액",
 		previewBadge: "자동으로 작성될 영문 메시지 미리보기",
-		barSolo: "혼자 번역기로 문의할 때",
-		barRelo: "ReLo로 꼼꼼히 신청할 때",
-		expectedLabel: "예상 환불 금액",
-		completenessLabel: "서류 준비도",
-		extraTitle: "혼자 끙끙 앓을 때보다 기대할 수 있는 추가 환불액",
-		extraSuffix: "더 지킬 수 있어요",
+		summaryTitle: "이 조건으로 만들어지는 신청",
+		requestLabel: "요청할 금액",
+		rowIssue: "문제",
+		rowKind: "해결 방법",
+		kindRefund: "환불",
+		kindExchange: "교환",
+		nextTitle: "신청하면 이어지는 일",
+		nextSteps: [
+			"영수증과 사진을 올려요",
+			"외국어 메시지를 복사해 쇼핑몰에 보내요",
+			"카드 취소 · 입금을 확인해 기록해요",
+		],
 		applyWithPreset: "이 조건으로 바로 신청하기",
 		scenarios: {
 			damaged: {
@@ -319,7 +330,7 @@ export const koMessages = {
 	},
 	footer: {
 		sloganLine1: "직구 시작부터 환불 입금까지",
-		sloganLine2: "마침내 ReLo 하나로.",
+		sloganLine2: "ReLo가 같이 챙겨요.",
 		colService: "서비스 안내",
 		serviceLinks: [
 			{ label: "서비스 소개 홈", to: "/" },
@@ -340,9 +351,9 @@ export const koMessages = {
 		colSupport: "고객 이용 안내",
 		supportLinks: [
 			{ label: "진행 단계별 가이드", to: "/#interactive-tour" },
-			{ label: "예상 환불금 계산기", to: "/#refund-calculator" },
+			{ label: "환불 신청 미리 보기", to: "/#refund-calculator" },
 			{ label: "전 세계 환불 경로", to: "/#global-network" },
-			{ label: "10MB 사진 암호화 안내", to: "/settings" },
+			{ label: "10MB 사진 보관 안내", to: "/settings" },
 		],
 		colAccount: "내 계정 관리",
 		accountLinks: [

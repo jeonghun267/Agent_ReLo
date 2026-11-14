@@ -20,7 +20,7 @@ class BusinessFooter extends StatelessWidget {
 
     return Semantics(
       container: true,
-      label: '사업자 등록 정보 및 법적 정책 안내 푸터',
+      label: store.strings.ftSemantics,
       child: Padding(
         padding: const EdgeInsets.only(top: 32),
         child: Column(
@@ -32,32 +32,32 @@ class BusinessFooter extends StatelessWidget {
               runSpacing: 4,
               children: [
                 _PolicyLink(
-                  label: '개인정보 처리방침',
+                  label: store.strings.lgTabPrivacy,
                   isBold: true,
                   onTap: () => store.openLegalDocument('privacy'),
                 ),
                 _PolicyLink(
-                  label: '서비스 이용약관',
+                  label: store.strings.ftTerms,
                   onTap: () => store.openLegalDocument('terms'),
                 ),
                 _PolicyLink(
-                  label: '환불·요금 정책',
+                  label: store.strings.ftRefund,
                   onTap: () => store.openLegalDocument('refund'),
                 ),
                 _PolicyLink(
-                  label: '쿠키 운영 정책',
+                  label: store.strings.ftCookie,
                   onTap: () => store.openLegalDocument('cookie'),
                 ),
                 _PolicyLink(
-                  label: '외부 SDK 점검·수신거부',
+                  label: store.strings.ftSdk,
                   onTap: () => store.openLegalDocument('sdk'),
                 ),
                 _PolicyLink(
-                  label: '글꼴·이미지 라이선스',
+                  label: store.strings.ftLicense,
                   onTap: () => store.openLegalDocument('licenses'),
                 ),
                 _PolicyLink(
-                  label: '개인정보 즉시 삭제요청',
+                  label: store.strings.ftDelete,
                   onTap: () => store.openLegalDocument('delete'),
                 ),
               ],
@@ -87,7 +87,7 @@ class BusinessFooter extends StatelessWidget {
             ),
             const SizedBox(height: 12),
             Text(
-              '※ 법적 고지 (근거없는 주장 배제): ReLo는 해외직구 반품·교환·환불 증빙 정리, 8개국 통화 계산, 외국어 문의 초안 작성 및 실제 카드 취소 입금 확인 기록을 돕는 B2C 소프트웨어 도구이며, 법률 소송 대리인이 아닙니다.',
+              store.strings.ftNotice,
               style: TextStyle(
                 fontSize: 12,
                 color: palette.subtle,

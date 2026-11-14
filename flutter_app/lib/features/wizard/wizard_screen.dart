@@ -2,12 +2,17 @@ import 'dart:convert';
 import 'package:animations/animations.dart';
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
+import '../../core/utils/input_rules.dart';
 import '../../core/utils/money_format.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
+import '../../core/attachments/evidence_rules.dart';
 import '../../shared/widgets/claim_row.dart';
+import '../../shared/widgets/evidence_source_sheet.dart';
 import '../../shared/widgets/refund_globe.dart';
 import '../../shared/widgets/relo_primitives.dart';
 import '../../shared/widgets/relo_icons.dart';
@@ -26,6 +31,9 @@ class WizardScreen extends StatefulWidget {
 }
 
 class _WizardScreenState extends State<WizardScreen> {
+  /// 지금 언어의 문구
+  ReloStrings get _s => ReloScope.of(context).strings;
+
   int _step = 1;
   final _scroll = ScrollController();
 
@@ -38,6 +46,18 @@ class _WizardScreenState extends State<WizardScreen> {
   bool _isSubmitting = false;
   ClaimView? _createdClaim;
   String? _formError;
+
+  /// 버튼 위에 한 줄로 보여 주는 알림 (예: "영수증을 붙였어요"). 단계를 옮기면 지운다.
+  String? _notice;
+
+  /// 칸마다의 오류 (칸 아래 빨간 글자). 키: vendor, orderRef, title, orderedQty, claimQty, amount, issue
+  final Map<String, String> _fieldErrors = {};
+
+  /// 수량 칸: 숫자만, 세 자리까지
+  static final List<TextInputFormatter> _qtyFormatters = [
+    FilteringTextInputFormatter.digitsOnly,
+    LengthLimitingTextInputFormatter(3),
+  ];
 
   // [항목 #6 & #9] 5단계 양식 제출 시 필수/선택 동의 상태 (기본 미체크 원칙)
   bool _consentClaimStorageRequired = false;
@@ -91,12 +111,12 @@ class _WizardScreenState extends State<WizardScreen> {
   ];
 
   // 한 화면에 질문 하나. 말투는 DESIGN.md 6절("어디서 샀어요?")
-  static const List<String> _stepTitles = [
-    '어디서 샀어요?',
-    '어떤 상품이에요?',
-    '어떻게 해결할까요?',
-    '영수증이나 사진이 있어요?',
-    '마지막으로 확인해요',
+  List<String> get _stepTitles => [
+    _s.wStep1,
+    _s.wStep2,
+    _s.wStep3,
+    _s.wStep4,
+    _s.wStep5,
   ];
 
   // label은 칩에 짧게 보이는 이름, name은 저장되는 쇼핑몰 이름
@@ -114,17 +134,17 @@ class _WizardScreenState extends State<WizardScreen> {
   bool _customVendor = false;
 
   // label은 칩에 보이는 짧은 말, text는 설명 칸에 채워지는 문장
-  static const List<({String label, String text})> _quickIssues = [
-    (label: '깨져서 왔어요', text: '택배 상자를 열었을 때 겉상자와 상품 외관이 깨진 상태로 도착했습니다.'),
-    (label: '다른 물건이 왔어요', text: '주문한 옵션과 다른 색상·모델의 상품이 잘못 배송되었습니다.'),
-    (label: '작동이 안 돼요', text: '전원을 연결해도 켜지지 않는 작동 불량 상품입니다.'),
-    (label: '물건이 안 왔어요', text: '배송 완료로 표시되었지만 실제로 택배를 받지 못했습니다.'),
+  List<({String label, String text})> get _quickIssues => [
+    (label: _s.wIssueBroken, text: _s.wIssueBrokenText),
+    (label: _s.wIssueWrong, text: _s.wIssueWrongText),
+    (label: _s.wIssueDead, text: _s.wIssueDeadText),
+    (label: _s.wIssueMissing, text: _s.wIssueMissingText),
   ];
 
-  static const List<({String id, String label})> _kinds = [
-    (id: 'refund', label: '전액 환불'),
-    (id: 'exchange', label: '새 상품 교환'),
-    (id: 'repair', label: '부분 환불 · 수리'),
+  List<({String id, String label})> get _kinds => [
+    (id: 'refund', label: _s.wKindRefund),
+    (id: 'exchange', label: _s.wKindExchange),
+    (id: 'repair', label: _s.wKindRepair),
   ];
 
   @override
@@ -150,6 +170,13 @@ class _WizardScreenState extends State<WizardScreen> {
         _issueCtrl.text = store.wizardPresetIssue!;
       }
       store.clearWizardPresets();
+    }
+    // 다른 앱에서 "공유 → ReLo"로 넘어온 영수증이 있으면 가져와 붙인다
+    final shared = store.takeIncomingEvidence();
+    if (shared != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _useReceipt(shared, announce: true);
+      });
     }
   }
 
@@ -183,12 +210,119 @@ class _WizardScreenState extends State<WizardScreen> {
         () => _orderedOnCtrl.text = picked.toIso8601String().substring(0, 10));
   }
 
-  // 영수증으로 채우기. 사진·파일 올리기가 아직 없어서 지금은 데모용 샘플 영수증만 고른다.
+  // 영수증으로 채우기: 진짜 영수증을 찍거나 골라 붙이고, 서버의 AI가 읽은 내용으로 칸을 채운다.
+  // 파일을 고를 수 없는 곳(웹 미리보기)에서는 샘플 영수증만 고른다.
+  Future<void> _fillFromReceipt(ReloPalette p) async {
+    final store = ReloScope.of(context);
+    if (!store.evidencePicker.isSupported) return _openSampleReceipts(p);
+    final picked = await pickEvidenceWithSheet(
+      context,
+      extra: (label: _s.wSampleTitle, onTap: () => _openSampleReceipts(p)),
+    );
+    if (picked == null || !mounted) return;
+    await _useReceipt(picked);
+  }
+
+  /// 진짜 영수증 하나를 붙이고, 첫 단계라면 서버의 AI가 읽은 내용으로 칸을 채운다.
+  /// (공유로 넘어온 영수증도 이 길로 온다.)
+  Future<void> _useReceipt(PickedEvidence picked, {bool announce = false}) async {
+    if (_createdClaim != null) return;
+    final store = ReloScope.of(context);
+    if (_step != 1) {
+      // 이미 적어 둔 내용을 덮어쓰지 않게, 첫 단계가 아니면 붙이기만 한다
+      setState(() => _attach(picked, first: true));
+      _toast(_s.evSharedAttached);
+      return;
+    }
+    setState(() {
+      _isScanning = true;
+      _formError = null;
+      _notice = null;
+    });
+    // 진짜 파일에서는 읽지 못했을 때 예시 값을 지어내지 않는다
+    final extracted = await store.scanReceiptDocument(
+      fileName: picked.name,
+      bytes: picked.bytes,
+      mime: picked.mime,
+      allowSample: false,
+    );
+    if (!mounted) return;
+    setState(() {
+      _isScanning = false;
+      _applyExtracted(extracted);
+      _attach(picked, first: true);
+    });
+    if (extracted.isEmpty) {
+      _toast(_s.evReceiptAttachedOnly);
+    } else if (announce) {
+      _toast(_s.evSharedAttached);
+    }
+  }
+
+  /// 진짜 파일을 붙인다. 미리 넣어 둔 예시 파일은 이때 뺀다. setState 안에서 부른다.
+  void _attach(PickedEvidence picked, {bool first = false}) {
+    _stagedFiles.removeWhere((f) => f.id.startsWith('stg_default_'));
+    final staged = _stagedFrom(picked);
+    if (first) {
+      _stagedFiles.insert(0, staged);
+    } else {
+      _stagedFiles.add(staged);
+    }
+  }
+
+  StagedEvidenceFile _stagedFrom(PickedEvidence picked) => StagedEvidenceFile(
+        id: 'stg_${DateTime.now().microsecondsSinceEpoch}',
+        name: picked.name,
+        mime: picked.mime,
+        bytes: picked.bytes,
+        // 앱이 그림 속 주소를 가려 주지는 않는다: 사용자가 확인하도록 표시한다
+        addressMasked: false,
+      );
+
+  /// 신청하는 동안에는 아래 고정 버튼을 가리지 않게, 알림을 버튼 위 한 줄로 보여 준다.
+  /// 신청을 마친 화면에서는 다른 화면처럼 아래 알림으로 보여 준다.
+  void _toast(String text) {
+    if (_createdClaim != null) {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
+    } else {
+      setState(() => _notice = text);
+    }
+  }
+
+  /// 영수증에서 읽은 값으로 칸을 채운다 (읽지 못한 칸은 그대로 둔다). setState 안에서 부른다.
+  void _applyExtracted(Map<String, dynamic> extracted) {
+    if (extracted['vendor'] != null) {
+      _vendorCtrl.text = extracted['vendor'].toString();
+    }
+    if (extracted['orderRef'] != null) {
+      _orderRefCtrl.text = extracted['orderRef'].toString();
+    }
+    if (extracted['orderedOn'] != null) {
+      _orderedOnCtrl.text = extracted['orderedOn'].toString();
+    }
+    if (extracted['currency'] != null) {
+      _currency = extracted['currency'].toString();
+    }
+    if (extracted['title'] != null) {
+      _titleCtrl.text = extracted['title'].toString();
+    }
+    if (extracted['amount'] != null) {
+      _amountCtrl.text = extracted['amount'].toString();
+    }
+  }
+
+  Future<void> _addEvidence() async {
+    final picked = await pickEvidenceWithSheet(context);
+    if (picked == null || !mounted) return;
+    setState(() => _attach(picked));
+  }
+
+  // 데모용 샘플 영수증 고르기
   Future<void> _openSampleReceipts(ReloPalette p) async {
-    const samples = [
-      (label: 'Amazon US 영수증', file: 'Amazon_Order_Receipt.pdf'),
-      (label: 'AliExpress 주문서', file: 'AliExpress_Order_Slip.jpg'),
-      (label: 'Mercari JP 영수증', file: 'Mercari_JP_Receipt.jpg'),
+    final samples = [
+      (label: _s.wSampleAmazon, file: 'Amazon_Order_Receipt.pdf'),
+      (label: _s.wSampleAli, file: 'AliExpress_Order_Slip.jpg'),
+      (label: _s.wSampleMercari, file: 'Mercari_JP_Receipt.jpg'),
     ];
     final file = await showModalBottomSheet<String>(
       context: context,
@@ -207,7 +341,7 @@ class _WizardScreenState extends State<WizardScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 4),
                 child: Text(
-                  '샘플 영수증으로 해 보기',
+                  _s.wSampleTitle,
                   style: TextStyle(
                       fontSize: 16, fontWeight: FontWeight.w800, color: p.ink),
                 ),
@@ -215,7 +349,7 @@ class _WizardScreenState extends State<WizardScreen> {
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
                 child: Text(
-                  '사진·파일 올리기는 아직 준비 중이에요.',
+                  _s.wSampleNote,
                   style: TextStyle(fontSize: 13, color: p.muted),
                 ),
               ),
@@ -245,6 +379,7 @@ class _WizardScreenState extends State<WizardScreen> {
     setState(() {
       _isScanning = true;
       _formError = null;
+      _notice = null;
     });
     final extracted = await store.scanReceiptDocument(
       fileName: sampleFileName,
@@ -253,24 +388,7 @@ class _WizardScreenState extends State<WizardScreen> {
     if (!mounted) return;
     setState(() {
       _isScanning = false;
-      if (extracted['vendor'] != null) {
-        _vendorCtrl.text = extracted['vendor'].toString();
-      }
-      if (extracted['orderRef'] != null) {
-        _orderRefCtrl.text = extracted['orderRef'].toString();
-      }
-      if (extracted['orderedOn'] != null) {
-        _orderedOnCtrl.text = extracted['orderedOn'].toString();
-      }
-      if (extracted['currency'] != null) {
-        _currency = extracted['currency'].toString();
-      }
-      if (extracted['title'] != null) {
-        _titleCtrl.text = extracted['title'].toString();
-      }
-      if (extracted['amount'] != null) {
-        _amountCtrl.text = extracted['amount'].toString();
-      }
+      _applyExtracted(extracted);
       _stagedFiles.insert(
         0,
         StagedEvidenceFile(
@@ -290,12 +408,16 @@ class _WizardScreenState extends State<WizardScreen> {
     final store = ReloScope.of(context);
     final kor = _issueCtrl.text.trim();
     if (kor.length < 5) {
-      setState(() => _formError = '먼저 우리말 문제 설명을 5자 이상 적어 주세요.');
+      setState(
+        () => _fieldErrors['issue'] = _s.wErrIssueFirst,
+      );
       return;
     }
     setState(() {
       _isTranslating = true;
       _formError = null;
+      _notice = null;
+      _fieldErrors.remove('issue');
     });
     final en = await store.translateIssueToEnglish(kor);
     if (!mounted) return;
@@ -305,34 +427,50 @@ class _WizardScreenState extends State<WizardScreen> {
     });
   }
 
+  void _clearFieldError(String key) {
+    if (_fieldErrors.containsKey(key)) setState(() => _fieldErrors.remove(key));
+  }
+
+  /// 다음 단계로 가기 전에 이 단계의 칸을 본다. 고칠 것이 있으면 그 칸 아래에 알리고 머문다.
   void _goNextStep() {
-    setState(() => _formError = null);
+    final errors = <String, String>{};
     if (_step == 1) {
-      if (_vendorCtrl.text.trim().isEmpty ||
-          _orderRefCtrl.text.trim().isEmpty) {
-        setState(() => _formError = '쇼핑몰 이름과 주문번호를 입력해 주세요.');
-        return;
+      if (_vendorCtrl.text.trim().isEmpty) {
+        errors['vendor'] = _s.wErrVendor;
+      }
+      if (_orderRefCtrl.text.trim().isEmpty) {
+        errors['orderRef'] = _s.wErrOrderRef;
       }
     } else if (_step == 2) {
-      final ordQty = int.tryParse(_orderedQtyCtrl.text) ?? 1;
-      final clmQty = int.tryParse(_claimQtyCtrl.text) ?? 1;
-      final amt = double.tryParse(_amountCtrl.text.replaceAll(',', '')) ?? 0;
-      if (_titleCtrl.text.trim().isEmpty || amt <= 0) {
-        setState(() => _formError = '상품 이름과 돌려받을 금액을 입력해 주세요.');
-        return;
+      final ordQty = int.tryParse(_orderedQtyCtrl.text) ?? 0;
+      final clmQty = int.tryParse(_claimQtyCtrl.text) ?? 0;
+      if (_titleCtrl.text.trim().isEmpty) {
+        errors['title'] = _s.wErrTitle;
       }
-      if (clmQty > ordQty) {
-        setState(
-          () => _formError = '문제가 생긴 수량은 전체 주문 수량보다 많을 수 없어요.',
-        );
-        return;
+      if (ordQty < 1) {
+        errors['orderedQty'] = _s.wErrQtyMin;
+      }
+      if (clmQty < 1) {
+        errors['claimQty'] = _s.wErrQtyMin;
+      } else if (ordQty >= 1 && clmQty > ordQty) {
+        errors['claimQty'] = _s.wErrQtyMax;
+      }
+      if (InputRules.amount(_amountCtrl.text) == null) {
+        errors['amount'] = _s.cmErrAmount;
       }
     } else if (_step == 3) {
       if (_issueCtrl.text.trim().length < 5) {
-        setState(() => _formError = '어떤 문제가 있었는지 5자 이상 적어 주세요.');
-        return;
+        errors['issue'] = _s.wErrIssue;
       }
     }
+    setState(() {
+      _formError = null;
+      _notice = null;
+      _fieldErrors
+        ..clear()
+        ..addAll(errors);
+    });
+    if (errors.isNotEmpty) return;
     setState(() {
       _stepReverse = false;
       _step = (_step + 1).clamp(1, 5);
@@ -343,7 +481,7 @@ class _WizardScreenState extends State<WizardScreen> {
   Future<void> _handleSubmitWizard() async {
     if (!_consentClaimStorageRequired || !_consentNoFalseClaimRequired) {
       setState(() {
-        _formError = '필수 동의 두 가지를 체크해 주세요.';
+        _formError = _s.wErrConsent;
       });
       return;
     }
@@ -352,6 +490,7 @@ class _WizardScreenState extends State<WizardScreen> {
     setState(() {
       _isSubmitting = true;
       _formError = null;
+      _notice = null;
     });
     final created = await store.createClaimFromWizard(
       vendor: _vendorCtrl.text.trim(),
@@ -379,6 +518,8 @@ class _WizardScreenState extends State<WizardScreen> {
     if (_step > 1) {
       setState(() {
         _formError = null;
+        _notice = null;
+        _fieldErrors.clear();
         _stepReverse = true;
         _step -= 1;
       });
@@ -394,6 +535,24 @@ class _WizardScreenState extends State<WizardScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final store = ReloScope.of(context);
+    // 안드로이드 뒤로 가기: 앱을 끄지 않고 이전 단계로 간다.
+    // 첫 단계와 신청 완료 화면에서는 홈으로 돌아간다.
+    return PopScope(
+      canPop: false,
+      onPopInvokedWithResult: (didPop, _) {
+        if (didPop) return;
+        if (_createdClaim != null) {
+          store.navigateToTab(0);
+        } else {
+          _goBack(store);
+        }
+      },
+      child: _buildBody(context),
+    );
+  }
+
+  Widget _buildBody(BuildContext context) {
     final store = ReloScope.of(context);
     final p = ReloPalette.of(context);
 
@@ -412,14 +571,14 @@ class _WizardScreenState extends State<WizardScreen> {
           child: Row(
             children: [
               IconButton(
-                tooltip: _step > 1 ? '이전 단계' : '홈으로',
+                tooltip: _step > 1 ? _s.wPrevStep : _s.wToHome,
                 onPressed: () => _goBack(store),
                 icon: Icon(ReloIcons.back, color: p.ink),
               ),
               const SizedBox(width: 4),
               Expanded(
                 child: Semantics(
-                  label: '다섯 단계 중 $_step단계',
+                  label: _s.wStepOf(_step),
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(999),
                     child: TweenAnimationBuilder<double>(
@@ -509,12 +668,28 @@ class _WizardScreenState extends State<WizardScreen> {
                       ),
                     ),
                   ),
+                )
+              else if (_notice != null)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Semantics(
+                    liveRegion: true,
+                    child: Text(
+                      _notice!,
+                      style: TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: p.muted,
+                      ),
+                    ),
+                  ),
                 ),
               if (_step < 5)
-                ReloButton(text: '다음', onPressed: _goNextStep)
+                ReloButton(text: _s.wNext, onPressed: _goNextStep)
               else
                 ReloButton(
-                  text: _isSubmitting ? '등록 중…' : '환불 신청 등록하기',
+                  text: _isSubmitting ? _s.wSubmitting : _s.wSubmit,
+                  busy: _isSubmitting,
                   onPressed: _isSubmitting ? null : _handleSubmitWizard,
                 ),
             ],
@@ -541,34 +716,50 @@ class _WizardScreenState extends State<WizardScreen> {
                 child: RefundGlobe(
                   corridors: [corridor],
                   animate: !reduceMotion,
-                  hubLabel: '서울 · 내 계좌로',
+                  hubLabel: _s.wGlobeHub,
                 ),
               ),
               const SizedBox(height: 8),
               Text(
-                '${corridor.city}에서 출발했어요',
+                _s.wDeparted(corridor.city),
                 textAlign: TextAlign.center,
                 style: TextStyle(
                     fontSize: 20, fontWeight: FontWeight.w800, color: p.ink),
               ),
               const SizedBox(height: 6),
               Text(
-                '${claim.vendor} · 주문번호 ${claim.orderRef}\n환불 신청과 증빙이 내 보관함에 저장됐어요.',
+                _s.wSavedLine(claim.vendor, claim.orderRef),
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: p.muted, height: 1.5),
               ),
               const SizedBox(height: 24),
               ReloButton(
-                text: '판매자 메시지 보내러 가기',
+                text: _s.wGoMessage,
                 showTrailingArrow: true,
                 onPressed: () => store.openClaimDetail(claim.id),
               ),
               const SizedBox(height: 8),
               ReloButton(
-                text: '내 환불 보기',
+                text: _s.wViewClaims,
                 isPrimary: false,
                 onPressed: () => store.navigateToTab(2),
               ),
+              // 마감이 있는 건을 처음 등록했을 때 한 번, 마감 알림을 권한다 (권한은 눌렀을 때만 묻는다)
+              if (store.reminders.isSupported &&
+                  !store.deadlineRemindersOn &&
+                  !store.reminderChoiceMade) ...[
+                const SizedBox(height: 6),
+                Center(
+                  child: ReloTextAction(
+                    label: _s.rmAskAction,
+                    onTap: () async {
+                      final ok = await store.setDeadlineReminders(true);
+                      if (!mounted) return;
+                      _toast(ok ? _s.rmTurnedOn : _s.stRemindersDenied);
+                    },
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -640,7 +831,7 @@ class _WizardScreenState extends State<WizardScreen> {
             borderRadius: BorderRadius.circular(18),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: _isScanning ? null : () => _openSampleReceipts(p),
+              onTap: _isScanning ? null : () => _fillFromReceipt(p),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                 child: Row(
@@ -652,7 +843,7 @@ class _WizardScreenState extends State<WizardScreen> {
                     const SizedBox(width: 12),
                     Expanded(
                       child: Text(
-                        _isScanning ? '영수증 읽는 중…' : '영수증으로 자동 채우기',
+                        _isScanning ? _s.wReceiptReading : _s.wReceiptFill,
                         style: TextStyle(
                           fontSize: 15,
                           fontWeight: FontWeight.w700,
@@ -678,7 +869,7 @@ class _WizardScreenState extends State<WizardScreen> {
           ),
         ),
         const SizedBox(height: 24),
-        _label('또는 직접 고르기', p),
+        _label(_s.wOrPick, p),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -692,10 +883,13 @@ class _WizardScreenState extends State<WizardScreen> {
                   _customVendor = false;
                   _vendorCtrl.text = mall.name;
                   _currency = mall.currency;
+                  _amountCtrl.text =
+                      InputRules.fitCurrency(_amountCtrl.text, mall.currency);
+                  _fieldErrors.remove('vendor');
                 }),
               ),
             ReloChoiceChip(
-              label: '직접 입력',
+              label: _s.wCustomVendor,
               selected: showVendorField,
               onTap: () => setState(() {
                 _customVendor = true;
@@ -707,22 +901,26 @@ class _WizardScreenState extends State<WizardScreen> {
         if (showVendorField) ...[
           const SizedBox(height: 16),
           ReloTextField(
-            label: '쇼핑몰 이름',
+            label: _s.wVendorName,
             controller: _vendorCtrl,
-            hint: '예: Coupang Global, eBay',
+            hint: _s.wVendorHint,
             fillColor: p.raised,
+            errorText: _fieldErrors['vendor'],
+            onChanged: (_) => _clearFieldError('vendor'),
           ),
         ],
         const SizedBox(height: 22),
         ReloTextField(
-          label: '주문번호',
+          label: _s.cmOrderNo,
           controller: _orderRefCtrl,
-          hint: '예: 114-8920411-33012',
+          hint: _s.wOrderHint,
           fillColor: p.raised,
+          errorText: _fieldErrors['orderRef'],
+          onChanged: (_) => _clearFieldError('orderRef'),
         ),
         const SizedBox(height: 14),
         ReloTextField(
-          label: '주문일',
+          label: _s.wOrderDate,
           controller: _orderedOnCtrl,
           readOnly: true,
           onTap: _pickOrderedOn,
@@ -732,12 +930,19 @@ class _WizardScreenState extends State<WizardScreen> {
         // [항목 #7 불필요한 개인정보 미수집 안내] 첫 단계 맨 아래 한 줄
         const SizedBox(height: 18),
         Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            Icon(ReloIcons.lock, size: 14, color: p.subtle),
+            Padding(
+              padding: const EdgeInsets.only(top: 1),
+              child: Icon(ReloIcons.lock, size: 14, color: p.subtle),
+            ),
             const SizedBox(width: 6),
-            Text(
-              '주민번호·통관번호·카드번호는 받지 않아요',
-              style: TextStyle(fontSize: 12, color: p.subtle),
+            // 다른 언어에서는 문장이 길어지므로, 넘치면 다음 줄로 내린다
+            Expanded(
+              child: Text(
+                _s.wPrivacyLine,
+                style: TextStyle(fontSize: 12, color: p.subtle, height: 1.4),
+              ),
             ),
           ],
         ),
@@ -751,35 +956,45 @@ class _WizardScreenState extends State<WizardScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         ReloTextField(
-          label: '문제가 생긴 상품 이름',
+          label: _s.wItemName,
           controller: _titleCtrl,
-          hint: '예: 무선 노이즈캔슬링 헤드폰 블랙',
+          hint: _s.wItemHint,
           fillColor: p.raised,
+          errorText: _fieldErrors['title'],
+          onChanged: (_) => _clearFieldError('title'),
         ),
         const SizedBox(height: 14),
         Row(
+          // 한쪽에만 오류 글자가 나와도 칸 높이가 어긋나지 않게 위에 맞춘다
+          crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(
               child: ReloTextField(
-                label: '주문한 수량',
+                label: _s.wQtyOrdered,
                 controller: _orderedQtyCtrl,
                 keyboardType: TextInputType.number,
                 fillColor: p.raised,
+                inputFormatters: _qtyFormatters,
+                errorText: _fieldErrors['orderedQty'],
+                onChanged: (_) => _clearFieldError('orderedQty'),
               ),
             ),
             const SizedBox(width: 12),
             Expanded(
               child: ReloTextField(
-                label: '문제가 생긴 수량',
+                label: _s.wQtyProblem,
                 controller: _claimQtyCtrl,
                 keyboardType: TextInputType.number,
                 fillColor: p.raised,
+                inputFormatters: _qtyFormatters,
+                errorText: _fieldErrors['claimQty'],
+                onChanged: (_) => _clearFieldError('claimQty'),
               ),
             ),
           ],
         ),
         const SizedBox(height: 22),
-        _label('결제한 통화', p),
+        _label(_s.wCurrency, p),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -789,17 +1004,25 @@ class _WizardScreenState extends State<WizardScreen> {
               ReloChoiceChip(
                 label: code,
                 selected: _currency == code,
-                onTap: () => setState(() => _currency = code),
+                onTap: () => setState(() {
+                  _currency = code;
+                  // 원 · 엔처럼 소수가 없는 통화로 바꾸면 소수점 아래를 떼어 낸다
+                  _amountCtrl.text =
+                      InputRules.fitCurrency(_amountCtrl.text, code);
+                }),
               ),
           ],
         ),
         const SizedBox(height: 22),
         ReloTextField(
-          label: '돌려받을 금액 ($_currency)',
+          label: _s.wAmount(_currency),
           controller: _amountCtrl,
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          hint: '예: 289.00',
+          hint: _s.wAmountHint,
           fillColor: p.raised,
+          inputFormatters: [MoneyInputFormatter.of(_currency)],
+          errorText: _fieldErrors['amount'],
+          onChanged: (_) => _clearFieldError('amount'),
         ),
       ],
     );
@@ -810,7 +1033,7 @@ class _WizardScreenState extends State<WizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        _label('원하는 해결 방법', p),
+        _label(_s.wResolution, p),
         const SizedBox(height: 10),
         Wrap(
           spacing: 8,
@@ -825,7 +1048,7 @@ class _WizardScreenState extends State<WizardScreen> {
           ],
         ),
         const SizedBox(height: 22),
-        _label('무슨 문제가 있었어요?', p),
+        _label(_s.wWhatProblem, p),
         const SizedBox(height: 10),
         // 자주 있는 문제를 고르면 아래 설명 칸에 문장이 채워진다
         Wrap(
@@ -836,25 +1059,29 @@ class _WizardScreenState extends State<WizardScreen> {
               ReloChoiceChip(
                 label: q.label,
                 selected: _issueCtrl.text == q.text,
-                onTap: () => setState(() => _issueCtrl.text = q.text),
+                onTap: () => setState(() {
+                  _issueCtrl.text = q.text;
+                  _fieldErrors.remove('issue');
+                }),
               ),
           ],
         ),
         const SizedBox(height: 14),
         ReloTextField(
-          label: '자세한 설명',
+          label: _s.wDetail,
           controller: _issueCtrl,
           maxLines: 3,
           fillColor: p.raised,
-          // 고른 칩 표시를 글자에 맞춘다
-          onChanged: (_) => setState(() {}),
+          errorText: _fieldErrors['issue'],
+          // 고른 칩 표시를 글자에 맞추고, 오류가 있었으면 지운다
+          onChanged: (_) => setState(() => _fieldErrors.remove('issue')),
         ),
         const SizedBox(height: 22),
         Row(
           children: [
             Expanded(
               child: Text(
-                '판매자에게 보낼 설명',
+                _s.wSellerDesc,
                 style: TextStyle(
                   fontSize: 16,
                   fontWeight: FontWeight.w700,
@@ -863,14 +1090,14 @@ class _WizardScreenState extends State<WizardScreen> {
               ),
             ),
             ReloTextAction(
-              label: _isTranslating ? '번역하는 중…' : 'AI로 번역',
+              label: _isTranslating ? _s.wTranslating : _s.wTranslate,
               onTap: _isTranslating ? null : _handleAutoTranslate,
             ),
           ],
         ),
         const SizedBox(height: 8),
         ReloTextField(
-          label: '영어로 쓴 설명',
+          label: _s.wEnglishDesc,
           controller: _issueEnCtrl,
           maxLines: 3,
           fillColor: p.raised,
@@ -885,7 +1112,7 @@ class _WizardScreenState extends State<WizardScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Text(
-          '영수증에 적힌 집 주소와 전화번호는 자동으로 가려요.',
+          _s.wMaskNote,
           style: TextStyle(fontSize: 14, color: p.muted, height: 1.45),
         ),
         const SizedBox(height: 6),
@@ -918,15 +1145,16 @@ class _WizardScreenState extends State<WizardScreen> {
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        f.addressMasked ? '주소 가려짐' : '주소 확인 필요',
+                        f.addressMasked ? _s.cmAddressMasked : _s.wAddressCheck,
                         style: TextStyle(fontSize: 13, color: p.subtle),
                       ),
                     ],
                   ),
                 ),
-                if (_stagedFiles.length > 1)
+                // 진짜 파일은 언제든 뺄 수 있고, 예시 파일은 하나는 남긴다
+                if (_stagedFiles.length > 1 || !f.id.startsWith('stg_default_'))
                   IconButton(
-                    tooltip: '파일 빼기',
+                    tooltip: _s.wRemoveFile,
                     icon: Icon(ReloIcons.close, size: 20, color: p.subtle),
                     onPressed: () => setState(
                       () => _stagedFiles.removeWhere((item) => item.id == f.id),
@@ -937,31 +1165,15 @@ class _WizardScreenState extends State<WizardScreen> {
           ),
         const SizedBox(height: 16),
         ReloButton(
-          text: '사진 · 영수증 추가',
+          text: _s.wAddFile,
           isPrimary: false,
           height: 48,
           icon: ReloIcons.add,
-          onPressed: () {
-            setState(() {
-              _stagedFiles.add(
-                StagedEvidenceFile(
-                  id: 'stg_${DateTime.now().millisecondsSinceEpoch}',
-                  name: '추가_파손증빙_${_stagedFiles.length + 1}.jpg',
-                  mime: 'image/jpeg',
-                  bytes: ReloStore.ensureValidFileSignature(
-                    'image/jpeg',
-                    utf8.encode('EXTRA_DAMAGE_EVIDENCE_PHOTO'),
-                  ),
-                  addressMasked: true,
-                  defectTag: '추가 증빙',
-                ),
-              );
-            });
-          },
+          onPressed: _addEvidence,
         ),
         const SizedBox(height: 10),
         Text(
-          '파일 하나에 10MB까지 올릴 수 있어요.',
+          _s.wFileLimit,
           style: TextStyle(fontSize: 12, color: p.subtle),
         ),
       ],
@@ -1004,43 +1216,49 @@ class _WizardScreenState extends State<WizardScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // 신청 내용 (상자 없이 줄로)
-        summary('쇼핑몰', _vendorCtrl.text),
-        summary('주문번호', _orderRefCtrl.text),
-        summary('상품', _titleCtrl.text),
+        summary(_s.wSumVendor, _vendorCtrl.text),
+        summary(_s.cmOrderNo, _orderRefCtrl.text),
+        summary(_s.wSumItem, _titleCtrl.text),
         summary(
-          '요청 금액',
+          _s.wSumAmount,
           '${MoneyFormat.symbolOf(_currency)}${_amountCtrl.text} $_currency',
         ),
-        summary('첨부', '${_stagedFiles.length}개 · 주소 가려짐'),
+        summary(
+          _s.wSumFiles,
+          _s.wSumFilesValue(
+            _stagedFiles.length,
+            masked: _stagedFiles.every((f) => f.addressMasked),
+          ),
+        ),
         // [항목 #10 숨겨진 요금 0원 확인]
-        summary('수수료 · 성공보수', '0원'),
+        summary(_s.wSumFee, _s.wFree),
         const SizedBox(height: 24),
 
         // [항목 #6 입력 양식 동의항목 확인 & #9 다크패턴 방지] 기본은 체크하지 않은 상태
-        _label('동의', p),
+        _label(_s.cmConsent, p),
         const SizedBox(height: 4),
         ReloConsentRow(
           value: _consentClaimStorageRequired,
           onChanged: (v) => setState(() => _consentClaimStorageRequired = v),
           isRequired: true,
-          title: '환불 내역과 증빙 사진 보관에 동의해요',
-          subtitle: '내 보관함에만 암호화해서 두고, 언제든 바로 지울 수 있어요.',
+          title: _s.wConsent1Title,
+          subtitle: _s.wConsent1Sub,
           onViewDetail: () => store.openLegalDocument('privacy'),
         ),
         ReloConsentRow(
           value: _consentNoFalseClaimRequired,
           onChanged: (v) => setState(() => _consentNoFalseClaimRequired = v),
           isRequired: true,
-          title: '실제로 산 물건이고 사실대로 적었어요',
-          subtitle: '거짓 신고가 아님을 확인하고 이용약관에 동의해요.',
+          title: _s.wConsent2Title,
+          subtitle: _s.wConsent2Sub,
           onViewDetail: () => store.openLegalDocument('terms'),
         ),
         ReloConsentRow(
           value: _consentAiDraftOptional,
           onChanged: (v) => setState(() => _consentAiDraftOptional = v),
           isRequired: false,
-          title: 'AI로 외국어 요청서 초안 만들기에 동의해요',
-          subtitle: '고르지 않아도 기본 영어·일본어·중국어 문장은 무료로 쓸 수 있어요.',
+          title: _s.wConsent3Title,
+          subtitle: _s.wConsent3Sub,
         ),
       ],
     );

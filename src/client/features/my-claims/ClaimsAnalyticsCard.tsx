@@ -135,11 +135,12 @@ export function ClaimsAnalyticsCard({ claims }: { claims: ClaimView[] }) {
 							currency={cur}
 							className="text-4xl text-relo-ink sm:text-[44px]"
 						/>
+						{/* Plain text next to the amount (no colored pill): blue once money has come in, gray while waiting */}
 						<span
-							className={`rounded-full px-3 py-1 text-xs font-bold ${
-								allRecovered
-									? "bg-relo-brand text-white"
-									: "bg-relo-brand-soft text-relo-brand"
+							className={`text-sm font-bold ${
+								allRecovered || activeBucket.cashMinor > 0
+									? "text-relo-brand"
+									: "text-relo-muted"
 							}`}
 						>
 							{allRecovered

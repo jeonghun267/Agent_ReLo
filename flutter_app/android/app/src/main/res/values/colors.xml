@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱의 어두운 바탕색 (lib/core/theme/relo_theme.dart의 canvas). 앱이 뜨기 전 창도 같은 색으로 둔다 -->
+    <color name="relo_canvas">#0F172A</color>
+</resources>
