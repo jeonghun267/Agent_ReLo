@@ -1,22 +1,27 @@
 import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/money_format.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
-import '../../shared/widgets/relo_mascot.dart';
+import '../../shared/widgets/claim_row.dart';
 import '../../shared/widgets/relo_primitives.dart';
 import '../assistant/assistant_sheet.dart';
+import '../../shared/widgets/relo_icons.dart';
 
 /// @module features/claims/claim_detail_screen
 /// @layer Feature Module — Individual Claim Workspace
-/// @purpose 외국어 메시지 생성, 쇼핑몰 답장 요약, 실제 카드 취소 입금 확인 및 증빙 사진 격리 보관함 화면입니다.
+/// @purpose 환불 건 하나를 끝까지 따라가는 화면 (DESIGN.md 7절 "상세").
+///          위에서 아래로: 무엇을 · 받기로 한 돈 / 받은 돈 · 지금 단계와 할 일 →
+///          글자 탭 넷(메시지 · 답장 · 입금 · 기록) → 아래 고정 "이 건 물어보기".
+///          홈·내 환불과 같이 상자 없이 바탕 위에 바로 놓고, 화면을 열면 지금 단계에 맞는 탭이 켜져 있다.
 class ClaimDetailScreen extends StatefulWidget {
   final String claimId;
 
-  /// 목록에서 카드가 커지며 열렸을 때(OpenContainer)는 라우트를 닫는다.
+  /// 목록에서 줄이 커지며 열렸을 때(OpenContainer)는 라우트를 닫는다.
   /// 없으면 스토어의 상세 선택을 해제한다.
   final VoidCallback? onClose;
 
@@ -27,8 +32,10 @@ class ClaimDetailScreen extends StatefulWidget {
 }
 
 class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
-  int _activeSubTab = 0;
-  bool _subTabTaken = false;
+  static const List<String> _tabs = ['메시지', '답장', '입금', '기록'];
+
+  int _activeTab = 0;
+  bool _tabTaken = false;
 
   final _draftCtrl = TextEditingController();
   final _submissionNoteCtrl = TextEditingController(
@@ -59,13 +66,15 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   void didChangeDependencies() {
     super.didChangeDependencies();
     final store = ReloScope.of(context);
-    // 도우미가 "판매자 메시지 쓰기"·"답장 붙여 넣기"로 열었으면 그 탭부터 보여 준다
-    if (!_subTabTaken) {
-      _subTabTaken = true;
-      _activeSubTab = store.pendingDetailSubTab;
-      store.pendingDetailSubTab = 0;
-    }
     final claim = store.findClaim(widget.claimId);
+    // 도우미가 "판매자 메시지 쓰기"·"답장 붙여 넣기"로 열었으면 그 탭부터,
+    // 아니면 지금 단계에서 할 일이 있는 탭부터 보여 준다
+    if (!_tabTaken) {
+      _tabTaken = true;
+      _activeTab = store.pendingDetailSubTab ??
+          (claim == null ? 0 : _tabForState(claim));
+      store.pendingDetailSubTab = null;
+    }
     if (claim != null) {
       if (_draftCtrl.text.isEmpty && claim.drafts.isNotEmpty) {
         _draftCtrl.text = claim.drafts.first.body;
@@ -102,33 +111,27 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     super.dispose();
   }
 
-  static const List<({String id, String label})> _lifecycleSteps = [
-    (id: 'preparing', label: '서류 준비'),
-    (id: 'review', label: '메시지 준비'),
-    (id: 'awaiting', label: '답변 대기'),
-    (id: 'negotiating', label: '조건 조율'),
-    (id: 'recovered', label: '입금 확인'),
-    (id: 'completed', label: '완료'),
-  ];
+  /// 지금 단계에서 먼저 볼 탭: 메시지 보낼 차례 → 메시지, 답장 기다리는 중 → 답장, 그 뒤 → 입금
+  int _tabForState(ClaimView claim) => switch (claim.state) {
+        'preparing' || 'review' => 0,
+        'awaiting' => 1,
+        'negotiating' => claim.agreed == null ? 1 : 2,
+        _ => 2,
+      };
 
-  int _lifecycleIndex(String state) {
-    switch (state) {
-      case 'preparing':
-        return 0;
-      case 'review':
-        return 1;
-      case 'awaiting':
-        return 2;
-      case 'negotiating':
-        return 3;
-      case 'partial':
-      case 'recovered':
-        return 4;
-      case 'completed':
-        return 5;
-      default:
-        return 0;
-    }
+  /// 여섯 단계 중 몇 번째인지 (0부터)
+  int _stepIndex(String state) => switch (state) {
+        'preparing' => 0,
+        'review' => 1,
+        'awaiting' => 2,
+        'negotiating' => 3,
+        'partial' || 'recovered' => 4,
+        'completed' => 5,
+        _ => 0,
+      };
+
+  void _toast(String text) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(text)));
   }
 
   Future<void> _handleGenerateDraft(ReloStore store, ClaimView claim) async {
@@ -151,9 +154,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     );
     if (!mounted) return;
     setState(() => _submittingDraft = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('외국어 요청서를 저장하고 [답변 대기] 단계로 전환했어요!')),
-    );
+    _toast('저장했어요. 이제 답장을 기다리면 돼요.');
   }
 
   Future<void> _handleAnalyzeReply(ReloStore store, ClaimView claim) async {
@@ -188,17 +189,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     );
     if (!mounted) return;
     setState(() => _savingReply = false);
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('쇼핑몰 답장과 약속 금액이 환불 통장에 반영되었어요!')),
-    );
-  }
-
-  void _close(ReloStore store) {
-    if (widget.onClose != null) {
-      widget.onClose!();
-    } else {
-      store.closeClaimDetail();
-    }
+    _toast('답장과 약속한 금액을 저장했어요.');
   }
 
   Future<void> _handleRecordDeposit(ReloStore store, ClaimView claim) async {
@@ -216,10 +207,58 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       _showDepositConfetti = true;
     });
     _confetti.play();
-    setState(() {});
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('실제 카드 취소·입금 내역이 환불 통장에 기록되었어요!')),
+    _toast('들어온 돈을 기록했어요.');
+  }
+
+  Future<void> _handleAddFile(ReloStore store, ClaimView claim) async {
+    await store.uploadClaimFile(
+      claimId: claim.id,
+      fileName:
+          'Card_Cancel_Slip_${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}.pdf',
+      mime: 'application/pdf',
+      bytes: const [0x25, 0x50, 0x44, 0x46, 0x2D, 0x31, 0x2E, 0x34],
     );
+    if (!mounted) return;
+    _toast('파일을 추가했어요.');
+  }
+
+  Future<void> _handleMore(
+      ReloStore store, ClaimView claim, String choice) async {
+    if (choice == 'done') {
+      await store.completeClaim(claim.id);
+      if (!mounted) return;
+      _toast('끝난 건으로 표시했어요.');
+    } else {
+      final wasDeleted = claim.deleted;
+      await store.toggleTrashClaim(claim.id);
+      if (!mounted) return;
+      _toast(wasDeleted ? '휴지통에서 꺼냈어요.' : '휴지통으로 옮겼어요.');
+    }
+  }
+
+  void _close(ReloStore store) {
+    if (widget.onClose != null) {
+      widget.onClose!();
+    } else {
+      store.closeClaimDetail();
+    }
+  }
+
+  // 이 건을 담은 채로 도우미를 연다. 같은 건의 메시지·답장 버튼은 이 화면의 탭을 바꾼다.
+  void _askAssistant(ReloStore store, ClaimView claim) {
+    void onAction(AssistantTurn turn) {
+      final sameClaim = turn.claimId == claim.id;
+      if (sameClaim && turn.action == 'draft_email') {
+        setState(() => _activeTab = 0);
+      } else if (sameClaim && turn.action == 'analyze_reply') {
+        setState(() => _activeTab = 1);
+      } else if (!(sameClaim && turn.action == 'open_claim')) {
+        if (widget.onClose != null) widget.onClose!();
+        runAssistantAction(store, turn);
+      }
+    }
+
+    showReloAssistant(context, claimId: claim.id, onAction: onAction);
   }
 
   @override
@@ -232,359 +271,68 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: ReloCard(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Text(
-                  '선택한 환불 건을 찾을 수 없어요.',
-                  style: TextStyle(
-                    fontSize: 16,
-                    fontWeight: FontWeight.w800,
-                    color: palette.ink,
-                  ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                '이 환불 건을 찾을 수 없어요',
+                style: TextStyle(
+                  fontSize: 16,
+                  fontWeight: FontWeight.w700,
+                  color: palette.ink,
                 ),
-                const SizedBox(height: 12),
-                ReloButton(
-                  text: '내 환불 목록으로 돌아가기',
-                  onPressed: () => _close(store),
-                ),
-              ],
-            ),
+              ),
+              const SizedBox(height: 16),
+              ReloButton(
+                text: '내 환불로 돌아가기',
+                isPrimary: false,
+                onPressed: () => _close(store),
+              ),
+            ],
           ),
         ),
       );
     }
 
-    final targetTotal = claim.agreed ?? claim.claimed;
-    final progressRatio = targetTotal <= 0
-        ? 0.0
-        : (claim.summary.cash / targetTotal).clamp(0.0, 1.0);
-    final currentStepIdx = _lifecycleIndex(claim.state);
+    final typing = MediaQuery.viewInsetsOf(context).bottom > 0;
 
     return Stack(
       alignment: Alignment.topCenter,
       children: [
-        SingleChildScrollView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 36),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  GestureDetector(
-                    onTap: () => _close(store),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 8,
-                      ),
-                      decoration: BoxDecoration(
-                        color: palette.surface,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: palette.line),
-                      ),
-                      child: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          Icon(
-                            Icons.arrow_back_rounded,
-                            size: 16,
-                            color: palette.body,
-                          ),
-                          const SizedBox(width: 6),
-                          Text(
-                            '내 환불 목록',
-                            style: TextStyle(
-                              fontSize: 12,
-                              fontWeight: FontWeight.w800,
-                              color: palette.body,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  Row(
-                    children: [
-                      if (claim.state != 'completed')
-                        GestureDetector(
-                          onTap: () async {
-                            await store.completeClaim(claim.id);
-                            if (!context.mounted) return;
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Text('환불 절차가 최종 완료 처리되었어요!'),
-                              ),
-                            );
-                          },
-                          child: Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 12,
-                              vertical: 8,
-                            ),
-                            decoration: BoxDecoration(
-                              color: palette.sunken,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '절차 완료 표시',
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w800,
-                                color: palette.body,
-                              ),
-                            ),
-                          ),
-                        ),
-                      const SizedBox(width: 8),
-                      GestureDetector(
-                        onTap: () => store.toggleTrashClaim(claim.id),
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 10,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: palette.sunken,
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Icon(
-                            claim.deleted
-                                ? Icons.restore_from_trash_rounded
-                                : Icons.delete_outline_rounded,
-                            size: 16,
-                            color: palette.muted,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              ReloCard(
-                padding: const EdgeInsets.all(18),
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.only(bottom: 24),
                 child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          '${claim.vendor} · 주문번호 #${claim.orderRef}',
-                          style: TextStyle(fontSize: 12, color: palette.muted),
-                        ),
-                        if (claim.deadline != null &&
-                            claim.deadline!.isNotEmpty) ...[
-                          const SizedBox(height: 2),
-                          Row(
-                            children: [
-                              Text(
-                                '마감 ${claim.deadline} · ',
-                                style: TextStyle(
-                                    fontSize: 12, color: palette.muted),
-                              ),
-                              ReloDdayText(deadline: claim.deadline),
-                            ],
-                          ),
-                        ],
-                      ],
-                    ),
-                    const SizedBox(height: 10),
-                    Text(
-                      claim.title,
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w900,
-                        color: palette.ink,
-                        letterSpacing: -0.4,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      claim.nextStep,
-                      style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: palette.brandHover,
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    Container(
-                      padding: const EdgeInsets.all(14),
-                      decoration: BoxDecoration(
-                        color: palette.sunken.withValues(alpha: 0.65),
-                        borderRadius: BorderRadius.circular(16),
-                        border: Border.all(color: palette.line),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                            children: [
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    '실제 입금 확인 금액',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: palette.muted,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  MoneyDisplay(
-                                    minorAmount: claim.summary.cash,
-                                    currency: claim.currency,
-                                    size: MoneySize.lg,
-                                    color: palette.ink,
-                                  ),
-                                ],
-                              ),
-                              Column(
-                                crossAxisAlignment: CrossAxisAlignment.end,
-                                children: [
-                                  Text(
-                                    claim.agreed != null
-                                        ? '쇼핑몰 약속 금액'
-                                        : '요청 환불 금액',
-                                    style: TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w700,
-                                      color: palette.muted,
-                                    ),
-                                  ),
-                                  const SizedBox(height: 2),
-                                  MoneyDisplay(
-                                    minorAmount: targetTotal,
-                                    currency: claim.currency,
-                                    size: MoneySize.md,
-                                    color: palette.body,
-                                  ),
-                                ],
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(999),
-                            child: LinearProgressIndicator(
-                              value: progressRatio,
-                              minHeight: 8,
-                              backgroundColor: palette.surface,
-                              valueColor:
-                                  AlwaysStoppedAnimation<Color>(palette.brand),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 14),
-                    SingleChildScrollView(
-                      scrollDirection: Axis.horizontal,
-                      child: Row(
-                        children: List.generate(_lifecycleSteps.length, (i) {
-                          final step = _lifecycleSteps[i];
-                          final done = i <= currentStepIdx;
-                          final current = i == currentStepIdx;
-                          return Row(
-                            children: [
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 10,
-                                  vertical: 5,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: current
-                                      ? palette.brand
-                                      : (done
-                                          ? palette.brandSoft
-                                          : palette.sunken),
-                                  borderRadius: BorderRadius.circular(999),
-                                ),
-                                child: Text(
-                                  '${i + 1}. ${step.label}',
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.w800,
-                                    color: current
-                                        ? Colors.white
-                                        : (done
-                                            ? palette.brandHover
-                                            : palette.muted),
-                                  ),
-                                ),
-                              ),
-                              if (i < _lifecycleSteps.length - 1)
-                                Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 4,
-                                  ),
-                                  child: Icon(
-                                    Icons.chevron_right_rounded,
-                                    size: 14,
-                                    color: palette.subtle,
-                                  ),
-                                ),
-                            ],
-                          );
-                        }),
-                      ),
+                    _buildTopBar(store, claim, palette),
+                    _buildHeader(store, claim, palette),
+                    _buildTabs(palette),
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                      child: switch (_activeTab) {
+                        0 => _buildMessageTab(store, claim, palette),
+                        1 => _buildReplyTab(store, claim, palette),
+                        2 => _buildDepositTab(store, claim, palette),
+                        _ => _buildHistoryTab(claim, palette),
+                      },
                     ),
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
-              _buildAskAssistant(store, claim, palette),
-              const SizedBox(height: 14),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _buildSubTabButton(
-                      index: 0,
-                      label: '1. 외국어 메시지 보내기',
-                      icon: Icons.translate_rounded,
-                      palette: palette,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildSubTabButton(
-                      index: 1,
-                      label: '2. 쇼핑몰 답장 · 약속 금액',
-                      icon: Icons.mark_chat_read_rounded,
-                      palette: palette,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildSubTabButton(
-                      index: 2,
-                      label: '3. 사진 보관함 · 입금 확인',
-                      icon: Icons.account_balance_wallet_rounded,
-                      palette: palette,
-                    ),
-                    const SizedBox(width: 8),
-                    _buildSubTabButton(
-                      index: 3,
-                      label: '4. 진행 기록',
-                      icon: Icons.history_rounded,
-                      palette: palette,
-                    ),
-                  ],
-                ),
+            ),
+            // 글자를 칠 때는 자리를 내준다
+            if (!typing) ...[
+              ReloAskBar(
+                label: store.strings.assistantAskThisClaim,
+                onTap: () => _askAssistant(store, claim),
               ),
-              const SizedBox(height: 14),
-              if (_activeSubTab == 0)
-                _buildForeignMessageStudio(store, claim, palette),
-              if (_activeSubTab == 1)
-                _buildSellerReplyAnalyzer(store, claim, palette),
-              if (_activeSubTab == 2)
-                _buildEvidenceAndSettlementTab(store, claim, palette),
-              if (_activeSubTab == 3) _buildAuditTimelineTab(claim, palette),
+              const SizedBox(height: 8),
             ],
-          ),
+          ],
         ),
         ConfettiWidget(
           confettiController: _confetti,
@@ -597,653 +345,684 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     );
   }
 
-  // 이 건을 담은 채로 도우미를 연다. 같은 건의 메시지·답장 버튼은 이 화면의 탭을 바꾼다.
-  Widget _buildAskAssistant(
-      ReloStore store, ClaimView claim, ReloPalette palette) {
-    void onAction(AssistantTurn turn) {
-      final sameClaim = turn.claimId == claim.id;
-      if (sameClaim && turn.action == 'draft_email') {
-        setState(() => _activeSubTab = 0);
-      } else if (sameClaim && turn.action == 'analyze_reply') {
-        setState(() => _activeSubTab = 1);
-      } else if (!(sameClaim && turn.action == 'open_claim')) {
-        if (widget.onClose != null) widget.onClose!();
-        runAssistantAction(store, turn);
-      }
-    }
-
-    return Material(
-      color: palette.brandSoft,
-      borderRadius: BorderRadius.circular(16),
-      child: InkWell(
-        borderRadius: BorderRadius.circular(16),
-        onTap: () =>
-            showReloAssistant(context, claimId: claim.id, onAction: onAction),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 14, 10),
-          child: Row(
-            children: [
-              const ReloMascot(size: 30, animate: false),
-              const SizedBox(width: 10),
-              Expanded(
-                child: Text(
-                  store.strings.assistantClaimStarters.first,
-                  style: TextStyle(fontSize: 13, color: palette.body),
-                ),
-              ),
-              Text(
-                store.strings.assistantAskThisClaim,
-                style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w800,
-                  color: palette.brandHover,
-                ),
-              ),
-              Icon(Icons.chevron_right_rounded,
-                  size: 18, color: palette.brandHover),
-            ],
+  // ── 맨 위: 뒤로 · 더 보기 ────────────────────────────────────────────
+  Widget _buildTopBar(ReloStore store, ClaimView claim, ReloPalette palette) {
+    PopupMenuItem<String> item(String value, String label) => PopupMenuItem(
+          value: value,
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w600,
+              color: palette.ink,
+            ),
           ),
-        ),
-      ),
-    );
-  }
+        );
 
-  Widget _buildSubTabButton({
-    required int index,
-    required String label,
-    required IconData icon,
-    required ReloPalette palette,
-  }) {
-    final active = _activeSubTab == index;
-    return GestureDetector(
-      onTap: () => setState(() => _activeSubTab = index),
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-        decoration: BoxDecoration(
-          color: active ? palette.brand : palette.surface,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(color: active ? palette.brand : palette.line),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              icon,
-              size: 15,
-              color: active ? Colors.white : palette.muted,
-            ),
-            const SizedBox(width: 6),
-            Text(
-              label,
-              style: TextStyle(
-                fontSize: 12,
-                fontWeight: FontWeight.w800,
-                color: active ? Colors.white : palette.body,
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildForeignMessageStudio(
-    ReloStore store,
-    ClaimView claim,
-    ReloPalette palette,
-  ) {
-    return ReloCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(8, 4, 8, 0),
+      child: Row(
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Expanded(
-                child: Text(
-                  '외국어 환불 요청서 자동 생성',
-                  style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
-                    color: palette.ink,
-                  ),
-                ),
-              ),
-              GestureDetector(
-                onTap: _generatingDraft
-                    ? null
-                    : () => _handleGenerateDraft(store, claim),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.brandSoft,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: palette.brandLine),
-                  ),
-                  child: Text(
-                    _generatingDraft ? '작성 중...' : 'AI 맞춤 초안 생성',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: palette.ink,
-                    ),
-                  ),
-                ),
-              ),
+          IconButton(
+            tooltip: '내 환불 목록',
+            icon: Icon(ReloIcons.back, color: palette.ink),
+            onPressed: () => _close(store),
+          ),
+          const Spacer(),
+          PopupMenuButton<String>(
+            tooltip: '더 보기',
+            icon: Icon(ReloIcons.more, color: palette.muted),
+            color: palette.surfaceElevated,
+            elevation: 6,
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(14),
+            ),
+            onSelected: (choice) => _handleMore(store, claim, choice),
+            itemBuilder: (_) => [
+              if (claim.state != 'completed') item('done', '끝난 건으로 표시'),
+              item('trash', claim.deleted ? '휴지통에서 꺼내기' : '휴지통으로 옮기기'),
             ],
-          ),
-          const SizedBox(height: 12),
-          ReloTextField(
-            label: '쇼핑몰 제출용 외국어 메시지',
-            controller: _draftCtrl,
-            maxLines: 6,
-          ),
-          const SizedBox(height: 10),
-          ReloButton(
-            text: '메시지 복사하기',
-            isPrimary: false,
-            height: 44,
-            icon: Icons.copy_rounded,
-            onPressed: () {
-              Clipboard.setData(ClipboardData(text: _draftCtrl.text));
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('외국어 메시지가 클립보드에 복사되었어요!'),
-                ),
-              );
-            },
-          ),
-          const SizedBox(height: 12),
-          ReloTextField(
-            label: '어디로 보냈는지 메모 (선택)',
-            controller: _submissionNoteCtrl,
-          ),
-          const SizedBox(height: 12),
-          ReloButton(
-            text: _submittingDraft ? '저장 중...' : '쇼핑몰에 메시지 보냈어요 (답변 대기 전환)',
-            icon: Icons.send_rounded,
-            onPressed: _submittingDraft
-                ? null
-                : () => _handleSaveSubmitDraft(store, claim),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildSellerReplyAnalyzer(
-    ReloStore store,
-    ClaimView claim,
-    ReloPalette palette,
-  ) {
-    return ReloCard(
+  // ── 무엇을 · 돈 · 지금 단계 ──────────────────────────────────────────
+  Widget _buildHeader(ReloStore store, ClaimView claim, ReloPalette palette) {
+    final target = claim.agreed ?? claim.claimed;
+    final cash = claim.summary.cash;
+    final base = claim.claimed <= 0 ? target : claim.claimed;
+    double ratio(int minor) => base <= 0 ? 0.0 : minor / base;
+    final showBar = claim.agreed != null || cash > 0;
+    final hasDeadline = claim.deadline != null && claim.deadline!.isNotEmpty;
+
+    final stepIndex = _stepIndex(claim.state);
+    final status = claim.state == 'completed'
+        ? '모두 끝났어요'
+        : claimStatusText(claim, korean: store.locale == ReloLocale.ko);
+
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 0),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          Text(
+            '${claim.vendor} · 주문번호 ${claim.orderRef}',
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: TextStyle(fontSize: 13, color: palette.subtle),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            claim.title,
+            style: TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w800,
+              color: palette.ink,
+              letterSpacing: -0.4,
+              height: 1.3,
+            ),
+          ),
+          const SizedBox(height: 20),
+
+          // 받기로 한 돈 / 받은 돈 (내 환불 목록과 같은 두 칸)
+          IntrinsicHeight(
+            child: Row(
+              children: [
+                _MoneyCell(
+                  label: claim.agreed != null ? '받기로 한 돈' : '요청한 돈',
+                  amount: MoneyFormat.formatMinor(target, claim.currency),
+                  strong: true,
+                ),
+                VerticalDivider(
+                  width: 33,
+                  thickness: 1,
+                  color: palette.line.withValues(alpha: 0.5),
+                ),
+                _MoneyCell(
+                  label: '받은 돈',
+                  amount: MoneyFormat.formatMinor(cash, claim.currency),
+                  strong: cash > 0,
+                ),
+              ],
+            ),
+          ),
+          if (showBar) ...[
+            const SizedBox(height: 12),
+            Semantics(
+              label: '약속과 입금 진행',
+              child: ReloProgressBar(
+                promised: ratio(claim.agreed ?? 0),
+                cash: ratio(cash),
+                height: 6,
+                trackColor: palette.raised,
+              ),
+            ),
+          ],
+          if (hasDeadline && !isClaimDone(claim)) ...[
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                Text(
+                  '마감 ${claim.deadline} · ',
+                  style: TextStyle(fontSize: 13, color: palette.subtle),
+                ),
+                ReloDdayText(deadline: claim.deadline, fontSize: 13),
+              ],
+            ),
+          ],
+          const SizedBox(height: 24),
+
+          // 지금 단계 (여섯 단계 중 어디인지는 점으로) + 할 일 한 줄
           Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Expanded(
                 child: Text(
-                  '쇼핑몰 외국어 답장 3줄 요약 · 약속 금액',
+                  status,
                   style: TextStyle(
-                    fontSize: 15,
-                    fontWeight: FontWeight.w900,
+                    fontSize: 16,
+                    fontWeight: FontWeight.w700,
                     color: palette.ink,
                   ),
                 ),
               ),
-              GestureDetector(
-                onTap: _analyzingReply
-                    ? null
-                    : () => _handleAnalyzeReply(store, claim),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 8,
-                  ),
-                  decoration: BoxDecoration(
-                    color: palette.brandSoft,
-                    borderRadius: BorderRadius.circular(12),
-                    border: Border.all(color: palette.brandLine),
-                  ),
-                  child: Text(
-                    _analyzingReply ? '분석 중...' : 'AI 쉬운 한국어 요약',
-                    style: TextStyle(
-                      fontSize: 11,
-                      fontWeight: FontWeight.w800,
-                      color: palette.ink,
-                    ),
-                  ),
+              Semantics(
+                label: '여섯 단계 중 ${stepIndex + 1}단계',
+                child: Row(
+                  children: [
+                    for (var i = 0; i < 6; i++)
+                      Container(
+                        width: 7,
+                        height: 7,
+                        margin: const EdgeInsets.only(left: 6),
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          color: i <= stepIndex
+                              ? palette.focusRing
+                              : palette.line,
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ],
-          ),
-          const SizedBox(height: 12),
-          Text(
-            '답장 유형 선택',
-            style: TextStyle(
-              fontSize: 12,
-              fontWeight: FontWeight.w800,
-              color: palette.body,
-            ),
           ),
           const SizedBox(height: 6),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: store.config.replyKinds.entries.map((entry) {
-              final active = _replyKind == entry.key;
-              return GestureDetector(
-                onTap: () => setState(() => _replyKind = entry.key),
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 10,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: active ? palette.brand : palette.sunken,
-                    borderRadius: BorderRadius.circular(10),
-                  ),
-                  child: Text(
-                    entry.value,
-                    style: TextStyle(
-                      fontSize: 11.5,
-                      fontWeight: FontWeight.w800,
-                      color: active ? Colors.white : palette.body,
-                    ),
-                  ),
-                ),
-              );
-            }).toList(),
-          ),
-          const SizedBox(height: 12),
-          ReloTextField(
-            label: '쇼핑몰 답장 원문 붙여넣기',
-            controller: _replyCtrl,
-            maxLines: 4,
-          ),
-          if (_summaryKo.isNotEmpty || claim.replies.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(14),
-              decoration: BoxDecoration(
-                color: palette.brandSoft,
-                borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: palette.brandLine),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    _summaryKo.isNotEmpty
-                        ? _summaryKo
-                        : claim.replies.first.summaryKo,
-                    style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w900,
-                      color: palette.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    _translationKo.isNotEmpty
-                        ? _translationKo
-                        : claim.replies.first.translationKo,
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: palette.body,
-                      height: 1.4,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-          ],
-          const SizedBox(height: 12),
-          ReloTextField(
-            label: '쇼핑몰이 약속한 환불 금액 (${claim.currency})',
-            controller: _agreedAmountCtrl,
-            keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          ),
-          const SizedBox(height: 12),
-          ReloButton(
-            text: _savingReply ? '저장 중...' : '답장 요약 및 약속 금액 저장하기',
-            onPressed:
-                _savingReply ? null : () => _handleSaveReply(store, claim),
+          Text(
+            claim.nextStep,
+            style: TextStyle(fontSize: 14, color: palette.muted, height: 1.45),
           ),
         ],
       ),
     );
   }
 
-  Widget _buildEvidenceAndSettlementTab(
-    ReloStore store,
-    ClaimView claim,
-    ReloPalette palette,
-  ) {
+  // ── 글자 탭 넷 ───────────────────────────────────────────────────────
+  Widget _buildTabs(ReloPalette palette) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          border: Border(
+            bottom: BorderSide(color: palette.line.withValues(alpha: 0.5)),
+          ),
+        ),
+        child: Row(
+          children: [
+            for (var i = 0; i < _tabs.length; i++)
+              ReloTextTab(
+                label: _tabs[i],
+                selected: _activeTab == i,
+                onTap: () => setState(() => _activeTab = i),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _sectionHead(String title, {Widget? action}) {
+    final palette = ReloPalette.of(context);
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            title,
+            style: TextStyle(
+              fontSize: 16,
+              fontWeight: FontWeight.w700,
+              color: palette.ink,
+            ),
+          ),
+        ),
+        if (action != null) action,
+      ],
+    );
+  }
+
+  Widget _caption(String text) {
+    final palette = ReloPalette.of(context);
+    return Text(
+      text,
+      style: TextStyle(fontSize: 12, color: palette.subtle, height: 1.4),
+    );
+  }
+
+  // ── 1. 메시지 ────────────────────────────────────────────────────────
+  Widget _buildMessageTab(
+      ReloStore store, ClaimView claim, ReloPalette palette) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (_showDepositConfetti) ...[
-          const ConfettiBurstBanner(
-            title: '돈이 돌아왔어요!',
-            subtitle: '내 카드·통장에 들어온 금액이 환불 통장에 기록됐어요.',
-          ),
-          const SizedBox(height: 14),
-        ],
-        // 1. 내 전용 격리 증빙 사진 · 영수증 보관함 (claim.files)
-        ReloCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Wrap(
-                spacing: 8,
-                runSpacing: 6,
-                alignment: WrapAlignment.spaceBetween,
-                crossAxisAlignment: WrapCrossAlignment.center,
-                children: [
-                  Text(
-                    '내 전용 격리 증빙 보관함 (${claim.files.length}개)',
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w900,
-                      color: palette.ink,
-                    ),
-                  ),
-                  Text(
-                    '10MB까지 · 암호화 보관',
-                    style: TextStyle(fontSize: 11, color: palette.muted),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 6),
-              Text(
-                '업로드된 영수증과 불량 사진은 본인 계정에서만 열람할 수 있으며 SHA-256 무결성 해시로 보호됩니다.',
-                style: TextStyle(fontSize: 11.5, color: palette.muted),
-              ),
-              const SizedBox(height: 12),
-              if (claim.files.isEmpty)
-                Container(
-                  padding: const EdgeInsets.all(14),
-                  decoration: BoxDecoration(
-                    color: palette.sunken,
-                    borderRadius: BorderRadius.circular(12),
-                  ),
-                  child: Text(
-                    '아직 첨부된 증빙 사진이나 영수증이 없어요.',
-                    style: TextStyle(fontSize: 12, color: palette.muted),
-                  ),
-                )
-              else
-                ...claim.files.map(
-                  (file) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: palette.sunken,
-                      borderRadius: BorderRadius.circular(12),
-                      border: Border.all(color: palette.line),
-                    ),
-                    child: Row(
-                      children: [
-                        Icon(
-                          file.mime.contains('pdf')
-                              ? Icons.picture_as_pdf_rounded
-                              : Icons.image_rounded,
-                          size: 20,
-                          color: palette.brandHover,
-                        ),
-                        const SizedBox(width: 10),
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                file.name,
-                                style: TextStyle(
-                                  fontSize: 12.5,
-                                  fontWeight: FontWeight.w800,
-                                  color: palette.ink,
-                                ),
-                              ),
-                              Text(
-                                '${(file.size / 1024).toStringAsFixed(1)} KB · ${file.usedAsProof ? '입금 증빙 사용됨' : '보관 중'}',
-                                style: TextStyle(
-                                  fontSize: 11,
-                                  color: palette.muted,
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                        if (!file.usedAsProof)
-                          IconButton(
-                            tooltip: '증빙 파일 삭제',
-                            icon: Icon(
-                              Icons.delete_outline_rounded,
-                              size: 18,
-                              color: palette.muted,
-                            ),
-                            onPressed: () => store.removeClaimFile(
-                              claimId: claim.id,
-                              fileId: file.id,
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-              const SizedBox(height: 6),
-              ReloButton(
-                text: '카드 취소 영수증 · 증빙 사진 추가 첨부 (10MB 이하)',
-                isPrimary: false,
-                height: 44,
-                icon: Icons.upload_file_rounded,
-                onPressed: () async {
-                  await store.uploadClaimFile(
-                    claimId: claim.id,
-                    fileName:
-                        'Card_Cancel_Slip_${DateTime.now().millisecondsSinceEpoch.toString().substring(9)}.pdf',
-                    mime: 'application/pdf',
-                    bytes: const [
-                      0x25,
-                      0x50,
-                      0x44,
-                      0x46,
-                      0x2D,
-                      0x31,
-                      0x2E,
-                      0x34
-                    ],
-                  );
-                  if (!mounted) return;
-                  ScaffoldMessenger.of(context).showSnackBar(
-                    const SnackBar(
-                      content: Text('새 증빙 파일이 격리 보관함에 안전하게 추가되었어요!'),
-                    ),
-                  );
-                },
-              ),
-            ],
+        _sectionHead(
+          '판매자에게 보낼 메시지',
+          action: ReloTextAction(
+            label: _generatingDraft ? '쓰는 중…' : 'AI로 쓰기',
+            onTap: _generatingDraft
+                ? null
+                : () => _handleGenerateDraft(store, claim),
           ),
         ),
-        const SizedBox(height: 14),
-        // 2. 실제 카드 취소 · 통장 입금 기록 폼
-        ReloCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              Text(
-                '실제 카드 취소 · 통장 입금 기록하기',
-                style: TextStyle(
-                  fontSize: 15,
-                  fontWeight: FontWeight.w900,
-                  color: palette.ink,
-                ),
+        const SizedBox(height: 12),
+        ReloTextField(
+          label: '보낼 메시지',
+          hint: 'AI로 쓰기를 누르면 판매자 나라 말로 써 드려요',
+          controller: _draftCtrl,
+          maxLines: 6,
+          fillColor: palette.raised,
+        ),
+        const SizedBox(height: 12),
+        ReloTextField(
+          label: '어디로 보냈는지 (선택)',
+          controller: _submissionNoteCtrl,
+          fillColor: palette.raised,
+        ),
+        const SizedBox(height: 16),
+        Row(
+          children: [
+            Expanded(
+              child: ReloButton(
+                text: '복사하기',
+                isPrimary: false,
+                icon: ReloIcons.copy,
+                onPressed: () {
+                  Clipboard.setData(ClipboardData(text: _draftCtrl.text));
+                  _toast('메시지를 복사했어요.');
+                },
               ),
-              const SizedBox(height: 4),
-              Text(
-                '카드 전체 번호는 수집하지 않으며, 취소 금액과 승인 참조번호만 기록합니다.',
-                style: TextStyle(fontSize: 11.5, color: palette.muted),
-              ),
-              const SizedBox(height: 12),
-              Row(
-                children: [
-                  Expanded(
-                    child: ReloTextField(
-                      label: '입금 확인 금액 (${claim.currency})',
-                      controller: _depositAmountCtrl,
-                      keyboardType: const TextInputType.numberWithOptions(
-                        decimal: true,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: ReloTextField(
-                      label: '입금/취소 확인일',
-                      controller: _receivedOnCtrl,
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 10),
-              ReloTextField(
-                label: '카드 취소 승인번호 · 메모 (카드 전체 번호 입력 금지)',
-                controller: _txRefCtrl,
-              ),
-              const SizedBox(height: 12),
-              ReloButton(
-                text: _recordingDeposit ? '기록 중...' : '내 카드·통장 실제 입금 완료 기록하기',
-                icon: Icons.verified_rounded,
-                onPressed: _recordingDeposit
+            ),
+            const SizedBox(width: 8),
+            Expanded(
+              child: ReloButton(
+                text: _submittingDraft ? '저장하는 중…' : '보냈어요',
+                onPressed: _submittingDraft
                     ? null
-                    : () => _handleRecordDeposit(store, claim),
+                    : () => _handleSaveSubmitDraft(store, claim),
               ),
-              if (claim.ledger.isNotEmpty) ...[
-                const SizedBox(height: 16),
-                Divider(color: palette.line, height: 1),
-                const SizedBox(height: 12),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        _caption('ReLo가 대신 보내지는 않아요. 복사해서 쇼핑몰에 보낸 다음 "보냈어요"를 눌러 주세요.'),
+      ],
+    );
+  }
+
+  // ── 2. 답장 ──────────────────────────────────────────────────────────
+  Widget _buildReplyTab(ReloStore store, ClaimView claim, ReloPalette palette) {
+    final hasSummary = _summaryKo.isNotEmpty || claim.replies.isNotEmpty;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _sectionHead(
+          '판매자 답장',
+          action: ReloTextAction(
+            label: _analyzingReply ? '읽는 중…' : 'AI로 요약',
+            onTap:
+                _analyzingReply ? null : () => _handleAnalyzeReply(store, claim),
+          ),
+        ),
+        const SizedBox(height: 12),
+        ReloTextField(
+          label: '답장 원문',
+          hint: '판매자가 보낸 답장을 붙여 넣어 주세요',
+          controller: _replyCtrl,
+          maxLines: 4,
+          fillColor: palette.raised,
+        ),
+        if (hasSummary) ...[
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              color: palette.raised,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  '확인된 입금 · 카드 취소 원장 (${claim.ledger.length}건)',
+                  _summaryKo.isNotEmpty
+                      ? _summaryKo
+                      : claim.replies.first.summaryKo,
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: palette.ink,
+                    height: 1.4,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  _translationKo.isNotEmpty
+                      ? _translationKo
+                      : claim.replies.first.translationKo,
                   style: TextStyle(
                     fontSize: 13,
-                    fontWeight: FontWeight.w900,
-                    color: palette.ink,
-                  ),
-                ),
-                const SizedBox(height: 8),
-                ...claim.ledger.map(
-                  (entry) => Container(
-                    margin: const EdgeInsets.only(bottom: 8),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: palette.sunken,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                      children: [
-                        Expanded(
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Text(
-                                '${entry.receivedOn} · ${entry.transactionRef}',
-                                style: TextStyle(
-                                  fontSize: 12,
-                                  fontWeight: FontWeight.w800,
-                                  color: palette.ink,
-                                ),
-                              ),
-                              if (entry.note.isNotEmpty)
-                                Text(
-                                  entry.note,
-                                  style: TextStyle(
-                                    fontSize: 11,
-                                    color: palette.body,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                        MoneyDisplay(
-                          minorAmount: entry.amount,
-                          currency: claim.currency,
-                          size: MoneySize.sm,
-                          color: palette.ink,
-                        ),
-                      ],
-                    ),
+                    color: palette.body,
+                    height: 1.5,
                   ),
                 ),
               ],
-            ],
+            ),
           ),
+        ],
+        const SizedBox(height: 16),
+        Text(
+          '어떤 답장이에요?',
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: palette.muted,
+          ),
+        ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final entry in store.config.replyKinds.entries)
+              ReloChoiceChip(
+                label: entry.value,
+                selected: _replyKind == entry.key,
+                onTap: () => setState(() => _replyKind = entry.key),
+              ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        ReloTextField(
+          label: '약속한 환불 금액 (${claim.currency})',
+          controller: _agreedAmountCtrl,
+          keyboardType: const TextInputType.numberWithOptions(decimal: true),
+          fillColor: palette.raised,
+        ),
+        const SizedBox(height: 16),
+        ReloButton(
+          text: _savingReply ? '저장하는 중…' : '저장하기',
+          onPressed: _savingReply ? null : () => _handleSaveReply(store, claim),
         ),
       ],
     );
   }
 
-  Widget _buildAuditTimelineTab(ClaimView claim, ReloPalette palette) {
-    return ReloCard(
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text(
-            '환불 진행 타임라인 (${claim.events.length}건)',
-            style: TextStyle(
-              fontSize: 15,
-              fontWeight: FontWeight.w900,
-              color: palette.ink,
-            ),
+  // ── 3. 입금 (들어온 돈 기록 + 증빙 파일) ─────────────────────────────
+  Widget _buildDepositTab(
+      ReloStore store, ClaimView claim, ReloPalette palette) {
+    final hairline = BorderSide(color: palette.line.withValues(alpha: 0.5));
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        if (_showDepositConfetti) ...[
+          const ConfettiBurstBanner(
+            title: '돈이 돌아왔어요',
+            subtitle: '들어온 금액을 기록했어요.',
           ),
-          const SizedBox(height: 12),
-          ...claim.events.map(
-            (ev) => Padding(
-              padding: const EdgeInsets.only(bottom: 12),
-              child: Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Container(
-                    margin: const EdgeInsets.only(top: 4),
-                    width: 8,
-                    height: 8,
-                    decoration: BoxDecoration(
-                      color: palette.brand,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          ev.action,
-                          style: TextStyle(
-                            fontSize: 13,
-                            fontWeight: FontWeight.w700,
-                            color: palette.ink,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                          MoneyFormat.formatDateKo(ev.createdAt),
-                          style: TextStyle(fontSize: 11, color: palette.muted),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
+          const SizedBox(height: 20),
+        ],
+        _sectionHead('들어온 돈 기록'),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: ReloTextField(
+                label: '들어온 금액 (${claim.currency})',
+                controller: _depositAmountCtrl,
+                keyboardType: const TextInputType.numberWithOptions(
+                  decimal: true,
+                ),
+                fillColor: palette.raised,
               ),
             ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: ReloTextField(
+                label: '확인한 날',
+                controller: _receivedOnCtrl,
+                fillColor: palette.raised,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        ReloTextField(
+          label: '승인번호 · 메모',
+          controller: _txRefCtrl,
+          fillColor: palette.raised,
+        ),
+        const SizedBox(height: 8),
+        _caption('카드 전체 번호는 적지 마세요. 취소 금액과 승인번호만 기록해요.'),
+        const SizedBox(height: 16),
+        ReloButton(
+          text: _recordingDeposit ? '기록하는 중…' : '입금 기록하기',
+          onPressed: _recordingDeposit
+              ? null
+              : () => _handleRecordDeposit(store, claim),
+        ),
+        if (claim.ledger.isNotEmpty) ...[
+          const SizedBox(height: 28),
+          Text(
+            '기록한 입금 ${claim.ledger.length}건',
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: palette.subtle,
+            ),
           ),
+          for (final entry in claim.ledger)
+            DecoratedBox(
+              decoration: BoxDecoration(border: Border(bottom: hairline)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 14),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '${entry.receivedOn} · ${entry.transactionRef}',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: palette.ink,
+                            ),
+                          ),
+                          if (entry.note.isNotEmpty) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              entry.note,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: palette.subtle,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Text(
+                      MoneyFormat.formatMinor(entry.amount, claim.currency),
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w700,
+                        color: palette.ink,
+                        fontFeatures: const [FontFeature.tabularFigures()],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
         ],
+        const SizedBox(height: 32),
+        _sectionHead('증빙 파일 ${claim.files.length}개'),
+        const SizedBox(height: 4),
+        _caption('10MB까지 올릴 수 있고, 내 계정에서만 볼 수 있어요.'),
+        if (claim.files.isEmpty)
+          Padding(
+            padding: const EdgeInsets.only(top: 14),
+            child: Text(
+              '아직 올린 파일이 없어요.',
+              style: TextStyle(fontSize: 14, color: palette.subtle),
+            ),
+          )
+        else
+          for (final file in claim.files)
+            DecoratedBox(
+              decoration: BoxDecoration(border: Border(bottom: hairline)),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 12),
+                child: Row(
+                  children: [
+                    ReloIconTile(
+                      icon: file.mime.contains('pdf')
+                          ? ReloIcons.document
+                          : ReloIcons.image,
+                      color: palette.raised,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            file.name,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: palette.ink,
+                            ),
+                          ),
+                          const SizedBox(height: 2),
+                          Text(
+                            '${(file.size / 1024).toStringAsFixed(1)} KB · ${file.usedAsProof ? '입금 증빙으로 씀' : '보관 중'}',
+                            style: TextStyle(
+                              fontSize: 13,
+                              color: palette.subtle,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    if (!file.usedAsProof)
+                      IconButton(
+                        tooltip: '파일 지우기',
+                        icon: Icon(
+                          ReloIcons.trash,
+                          size: 20,
+                          color: palette.subtle,
+                        ),
+                        onPressed: () => store.removeClaimFile(
+                          claimId: claim.id,
+                          fileId: file.id,
+                        ),
+                      ),
+                  ],
+                ),
+              ),
+            ),
+        const SizedBox(height: 16),
+        ReloButton(
+          text: '영수증 · 사진 추가',
+          isPrimary: false,
+          height: 48,
+          icon: ReloIcons.add,
+          onPressed: () => _handleAddFile(store, claim),
+        ),
+      ],
+    );
+  }
+
+  // ── 4. 기록 ──────────────────────────────────────────────────────────
+  Widget _buildHistoryTab(ClaimView claim, ReloPalette palette) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        _sectionHead('지금까지 한 일'),
+        const SizedBox(height: 16),
+        if (claim.events.isEmpty)
+          Text(
+            '아직 기록이 없어요.',
+            style: TextStyle(fontSize: 14, color: palette.subtle),
+          ),
+        for (final ev in claim.events)
+          Padding(
+            padding: const EdgeInsets.only(bottom: 16),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  margin: const EdgeInsets.only(top: 7),
+                  width: 6,
+                  height: 6,
+                  decoration: BoxDecoration(
+                    color: palette.subtle.withValues(alpha: 0.7),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        ev.action,
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w600,
+                          color: palette.ink,
+                          height: 1.4,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        MoneyFormat.formatDateKo(ev.createdAt),
+                        style: TextStyle(fontSize: 12, color: palette.subtle),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+      ],
+    );
+  }
+}
+
+/// 받기로 한 돈 / 받은 돈 한 칸 (상자 없이). 내 환불 목록의 돈 칸과 같은 크기다.
+class _MoneyCell extends StatelessWidget {
+  final String label;
+  final String amount;
+  final bool strong;
+  const _MoneyCell({
+    required this.label,
+    required this.amount,
+    required this.strong,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return Expanded(
+      child: Semantics(
+        label: '$label $amount',
+        excludeSemantics: true,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: palette.subtle,
+              ),
+            ),
+            const SizedBox(height: 3),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                amount,
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
+                  color: strong ? palette.ink : palette.muted,
+                  letterSpacing: -0.4,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }

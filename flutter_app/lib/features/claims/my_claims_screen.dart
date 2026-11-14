@@ -3,19 +3,23 @@ import 'package:flutter/material.dart';
 import 'package:flutter_animate/flutter_animate.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
-import '../../core/utils/dday.dart';
-import '../../core/utils/money_format.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
+import '../../shared/widgets/claim_row.dart';
 import '../../shared/widgets/relo_app_shell.dart';
+import '../../shared/widgets/relo_mascot.dart';
 import '../../shared/widgets/relo_primitives.dart';
+import '../assistant/assistant_sheet.dart';
 import 'claim_detail_screen.dart';
+import '../../shared/widgets/relo_icons.dart';
 
 /// @module features/claims/my_claims_screen
 /// @layer Feature Module — My Claims
-/// @purpose 통화별 환불 통장 요약, 상태 필터·검색·휴지통, 환불 건 카드.
-///          카드마다 "약속 → 입금" 막대와 남은 날(D-day)을 보여 주고,
-///          누르면 카드가 그대로 커지며 상세 화면이 된다 (OpenContainer).
+/// @purpose 내 환불 전체를 조용한 목록으로 보여 준다 (DESIGN.md 7절).
+///          맨 위에서 말랑이가 한 줄로 요약하고, 받을 돈 / 받은 돈, 필터·검색·휴지통,
+///          그 아래 환불 건은 홈과 같은 줄(상자 없이 가는 선)로 나온다.
+///          줄을 누르면 그대로 커지며 상세 화면이 된다 (OpenContainer).
+///          맨 아래 "ReLo에게 물어보기"로 도우미 대화를 연다 (이 화면에서는 떠 있는 도우미 대신).
 class MyClaimsScreen extends StatefulWidget {
   const MyClaimsScreen({super.key});
 
@@ -24,16 +28,14 @@ class MyClaimsScreen extends StatefulWidget {
 }
 
 class _MyClaimsScreenState extends State<MyClaimsScreen> {
-  String _selectedCurrencyTab = 'USD';
   final _searchCtrl = TextEditingController();
+  bool _searching = false;
 
+  // 단계별 필터 대신 셋만: 전체 · 진행 중 · 입금 완료 (스토어의 'open' · 'done')
   static const List<({String id, String label})> _filterTabs = [
     (id: '', label: '전체'),
-    (id: 'preparing', label: '서류 준비'),
-    (id: 'awaiting', label: '답변 대기'),
-    (id: 'negotiating', label: '조건 조율'),
-    (id: 'recovered', label: '입금 확인'),
-    (id: 'completed', label: '완료'),
+    (id: 'open', label: '진행 중'),
+    (id: 'done', label: '입금 완료'),
   ];
 
   @override
@@ -46,232 +48,279 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
   Widget build(BuildContext context) {
     final store = ReloScope.of(context);
     final palette = ReloPalette.of(context);
+    final s = store.strings;
     final list = store.filteredClaims;
     final reduceMotion = MediaQuery.maybeDisableAnimationsOf(context) ?? false;
 
-    final activeCurrencies = <String>{'USD'};
-    for (final c in store.claims.where((e) => !e.deleted)) {
-      activeCurrencies.add(c.currency);
-    }
-    if (!activeCurrencies.contains(_selectedCurrencyTab)) {
-      _selectedCurrencyTab = activeCurrencies.first;
+    final active = store.claims.where((c) => !c.deleted).toList();
+    final inFlight = active.where((c) => !isClaimDone(c)).toList();
+    final replied = inFlight.where((c) => c.replies.isNotEmpty).length;
+    final money = ClaimMoney.of(active);
+
+    Widget moneyCell(String label, String amount, {required bool strong}) {
+      return Expanded(
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w500,
+                color: palette.subtle,
+              ),
+            ),
+            const SizedBox(height: 3),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              alignment: Alignment.centerLeft,
+              child: Text(
+                amount,
+                style: TextStyle(
+                  fontSize: 21,
+                  fontWeight: strong ? FontWeight.w700 : FontWeight.w600,
+                  color: strong ? palette.ink : palette.muted,
+                  letterSpacing: -0.4,
+                  fontFeatures: const [FontFeature.tabularFigures()],
+                ),
+              ),
+            ),
+          ],
+        ),
+      );
     }
 
-    int totalClaimed = 0;
-    int totalAgreed = 0;
-    int totalCash = 0;
-    for (final c in store.claims.where(
-      (e) => !e.deleted && e.currency == _selectedCurrencyTab,
-    )) {
-      totalClaimed += c.claimed;
-      totalAgreed += (c.agreed ?? c.claimed);
-      totalCash += c.summary.cash;
+    Widget roundIcon({
+      required IconData icon,
+      required String label,
+      required bool on,
+      required VoidCallback onTap,
+      Color? onColor,
+    }) {
+      return Semantics(
+        button: true,
+        label: label,
+        child: GestureDetector(
+          onTap: onTap,
+          child: AnimatedContainer(
+            duration: ReloMotion.press,
+            width: 38,
+            height: 38,
+            decoration: BoxDecoration(
+              color: on ? (onColor ?? palette.brand) : palette.raised,
+              shape: BoxShape.circle,
+            ),
+            child: Icon(icon,
+                size: 18, color: on ? Colors.white : palette.muted),
+          ),
+        ),
+      );
     }
 
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(20, 8, 20, 36),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // 1. 통화별 환불 통장 요약
-          ReloCard(
-            padding: const EdgeInsets.all(20),
+    Widget sectionLabel(String text) => Padding(
+          padding: const EdgeInsets.fromLTRB(20, 14, 20, 0),
+          child: Text(
+            text,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: palette.subtle,
+            ),
+          ),
+        );
+
+    // 전체를 볼 때는 진행 중인 건과 입금이 끝난 건을 나눠서 보여 준다
+    final grouped = store.stateFilter.isEmpty && !store.showTrash;
+    final rows = <Widget>[];
+    var index = 0;
+    void addRows(Iterable<ClaimView> claims) {
+      for (final c in claims) {
+        rows.add(_withEntrance(_buildRow(c, palette), index++, reduceMotion));
+      }
+    }
+
+    if (grouped) {
+      final open = list.where((c) => !isClaimDone(c)).toList();
+      final done = list.where(isClaimDone).toList();
+      if (open.isNotEmpty) {
+        rows.add(sectionLabel(_filterTabs[1].label));
+        addRows(open);
+      }
+      if (done.isNotEmpty) {
+        rows.add(sectionLabel(_filterTabs[2].label));
+        addRows(done);
+      }
+    } else {
+      addRows(list);
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Expanded(
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.only(top: 8, bottom: 16),
             child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
+              crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    Text(
-                      '내 환불 통장',
-                      style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: palette.ink,
+                // 1. 말랑이의 한 줄 요약
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      const ReloMascot(size: 48, hopOnTap: true),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: Text(
+                          s.claimsSummary(inFlight.length, replied),
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w600,
+                            color: palette.ink,
+                            height: 1.4,
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(height: 20),
+
+                // 2. 받을 돈 / 받은 돈 (상자 없이 가는 선으로만 나눈다)
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: IntrinsicHeight(
+                    child: Row(
+                      children: [
+                        moneyCell(s.homeMoneyDue(money.dueCount), money.due,
+                            strong: true),
+                        VerticalDivider(
+                          width: 33,
+                          thickness: 1,
+                          color: palette.line.withValues(alpha: 0.5),
+                        ),
+                        moneyCell(s.homeMoneyReceived, money.received,
+                            strong: false),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 22),
+
+                // 3. 필터 · 검색 · 휴지통을 한 줄에
+                Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  child: Row(
+                    children: [
+                      if (!store.showTrash)
+                        for (final tab in _filterTabs)
+                          ReloTextTab(
+                            label: tab.label,
+                            selected: store.stateFilter == tab.id,
+                            onTap: () => store.setFilter(state: tab.id),
+                          )
+                      else
+                        Text(
+                          '휴지통',
+                          style: TextStyle(
+                            fontSize: 15,
+                            fontWeight: FontWeight.w700,
+                            color: palette.ink,
+                          ),
+                        ),
+                      const Spacer(),
+                      roundIcon(
+                        icon: ReloIcons.search,
+                        label: _searching ? '검색 닫기' : '검색',
+                        on: _searching,
+                        onTap: () => setState(() {
+                          _searching = !_searching;
+                          if (!_searching) {
+                            _searchCtrl.clear();
+                            store.setFilter(query: '');
+                          }
+                        }),
+                      ),
+                      const SizedBox(width: 6),
+                      roundIcon(
+                        icon: ReloIcons.trash,
+                        label: store.showTrash ? '휴지통 닫기' : '휴지통 열기',
+                        on: store.showTrash,
+                        onColor: palette.danger,
+                        onTap: () => store.setFilter(trash: !store.showTrash),
+                      ),
+                    ],
+                  ),
+                ),
+                if (_searching)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                    child: TextField(
+                      controller: _searchCtrl,
+                      autofocus: true,
+                      onChanged: (v) => store.setFilter(query: v),
+                      style: TextStyle(fontSize: 14, color: palette.ink),
+                      decoration: InputDecoration(
+                        hintText: '상품명 · 쇼핑몰 · 주문번호',
+                        hintStyle:
+                            TextStyle(fontSize: 13, color: palette.subtle),
+                        prefixIcon: Icon(ReloIcons.search,
+                            size: 18, color: palette.subtle),
+                        filled: true,
+                        fillColor: palette.raised,
+                        contentPadding:
+                            const EdgeInsets.symmetric(vertical: 10),
+                        enabledBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide.none,
+                        ),
+                        focusedBorder: OutlineInputBorder(
+                          borderRadius: BorderRadius.circular(12),
+                          borderSide: BorderSide(color: palette.focusRing),
+                        ),
                       ),
                     ),
-                    Wrap(
-                      spacing: 6,
-                      children: activeCurrencies.map((cur) {
-                        final selected = cur == _selectedCurrencyTab;
-                        return GestureDetector(
-                          onTap: () =>
-                              setState(() => _selectedCurrencyTab = cur),
-                          child: AnimatedContainer(
-                            duration: ReloMotion.press,
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: selected ? palette.brand : palette.sunken,
-                              borderRadius: BorderRadius.circular(999),
-                            ),
-                            child: Text(
-                              cur,
-                              style: TextStyle(
-                                fontSize: 11,
-                                fontWeight: FontWeight.w700,
-                                color: selected ? Colors.white : palette.body,
-                              ),
-                            ),
+                  ),
+
+                // 4. 환불 건
+                if (list.isEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(20, 48, 20, 0),
+                    child: Column(
+                      children: [
+                        Text(
+                          store.showTrash ? '휴지통이 비어 있어요' : '아직 환불 신청이 없어요',
+                          style: TextStyle(
+                            fontSize: 16,
+                            fontWeight: FontWeight.w700,
+                            color: palette.ink,
                           ),
-                        );
-                      }).toList(),
+                        ),
+                        if (!store.showTrash) ...[
+                          const SizedBox(height: 16),
+                          ReloButton(
+                            text: '환불 신청 시작하기',
+                            onPressed: () => store.navigateToTab(1),
+                          ),
+                        ],
+                      ],
                     ),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                Text('입금 확인',
-                    style: TextStyle(fontSize: 12, color: palette.subtle)),
-                const SizedBox(height: 2),
-                MoneyDisplay(
-                  minorAmount: totalCash,
-                  currency: _selectedCurrencyTab,
-                  size: MoneySize.xl,
-                  color: palette.ink,
-                ),
-                const SizedBox(height: 6),
-                Text(
-                  '판매자 약속 ${MoneyFormat.formatMinor(totalAgreed, _selectedCurrencyTab)} · 요청 ${MoneyFormat.formatMinor(totalClaimed, _selectedCurrencyTab)}',
-                  style: TextStyle(fontSize: 12, color: palette.muted),
-                ),
+                  )
+                else
+                  ...rows,
               ],
             ),
           ),
-          const SizedBox(height: 12),
-
-          // 2. 검색 & 휴지통
-          Row(
-            children: [
-              Expanded(
-                child: TextField(
-                  controller: _searchCtrl,
-                  onChanged: (v) => store.setFilter(query: v),
-                  style: TextStyle(fontSize: 14, color: palette.ink),
-                  decoration: InputDecoration(
-                    hintText: '상품명 · 쇼핑몰 · 주문번호',
-                    hintStyle: TextStyle(fontSize: 13, color: palette.subtle),
-                    prefixIcon: Icon(
-                      Icons.search_rounded,
-                      size: 18,
-                      color: palette.subtle,
-                    ),
-                    filled: true,
-                    fillColor: palette.surface,
-                    contentPadding: const EdgeInsets.symmetric(vertical: 10),
-                    enabledBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide.none,
-                    ),
-                    focusedBorder: OutlineInputBorder(
-                      borderRadius: BorderRadius.circular(12),
-                      borderSide: BorderSide(color: palette.focusRing),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 8),
-              Semantics(
-                button: true,
-                label: store.showTrash ? '휴지통 닫기' : '휴지통 열기',
-                child: GestureDetector(
-                  onTap: () => store.setFilter(trash: !store.showTrash),
-                  child: AnimatedContainer(
-                    duration: ReloMotion.press,
-                    width: 44,
-                    height: 44,
-                    decoration: BoxDecoration(
-                      color: store.showTrash
-                          ? palette.dangerSoft
-                          : palette.surface,
-                      borderRadius: BorderRadius.circular(12),
-                    ),
-                    child: Icon(
-                      Icons.delete_outline_rounded,
-                      size: 20,
-                      color: store.showTrash ? palette.danger : palette.muted,
-                    ),
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-
-          // 3. 상태 필터 칩
-          if (!store.showTrash)
-            SingleChildScrollView(
-              scrollDirection: Axis.horizontal,
-              child: Row(
-                children: _filterTabs.map((tab) {
-                  final active = store.stateFilter == tab.id;
-                  return Padding(
-                    padding: const EdgeInsets.only(right: 8),
-                    child: GestureDetector(
-                      onTap: () => store.setFilter(state: tab.id),
-                      child: AnimatedContainer(
-                        duration: ReloMotion.press,
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 14,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: active ? palette.brand : palette.surface,
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: Text(
-                          tab.label,
-                          style: TextStyle(
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
-                            color: active ? Colors.white : palette.body,
-                          ),
-                        ),
-                      ),
-                    ),
-                  );
-                }).toList(),
-              ),
-            ),
-          const SizedBox(height: 12),
-
-          if (list.isEmpty)
-            ReloCard(
-              padding: const EdgeInsets.all(28),
-              child: Column(
-                children: [
-                  Icon(Icons.inbox_outlined, size: 40, color: palette.subtle),
-                  const SizedBox(height: 12),
-                  Text(
-                    store.showTrash ? '휴지통이 비어 있어요' : '아직 환불 신청이 없어요',
-                    style: TextStyle(
-                      fontSize: 16,
-                      fontWeight: FontWeight.w700,
-                      color: palette.ink,
-                    ),
-                  ),
-                  const SizedBox(height: 16),
-                  ReloButton(
-                    text: '환불 신청 시작하기',
-                    onPressed: () => store.navigateToTab(1),
-                  ),
-                ],
-              ),
-            )
-          else
-            for (var i = 0; i < list.length; i++)
-              _withEntrance(
-                _buildClaimCard(store, list[i], palette),
-                i,
-                reduceMotion,
-              ),
-        ],
-      ),
+        ),
+        // 5. 도우미에게 묻기 (이 화면에서는 떠 있는 도우미 대신 여기 하나만 둔다)
+        ReloAskBar(label: s.claimsAsk, onTap: () => showReloAssistant(context)),
+      ],
     );
   }
 
-  /// 카드가 하나씩 아래에서 올라온다 (항목당 40ms 간격)
+  /// 줄이 하나씩 아래에서 올라온다 (항목당 40ms 간격)
   Widget _withEntrance(Widget child, int index, bool reduceMotion) {
     if (reduceMotion) return child;
     return child
@@ -284,148 +333,21 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
             curve: ReloMotion.enter);
   }
 
-  Widget _buildClaimCard(
-      ReloStore store, ClaimView claim, ReloPalette palette) {
-    final stateLabel = store.config.states[claim.state] ?? claim.state;
-    final isRecovered =
-        claim.state == 'recovered' || claim.state == 'completed';
-    final promised = claim.agreed ?? claim.claimed;
-    final promisedRatio =
-        claim.claimed == 0 ? 0.0 : (promised / claim.claimed).clamp(0.0, 1.0);
-    final cashRatio = claim.claimed == 0
-        ? 0.0
-        : (claim.summary.cash / claim.claimed).clamp(0.0, 1.0);
-    final dday = DDay.label(claim.deadline);
-    // 진행 상태는 배지 대신 회색 글자로. 입금이 끝난 건은 "입금 완료"라고 쓴다
-    final metaLabel =
-        '${claim.vendor} · ${isRecovered ? '입금 완료' : stateLabel}';
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: OpenContainer<void>(
-        transitionDuration: ReloMotion.openContainer,
-        transitionType: ContainerTransitionType.fadeThrough,
-        closedElevation: 0,
-        openElevation: 0,
-        closedColor: palette.surface,
-        openColor: palette.canvas,
-        middleColor: palette.canvas,
-        closedShape:
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        openBuilder: (context, close) =>
-            _ClaimDetailRoute(claimId: claim.id, onClose: close),
-        closedBuilder: (context, open) => Semantics(
-          button: true,
-          label: '${claim.vendor} ${claim.title} 상세 열기',
-          child: InkWell(
-            onTap: open,
-            child: Padding(
-              padding: const EdgeInsets.all(16),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Row(
-                          children: [
-                            Flexible(
-                              child: Text(
-                                metaLabel,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                    fontSize: 12, color: palette.muted),
-                              ),
-                            ),
-                            if (dday != null && !isRecovered) ...[
-                              Text(' · ',
-                                  style: TextStyle(
-                                      fontSize: 12, color: palette.muted)),
-                              ReloDdayText(deadline: claim.deadline),
-                            ],
-                          ],
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      MoneyDisplay(
-                        minorAmount: promised,
-                        currency: claim.currency,
-                        size: MoneySize.md,
-                        color: palette.ink,
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 10),
-                  Text(
-                    claim.title,
-                    maxLines: 2,
-                    overflow: TextOverflow.ellipsis,
-                    style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w700,
-                      color: palette.ink,
-                      height: 1.35,
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // 약속 → 입금 막대. ReLo가 끝까지 따라가는 차액이 한눈에 보인다
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(3),
-                    child: SizedBox(
-                      height: 6,
-                      child: Stack(
-                        children: [
-                          Positioned.fill(
-                              child: ColoredBox(color: palette.sunken)),
-                          FractionallySizedBox(
-                            widthFactor: promisedRatio,
-                            child: ColoredBox(
-                                color: palette.brand.withValues(alpha: 0.35)),
-                          ),
-                          FractionallySizedBox(
-                            widthFactor: cashRatio,
-                            child: ColoredBox(color: palette.brand),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                  const SizedBox(height: 6),
-                  Text(
-                    isRecovered
-                        ? '✓ ${MoneyFormat.formatMinor(claim.summary.cash, claim.currency)} 들어왔어요'
-                        : claim.summary.cash > 0
-                            ? '입금 ${MoneyFormat.formatMinor(claim.summary.cash, claim.currency)} · 아직 ${MoneyFormat.formatMinor(claim.summary.remaining, claim.currency)} 남음'
-                            : '아직 입금 전이에요',
-                    style: TextStyle(
-                      fontSize: 12,
-                      color: isRecovered ? palette.body : palette.subtle,
-                    ),
-                  ),
-                  if (claim.replies.isNotEmpty) ...[
-                    const SizedBox(height: 10),
-                    Container(
-                      padding: const EdgeInsets.all(10),
-                      decoration: BoxDecoration(
-                        color: palette.sunken,
-                        borderRadius: BorderRadius.circular(10),
-                      ),
-                      child: Text(
-                        '판매자 답장: ${claim.replies.first.summaryKo}',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: TextStyle(
-                            fontSize: 12, color: palette.body, height: 1.4),
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ),
-        ),
-      ),
+  /// 홈과 같은 줄에 금액을 더해 보여 준다. 누르면 줄이 그대로 커지며 상세가 된다.
+  Widget _buildRow(ClaimView claim, ReloPalette palette) {
+    return OpenContainer<void>(
+      transitionDuration: ReloMotion.openContainer,
+      transitionType: ContainerTransitionType.fadeThrough,
+      closedElevation: 0,
+      openElevation: 0,
+      closedColor: palette.canvas,
+      openColor: palette.canvas,
+      middleColor: palette.canvas,
+      closedShape: const RoundedRectangleBorder(),
+      openBuilder: (context, close) =>
+          _ClaimDetailRoute(claimId: claim.id, onClose: close),
+      closedBuilder: (context, open) =>
+          ClaimRow(claim: claim, showAmount: true, onTap: open),
     );
   }
 }

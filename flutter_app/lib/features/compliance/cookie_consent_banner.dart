@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
+import '../../shared/widgets/relo_icons.dart';
 
 /// @module features/compliance/cookie_consent_banner
 /// @layer Feature Module — Fair-Choice Cookie Consent Banner
@@ -47,7 +48,7 @@ class CookieConsentBanner extends StatelessWidget {
             Row(
               children: [
                 Icon(
-                  Icons.cookie_outlined,
+                  ReloIcons.cookie,
                   size: 16,
                   color: palette.brandHover,
                 ),

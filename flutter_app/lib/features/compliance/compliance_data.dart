@@ -181,7 +181,7 @@ class ReloComplianceData {
       number: 19,
       title: '사용 이미지·글꼴 이용권 확보 (Font & Asset License)',
       lawReference: '저작권법 제46조 (저작물의 이용허락)',
-      implementationSummary: 'Pretendard(SIL OFL 1.1), Material Icons(Apache 2.0), 100% 자체 제작 CustomPainter 그래픽으로 저작권 침해 위험 0%',
+      implementationSummary: 'Pretendard(SIL OFL 1.1), Lucide Icons(ISC), Material Icons(Apache 2.0), 100% 자체 제작 CustomPainter 그래픽으로 저작권 침해 위험 0%',
       actionTabId: 'licenses',
     ),
     LegalChecklistItem(
@@ -285,8 +285,15 @@ ReLo는 제3자 맞춤형 광고 추적 쿠키(Third-party Tracking Cookie)를 �
       commercialRightNote: '상업적·비상업적 웹/앱 임베딩, 번들링 및 배포가 100% 무료로 허락된 오픈소스 라이선스 확보 완료',
     ),
     AssetLicenseEntry(
+      assetName: 'Lucide Icons (lucide_icons_flutter 4.0.1)',
+      category: '아이콘 시스템 (앱 화면의 모든 아이콘)',
+      licenseType: 'ISC License (아이콘) / MIT License (Flutter 패키지)',
+      copyrightHolder: 'Lucide Contributors · Cole Bemis (Feather) / vqhapp',
+      commercialRightNote: '상업용 애플리케이션 내 자유로운 사용·수정·배포 이용권 확보 완료',
+    ),
+    AssetLicenseEntry(
       assetName: 'Flutter Material Icons & Cupertino Icons',
-      category: '아이콘 시스템',
+      category: '아이콘 시스템 (날짜 고르기 등 Flutter 기본 위젯 안에서만)',
       licenseType: 'Apache License 2.0 / MIT License',
       copyrightHolder: 'Google LLC / Flutter Authors',
       commercialRightNote: '상업용 애플리케이션 내 자유로운 수정·배포 이용권 확보 완료',

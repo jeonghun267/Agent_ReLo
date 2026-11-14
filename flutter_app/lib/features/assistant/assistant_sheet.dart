@@ -12,6 +12,7 @@ import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
 import '../../shared/widgets/relo_mascot.dart';
 import '../../shared/widgets/relo_primitives.dart';
+import '../../shared/widgets/relo_icons.dart';
 
 /// 도우미 답변 아래 버튼을 눌렀을 때 할 일. 없으면 스토어로 화면을 옮긴다.
 typedef AssistantActionHandler = void Function(AssistantTurn turn);
@@ -24,6 +25,7 @@ Future<void> showReloAssistant(
   BuildContext context, {
   String? claimId,
   AssistantActionHandler? onAction,
+  bool historyOnly = false,
 }) {
   HapticFeedback.selectionClick();
   return Navigator.of(context).push(
@@ -31,7 +33,11 @@ Future<void> showReloAssistant(
       swipeDismissible: true,
       barrierColor: Colors.black.withValues(alpha: 0.5),
       transitionDuration: ReloMotion.sheet,
-      builder: (_) => ReloAssistantSheet(claimId: claimId, onAction: onAction),
+      builder: (_) => ReloAssistantSheet(
+        claimId: claimId,
+        onAction: onAction,
+        historyOnly: historyOnly,
+      ),
     ),
   );
 }
@@ -54,7 +60,17 @@ void runAssistantAction(ReloStore store, AssistantTurn turn) {
 class ReloAssistantSheet extends StatefulWidget {
   final String? claimId;
   final AssistantActionHandler? onAction;
-  const ReloAssistantSheet({super.key, this.claimId, this.onAction});
+
+  /// 홈 상단의 대화 기록 버튼으로 열 때 true. 대화 기록만 보여 주고,
+  /// 지난 대화를 고르면 시트를 닫아 홈 대화에서 이어 가게 한다.
+  final bool historyOnly;
+
+  const ReloAssistantSheet({
+    super.key,
+    this.claimId,
+    this.onAction,
+    this.historyOnly = false,
+  });
 
   @override
   State<ReloAssistantSheet> createState() => _ReloAssistantSheetState();
@@ -64,7 +80,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
   late String? _claimId = widget.claimId;
   final _input = TextEditingController();
   final _focus = FocusNode();
-  bool _showHistory = false;
+  late bool _showHistory = widget.historyOnly;
   bool _started = false;
 
   @override
@@ -222,8 +238,10 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
             children: [
               IconButton(
                 tooltip: MaterialLocalizations.of(context).backButtonTooltip,
-                onPressed: () => setState(() => _showHistory = false),
-                icon: Icon(Icons.chevron_left_rounded,
+                onPressed: () => widget.historyOnly
+                    ? Navigator.of(context).pop()
+                    : setState(() => _showHistory = false),
+                icon: Icon(ReloIcons.chevronLeft,
                     size: 28, color: palette.body),
               ),
               Expanded(
@@ -264,6 +282,23 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
                 ),
               ),
               section(s.assistantHistoryPast),
+              if (widget.historyOnly && store.assistantTurns.isNotEmpty)
+                ListTile(
+                  contentPadding: const EdgeInsets.symmetric(horizontal: 20),
+                  leading: Icon(ReloIcons.add, color: palette.muted),
+                  title: Text(
+                    s.assistantNewChat,
+                    style: TextStyle(
+                      fontSize: 14,
+                      fontWeight: FontWeight.w700,
+                      color: palette.ink,
+                    ),
+                  ),
+                  onTap: () {
+                    store.clearAssistantConversation();
+                    Navigator.of(context).pop();
+                  },
+                ),
               if (history.isEmpty)
                 Padding(
                   padding: const EdgeInsets.fromLTRB(20, 8, 20, 8),
@@ -275,7 +310,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
               for (final c in history)
                 ListTile(
                   contentPadding: const EdgeInsets.symmetric(horizontal: 20),
-                  leading: Icon(Icons.chat_outlined, color: palette.muted),
+                  leading: Icon(ReloIcons.chat, color: palette.muted),
                   title: Text(
                     c.title,
                     maxLines: 1,
@@ -292,6 +327,10 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
                   ),
                   onTap: () {
                     final claimId = store.openAssistantConversation(c.id);
+                    if (widget.historyOnly) {
+                      Navigator.of(context).pop();
+                      return;
+                    }
                     setState(() {
                       _claimId = claimId;
                       _showHistory = false;
@@ -380,7 +419,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
           IconButton(
             tooltip: s.assistantHistory,
             onPressed: () => setState(() => _showHistory = true),
-            icon: Icon(Icons.menu_rounded, color: palette.body),
+            icon: Icon(ReloIcons.menu, color: palette.body),
           ),
           Expanded(
             child: Row(
@@ -405,7 +444,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
             onPressed: store.assistantTurns.isEmpty
                 ? null
                 : store.clearAssistantConversation,
-            icon: Icon(Icons.add_comment_outlined,
+            icon: Icon(ReloIcons.newChat,
                 color: store.assistantTurns.isEmpty
                     ? palette.subtle.withValues(alpha: 0.4)
                     : palette.body),
@@ -427,7 +466,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
         ),
         child: Row(
           children: [
-            Icon(Icons.receipt_long_outlined,
+            Icon(ReloIcons.receipt,
                 size: 16, color: palette.brandHover),
             const SizedBox(width: 8),
             Expanded(
@@ -448,7 +487,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
               child: Padding(
                 padding: const EdgeInsets.all(4),
                 child:
-                    Icon(Icons.close_rounded, size: 16, color: palette.muted),
+                    Icon(ReloIcons.close, size: 16, color: palette.muted),
               ),
             ),
           ],
@@ -459,11 +498,11 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
 
   // 아이콘은 모두 같은 회색 (색을 여러 개 섞지 않는다)
   static const _starterIcons = [
-    Icons.local_shipping_outlined,
-    Icons.edit_note_rounded,
-    Icons.translate_rounded,
-    Icons.compare_arrows_rounded,
-    Icons.schedule_rounded,
+    ReloIcons.truck,
+    ReloIcons.write,
+    ReloIcons.translate,
+    ReloIcons.compare,
+    ReloIcons.clock,
   ];
 
   Widget _buildWelcome(ReloStore store, bool aboutClaim, ReloPalette palette) {
@@ -581,7 +620,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
                   padding:
                       const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
                   decoration: BoxDecoration(
-                    color: palette.surface,
+                    color: palette.raised,
                     borderRadius: const BorderRadius.only(
                       topLeft: Radius.circular(6),
                       topRight: Radius.circular(18),
@@ -647,7 +686,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
             decoration: BoxDecoration(
-              color: palette.surface,
+              color: palette.raised,
               borderRadius: BorderRadius.circular(18),
             ),
             child: Row(
@@ -688,7 +727,7 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
       child: Container(
         padding: const EdgeInsets.only(left: 18, right: 6),
         decoration: BoxDecoration(
-          color: palette.surface,
+          color: palette.raised,
           borderRadius: BorderRadius.circular(28),
         ),
         child: Row(
@@ -725,14 +764,14 @@ class _ReloAssistantSheetState extends State<ReloAssistantSheet> {
                     width: 42,
                     height: 42,
                     decoration: BoxDecoration(
-                      color: ready ? palette.brand : palette.sunken,
+                      color: ready ? palette.brand : palette.inset,
                       shape: BoxShape.circle,
                     ),
                     child: IconButton(
                       padding: EdgeInsets.zero,
                       onPressed: ready ? () => _send(store, _input.text) : null,
                       icon: Icon(
-                        Icons.arrow_upward_rounded,
+                        ReloIcons.send,
                         size: 20,
                         color: ready ? Colors.white : palette.subtle,
                       ),
@@ -797,7 +836,7 @@ class _StarterRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final palette = ReloPalette.of(context);
     return Material(
-      color: palette.surface,
+      color: palette.raised,
       borderRadius: BorderRadius.circular(16),
       child: InkWell(
         borderRadius: BorderRadius.circular(16),
@@ -858,7 +897,7 @@ class _ActionPill extends StatelessWidget {
                 ),
               ),
               const SizedBox(width: 4),
-              Icon(Icons.arrow_forward_rounded,
+              Icon(ReloIcons.forward,
                   size: 15, color: palette.brandHover),
             ],
           ),

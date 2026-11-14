@@ -52,8 +52,8 @@ class ReloStore extends ChangeNotifier {
   String? _activeConversationId;
   String? _activeConversationClaimId;
 
-  /// 도우미가 상세 화면을 열 때 고른 하위 탭 (0 판매자 메시지, 1 답장 해석)
-  int pendingDetailSubTab = 0;
+  /// 도우미가 상세 화면을 열 때 고른 탭 (0 메시지, 1 답장). 없으면 상세가 지금 단계에 맞는 탭을 고른다.
+  int? pendingDetailSubTab;
 
   // 필터 상태
   String stateFilter = '';
@@ -446,7 +446,7 @@ class ReloStore extends ChangeNotifier {
     wizardPresetIssue = null;
   }
 
-  void openClaimDetail(String claimId, {int subTab = 0}) {
+  void openClaimDetail(String claimId, {int? subTab}) {
     pendingDetailSubTab = subTab;
     selectedClaimId = claimId;
     activeTabIndex = 2;
@@ -687,8 +687,15 @@ class ReloStore extends ChangeNotifier {
   List<ClaimView> get filteredClaims {
     return claims.where((c) {
       if (showTrash != c.deleted) return false;
-      if (!showTrash && stateFilter.isNotEmpty && c.state != stateFilter) {
-        return false;
+      if (!showTrash && stateFilter.isNotEmpty) {
+        // 'open'·'done'은 목록 필터 묶음, 그 밖에는 상태 하나와 같아야 한다
+        final done = c.state == 'recovered' || c.state == 'completed';
+        final keep = switch (stateFilter) {
+          'open' => !done,
+          'done' => done,
+          _ => c.state == stateFilter,
+        };
+        if (!keep) return false;
       }
       if (searchQuery.trim().isNotEmpty) {
         final q = searchQuery.trim().toLowerCase();

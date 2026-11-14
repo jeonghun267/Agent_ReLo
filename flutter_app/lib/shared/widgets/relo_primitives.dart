@@ -4,6 +4,8 @@ import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
+import 'relo_mascot.dart';
+import 'relo_icons.dart';
 
 /// @module shared/widgets/relo_primitives
 /// @layer Shared Accessible UI Primitives
@@ -72,7 +74,9 @@ class _ReloButtonState extends State<ReloButton> {
       }
     } else {
       // 보조 버튼은 테두리 없이 밝기 차이로만 구분한다 (DESIGN.md 2절)
-      bgColor = _hovered ? palette.surfaceElevated : palette.surface;
+      bgColor = _hovered
+          ? (palette.isDark ? palette.surfaceElevated : palette.line)
+          : palette.raised;
       textColor = palette.ink;
       if (_focused) {
         border = Border.all(color: palette.focusRing, width: 2.5);
@@ -159,7 +163,7 @@ class _ReloButtonState extends State<ReloButton> {
                     if (widget.showTrailingArrow) ...[
                       const SizedBox(width: 8),
                       Icon(
-                        Icons.arrow_forward_rounded,
+                        ReloIcons.forward,
                         size: 18,
                         color: textColor,
                       ),
@@ -260,7 +264,53 @@ class _ReloCardState extends State<ReloCard> {
 }
 
 /// 배지 색은 파랑·회색·빨강(오류) 셋만 쓴다. 초록·주황 알약은 쓰지 않는다 (DESIGN.md 2절).
-enum ReloBadgeTone { brand, danger, neutral }
+/// 약속 → 입금 막대. 판매자가 약속한 몫은 옅은 파랑, 실제로 들어온 몫은 진한 파랑.
+/// 두 값은 요청 금액 대비 비율(0~1)이다.
+class ReloProgressBar extends StatelessWidget {
+  final double promised;
+  final double cash;
+  final double height;
+
+  /// 빈 부분의 색. 카드 안에서는 기본값(움푹한 면), 바탕 위에 바로 놓을 때는 카드 색을 준다.
+  final Color? trackColor;
+  const ReloProgressBar({
+    super.key,
+    required this.promised,
+    required this.cash,
+    this.height = 8,
+    this.trackColor,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return ClipRRect(
+      borderRadius: BorderRadius.circular(height),
+      child: SizedBox(
+        height: height,
+        child: Stack(
+          children: [
+            Positioned.fill(
+              child: ColoredBox(color: trackColor ?? palette.sunken),
+            ),
+            // heightFactor가 없으면 Stack 안에서 높이 0으로 접혀 막대가 안 보인다
+            FractionallySizedBox(
+              widthFactor: promised.clamp(0.0, 1.0),
+              heightFactor: 1,
+              child: ColoredBox(
+                  color: palette.brandHover.withValues(alpha: 0.4)),
+            ),
+            FractionallySizedBox(
+              widthFactor: cash.clamp(0.0, 1.0),
+              heightFactor: 1,
+              child: ColoredBox(color: palette.brandHover),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
 
 /// 마감까지 남은 날을 배지 없이 글자로 보여 준다. 마감이 지났을 때만 빨강.
 class ReloDdayText extends StatelessWidget {
@@ -280,74 +330,6 @@ class ReloDdayText extends StatelessWidget {
         fontSize: fontSize,
         fontWeight: FontWeight.w800,
         color: overdue ? palette.danger : palette.ink,
-      ),
-    );
-  }
-}
-
-class ReloBadge extends StatelessWidget {
-  final String label;
-  final ReloBadgeTone tone;
-  final IconData? icon;
-
-  const ReloBadge({
-    super.key,
-    required this.label,
-    this.tone = ReloBadgeTone.neutral,
-    this.icon,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = ReloPalette.of(context);
-
-    late final Color bg;
-    late final Color fg;
-    switch (tone) {
-      case ReloBadgeTone.brand:
-        bg = palette.brandSoft;
-        fg = palette.isDark ? const Color(0xFF93C5FD) : palette.brand;
-        break;
-      case ReloBadgeTone.danger:
-        bg = palette.dangerSoft;
-        fg = palette.danger;
-        break;
-      case ReloBadgeTone.neutral:
-        bg = palette.sunken;
-        fg = palette.muted;
-        break;
-    }
-
-    return Semantics(
-      label: '상태 배지: $label',
-      child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-        decoration: BoxDecoration(
-          color: bg,
-          borderRadius: BorderRadius.circular(999),
-        ),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            if (icon != null) ...[
-              Icon(icon, size: 12, color: fg),
-              const SizedBox(width: 4),
-            ],
-            Flexible(
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: TextStyle(
-                  fontSize: 11,
-                  fontWeight: FontWeight.w800,
-                  color: fg,
-                  letterSpacing: -0.2,
-                ),
-              ),
-            ),
-          ],
-        ),
       ),
     );
   }
@@ -430,6 +412,14 @@ class ReloTextField extends StatelessWidget {
   final bool obscureText;
   final ValueChanged<String>? onChanged;
 
+  /// 날짜처럼 직접 치지 않고 고르는 칸 (onTap으로 고르는 창을 연다)
+  final bool readOnly;
+  final VoidCallback? onTap;
+  final IconData? trailingIcon;
+
+  /// 칸의 면 색. 카드 안에서는 기본값(움푹한 면), 바탕 위에 바로 놓을 때는 카드 색을 준다.
+  final Color? fillColor;
+
   const ReloTextField({
     super.key,
     required this.label,
@@ -439,6 +429,10 @@ class ReloTextField extends StatelessWidget {
     this.keyboardType = TextInputType.text,
     this.obscureText = false,
     this.onChanged,
+    this.readOnly = false,
+    this.onTap,
+    this.trailingIcon,
+    this.fillColor,
   });
 
   @override
@@ -450,9 +444,9 @@ class ReloTextField extends StatelessWidget {
         Text(
           label,
           style: TextStyle(
-            fontSize: 12,
-            fontWeight: FontWeight.w800,
-            color: palette.body,
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: palette.muted,
           ),
         ),
         const SizedBox(height: 6),
@@ -462,6 +456,8 @@ class ReloTextField extends StatelessWidget {
           keyboardType: keyboardType,
           obscureText: obscureText,
           onChanged: onChanged,
+          readOnly: readOnly,
+          onTap: onTap,
           style: TextStyle(
             fontSize: 14,
             fontWeight: FontWeight.w600,
@@ -474,158 +470,26 @@ class ReloTextField extends StatelessWidget {
               color: palette.subtle,
             ),
             filled: true,
-            fillColor: palette.sunken,
+            fillColor: fillColor ?? palette.sunken,
+            suffixIcon: trailingIcon == null
+                ? null
+                : Icon(trailingIcon, size: 18, color: palette.muted),
             contentPadding: const EdgeInsets.symmetric(
               horizontal: 14,
-              vertical: 12,
+              vertical: 14,
             ),
+            // 테두리는 포커스 때만 (DESIGN.md 2절: 면은 밝기 차이로 구분)
             enabledBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
-              borderSide: BorderSide(color: palette.line),
+              borderRadius: BorderRadius.circular(12),
+              borderSide: BorderSide.none,
             ),
             focusedBorder: OutlineInputBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(12),
               borderSide: BorderSide(color: palette.focusRing, width: 2.0),
             ),
           ),
         ),
       ],
-    );
-  }
-}
-
-/// [법적 안전장치 #6 & #9] 다크패턴 없는 양식 동의 체크박스 위젯
-/// - 기본 미체크(Unchecked) 상태로 시작하며, 필수/선택 여부를 명확히 분리 표기하고
-///   키보드 포커스(Tab/Space)와 전문 열람 링크를 제공합니다.
-class ReloConsentCheckbox extends StatelessWidget {
-  final bool value;
-  final ValueChanged<bool> onChanged;
-  final bool isRequired;
-  final String title;
-  final String? subtitle;
-  final VoidCallback? onViewDetail;
-
-  const ReloConsentCheckbox({
-    super.key,
-    required this.value,
-    required this.onChanged,
-    required this.isRequired,
-    required this.title,
-    this.subtitle,
-    this.onViewDetail,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    final palette = ReloPalette.of(context);
-    return Semantics(
-      checked: value,
-      label: '${isRequired ? "[필수]" : "[선택]"} $title',
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        decoration: BoxDecoration(
-          color: value
-              ? palette.brandSoft.withValues(alpha: 0.65)
-              : palette.sunken,
-          borderRadius: BorderRadius.circular(14),
-          border: Border.all(
-            color: value ? palette.brandLine : palette.line,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 24,
-              height: 24,
-              child: Checkbox(
-                value: value,
-                activeColor: palette.brand,
-                onChanged: (v) => onChanged(v ?? false),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: GestureDetector(
-                onTap: () => onChanged(!value),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: isRequired
-                                ? palette.brandSoft
-                                : palette.surface,
-                            borderRadius: BorderRadius.circular(6),
-                          ),
-                          child: Text(
-                            isRequired ? '필수' : '선택',
-                            style: TextStyle(
-                              fontSize: 10,
-                              fontWeight: FontWeight.w900,
-                              color: isRequired
-                                  ? (palette.isDark
-                                      ? const Color(0xFF93C5FD)
-                                      : palette.brand)
-                                  : palette.muted,
-                            ),
-                          ),
-                        ),
-                        const SizedBox(width: 6),
-                        Expanded(
-                          child: Text(
-                            title,
-                            style: TextStyle(
-                              fontSize: 12.5,
-                              fontWeight: FontWeight.w800,
-                              color: palette.ink,
-                            ),
-                          ),
-                        ),
-                      ],
-                    ),
-                    if (subtitle != null) ...[
-                      const SizedBox(height: 3),
-                      Text(
-                        subtitle!,
-                        style: TextStyle(
-                          fontSize: 11,
-                          color: palette.muted,
-                          height: 1.35,
-                        ),
-                      ),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-            if (onViewDetail != null)
-              TextButton(
-                onPressed: onViewDetail,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: const Size(48, 28),
-                ),
-                child: Text(
-                  '전문보기',
-                  style: TextStyle(
-                    fontSize: 11,
-                    fontWeight: FontWeight.w800,
-                    color: palette.brandHover,
-                    decoration: TextDecoration.underline,
-                  ),
-                ),
-              ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -672,7 +536,7 @@ class _ConfettiBurstBannerState extends State<ConfettiBurstBanner>
         return Container(
           padding: const EdgeInsets.all(18),
           decoration: BoxDecoration(
-            color: palette.surface,
+            color: palette.raised,
             borderRadius: BorderRadius.circular(16),
           ),
           child: Row(
@@ -685,7 +549,7 @@ class _ConfettiBurstBannerState extends State<ConfettiBurstBanner>
                   shape: BoxShape.circle,
                 ),
                 child: const Icon(
-                  Icons.check_rounded,
+                  ReloIcons.check,
                   color: Colors.white,
                   size: 22,
                 ),
@@ -719,6 +583,400 @@ class _ConfettiBurstBannerState extends State<ConfettiBurstBanner>
           ),
         );
       },
+    );
+  }
+}
+
+/// 글자만 있는 탭·필터 칸. 고른 칸은 굵은 글자와 밑줄로 알린다 (색칠한 알약을 쓰지 않는다).
+/// 내 환불의 필터와 상세 화면의 탭이 같이 쓴다.
+class ReloTextTab extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const ReloTextTab({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.only(right: 18),
+          child: AnimatedContainer(
+            duration: ReloMotion.press,
+            padding: const EdgeInsets.only(top: 8, bottom: 6),
+            decoration: BoxDecoration(
+              border: Border(
+                bottom: BorderSide(
+                  width: 2,
+                  color: selected
+                      ? palette.ink
+                      : palette.ink.withValues(alpha: 0),
+                ),
+              ),
+            ),
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 15,
+                fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+                color: selected ? palette.ink : palette.subtle,
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 화면 아래에 고정된 "ReLo에게 물어보기" 칸. 누르면 도우미 대화가 아래에서 올라온다.
+/// 내 환불과 상세 화면이 같이 쓴다 (이 두 화면에서는 떠 있는 도우미 대신).
+class ReloAskBar extends StatelessWidget {
+  final String label;
+  final VoidCallback onTap;
+  const ReloAskBar({super.key, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(20, 4, 20, 4),
+      child: Semantics(
+        button: true,
+        label: label,
+        child: Material(
+          color: palette.raised,
+          borderRadius: BorderRadius.circular(26),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: onTap,
+            child: SizedBox(
+              height: 52,
+              child: Row(
+                children: [
+                  const SizedBox(width: 10),
+                  const ReloMascot(size: 32, animate: false),
+                  const SizedBox(width: 10),
+                  Expanded(
+                    child: Text(
+                      label,
+                      style: TextStyle(fontSize: 15, color: palette.subtle),
+                    ),
+                  ),
+                  Container(
+                    width: 38,
+                    height: 38,
+                    decoration: BoxDecoration(
+                      color: palette.inset,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Icon(ReloIcons.send,
+                        size: 20, color: palette.subtle),
+                  ),
+                  const SizedBox(width: 7),
+                ],
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 구역 제목 오른쪽의 글자 버튼 ("AI로 쓰기" · "보기"). 버튼 면을 만들지 않고 강조색 글자로만 둔다.
+/// 상세와 신청 화면이 같이 쓴다.
+class ReloTextAction extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  const ReloTextAction({super.key, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              color: onTap == null ? palette.subtle : palette.focusRing,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 하나만 고르는 칩 (쇼핑몰 · 통화 · 해결 방법 · 답장 종류). 홈의 고르는 말과 같은 테두리 알약이고,
+/// 고른 것은 밝은 테두리와 굵은 글자로 알린다 (파랗게 칠하지 않는다).
+class ReloChoiceChip extends StatelessWidget {
+  final String label;
+  final bool selected;
+  final VoidCallback onTap;
+  const ReloChoiceChip({
+    super.key,
+    required this.label,
+    required this.selected,
+    required this.onTap,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return Semantics(
+      button: true,
+      selected: selected,
+      label: label,
+      excludeSemantics: true,
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onTap: onTap,
+        child: AnimatedContainer(
+          duration: ReloMotion.press,
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 9),
+          decoration: BoxDecoration(
+            color: selected ? palette.raised : Colors.transparent,
+            borderRadius: BorderRadius.circular(999),
+            border: Border.all(
+              width: 1.4,
+              color: selected ? palette.ink : palette.line,
+            ),
+          ),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w500,
+              color: selected ? palette.ink : palette.body,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 상자 없이 아래 가는 선으로만 나눈 한 줄. 설정 · 약관 · 로그인 화면의 줄이 같이 쓴다.
+class ReloHairline extends StatelessWidget {
+  final Widget child;
+  final double vertical;
+  const ReloHairline({super.key, required this.child, this.vertical = 14});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(color: palette.line.withValues(alpha: 0.5)),
+        ),
+      ),
+      child: Padding(
+        padding: EdgeInsets.symmetric(vertical: vertical),
+        child: child,
+      ),
+    );
+  }
+}
+
+/// 켜고 끄는 줄: 이름 + (한 줄 설명) + 스위치. 줄 어디를 눌러도 바뀐다.
+/// 스위치는 켜짐 = 파란 면에 흰 손잡이, 꺼짐 = 회색 면에 흰 손잡이 (테두리 없음).
+class ReloSwitchRow extends StatelessWidget {
+  final String title;
+  final String? subtitle;
+  final bool value;
+  final ValueChanged<bool> onChanged;
+
+  const ReloSwitchRow({
+    super.key,
+    required this.title,
+    this.subtitle,
+    required this.value,
+    required this.onChanged,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return MergeSemantics(
+      child: InkWell(
+        onTap: () => onChanged(!value),
+        child: ReloHairline(
+          vertical: 12,
+          child: Row(
+            children: [
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: TextStyle(
+                        fontSize: 15,
+                        fontWeight: FontWeight.w600,
+                        color: palette.ink,
+                      ),
+                    ),
+                    if (subtitle != null) ...[
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle!,
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: palette.subtle,
+                          height: 1.4,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              const SizedBox(width: 12),
+              Switch(
+                value: value,
+                onChanged: onChanged,
+                activeThumbColor: Colors.white,
+                activeTrackColor: palette.brand,
+                inactiveThumbColor: Colors.white,
+                inactiveTrackColor: palette.line,
+                trackOutlineColor:
+                    const WidgetStatePropertyAll(Colors.transparent),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 동의 한 줄 (상자 없이). 기본은 체크하지 않은 상태로 두고, 필수인지 선택인지 글자로 적고,
+/// 전문을 볼 수 있으면 "보기"를 옆에 둔다. [법적 안전장치 #6 · #9 · #17]
+/// 신청 · 회원가입 · 내 정보 삭제가 같이 쓴다.
+class ReloConsentRow extends StatelessWidget {
+  final bool value;
+  final ValueChanged<bool> onChanged;
+  final bool isRequired;
+  final String title;
+  final String? subtitle;
+  final VoidCallback? onViewDetail;
+
+  const ReloConsentRow({
+    super.key,
+    required this.value,
+    required this.onChanged,
+    required this.isRequired,
+    required this.title,
+    this.subtitle,
+    this.onViewDetail,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final p = ReloPalette.of(context);
+    final tag = isRequired ? '필수' : '선택';
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          child: Semantics(
+            checked: value,
+            label: subtitle == null
+                ? '[$tag] $title'
+                : '[$tag] $title. $subtitle',
+            excludeSemantics: true,
+            child: InkWell(
+              onTap: () => onChanged(!value),
+              borderRadius: BorderRadius.circular(12),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(vertical: 10),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    SizedBox(
+                      width: 24,
+                      height: 24,
+                      child: Checkbox(
+                        value: value,
+                        activeColor: p.brand,
+                        side: BorderSide(color: p.subtle, width: 1.5),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        onChanged: (v) => onChanged(v ?? false),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text.rich(
+                            TextSpan(
+                              text: title,
+                              children: [
+                                TextSpan(
+                                  text: '  $tag',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w500,
+                                    color: p.subtle,
+                                  ),
+                                ),
+                              ],
+                            ),
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w600,
+                              color: p.ink,
+                              height: 1.4,
+                            ),
+                          ),
+                          if (subtitle != null) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              subtitle!,
+                              style: TextStyle(
+                                fontSize: 13,
+                                color: p.subtle,
+                                height: 1.45,
+                              ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+        if (onViewDetail != null)
+          ReloTextAction(label: '보기', onTap: onViewDetail),
+      ],
     );
   }
 }
