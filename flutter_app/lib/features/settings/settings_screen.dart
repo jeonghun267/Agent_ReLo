@@ -24,7 +24,7 @@ class SettingsScreen extends StatelessWidget {
       builder: (ctx) => AlertDialog(
         backgroundColor: palette.surface,
         title: Text(
-          '내 환불 기록 백업',
+          store.strings.stBackupTitle,
           style: TextStyle(
             fontSize: 16,
             fontWeight: FontWeight.w800,
@@ -50,14 +50,14 @@ class SettingsScreen extends StatelessWidget {
               Clipboard.setData(ClipboardData(text: jsonText));
               Navigator.of(ctx).pop();
               ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(content: Text('백업 내용을 복사했어요.')),
+                SnackBar(content: Text(store.strings.stBackupCopied)),
               );
             },
-            child: const Text('복사하기'),
+            child: Text(store.strings.cmCopy),
           ),
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('닫기'),
+            child: Text(store.strings.cmClose),
           ),
         ],
       ),
@@ -119,7 +119,7 @@ class SettingsScreen extends StatelessWidget {
                     Text(
                       // 서버에 붙지 못했을 때만 알려 준다
                       store.isOfflineFallback
-                          ? '${user.email} · 오프라인 데모'
+                          ? store.strings.stOffline(user.email)
                           : user.email,
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -133,30 +133,56 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 30),
 
           // 화면 테마 · 고대비 접근성(#14) · 다국어 설정
-          const _SectionLabel('화면'),
+          _SectionLabel(store.strings.stSectionScreen),
           ReloSwitchRow(
-            title: '어두운 화면',
+            title: store.strings.stDark,
             value: store.isDarkMode,
             onChanged: (_) => store.toggleDarkMode(),
           ),
           ReloSwitchRow(
-            title: '고대비 모드',
-            subtitle: '글자와 배경의 차이를 더 크게 하고, 키보드 포커스를 노란색으로 표시해요',
+            title: store.strings.stContrast,
+            subtitle: store.strings.stContrastSub,
             value: store.isHighContrast,
             onChanged: (_) => store.toggleHighContrast(),
           ),
           ReloSwitchRow(
-            title: '도우미 캐릭터 띄우기',
-            subtitle: '설정과 약관 화면에 떠 있는 말랑이예요. 꺼도 홈과 내 환불에서 물어볼 수 있어요',
+            title: store.strings.stHelper,
+            subtitle: store.strings.stHelperSub,
             value: store.showAssistantButton,
             onChanged: store.setAssistantButtonVisible,
+          ),
+          // 마감 알림: 켤 때만 기기에 알림 허용을 묻는다. 기기가 막으면 꺼진 채로 두고 까닭을 말한다.
+          ReloSwitchRow(
+            title: store.strings.stReminders,
+            subtitle: store.reminders.isSupported
+                ? store.strings.stRemindersSub
+                : store.strings.stRemindersUnavailable,
+            value: store.deadlineRemindersOn,
+            onChanged: (on) async {
+              final messenger = ScaffoldMessenger.of(context);
+              final s = store.strings;
+              if (!store.reminders.isSupported) {
+                messenger.showSnackBar(
+                  SnackBar(content: Text(s.stRemindersUnavailable)),
+                );
+                return;
+              }
+              final ok = await store.setDeadlineReminders(on);
+              if (on) {
+                messenger.showSnackBar(
+                  SnackBar(
+                    content: Text(ok ? s.rmTurnedOn : s.stRemindersDenied),
+                  ),
+                );
+              }
+            },
           ),
           ReloHairline(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  '언어',
+                  store.strings.stLanguage,
                   style: TextStyle(
                     fontSize: 15,
                     fontWeight: FontWeight.w600,
@@ -182,31 +208,31 @@ class SettingsScreen extends StatelessWidget {
           const SizedBox(height: 30),
 
           // 개인정보 보호 · AI 도우미 동의 · 이메일 수신거부(#18) · 즉시 삭제(#20)
-          const _SectionLabel('내 정보'),
+          _SectionLabel(store.strings.stSectionMe),
           ReloSwitchRow(
-            title: 'AI 기능 쓰기',
-            subtitle: '영수증 읽기와 번역에 써요. 끄면 영수증과 사유를 AI 서버로 보내지 않아요',
+            title: store.strings.stAi,
+            subtitle: store.strings.stAiSub,
             value: user.aiConsentAt != null,
             onChanged: (_) => store.toggleAiConsent(),
           ),
           ReloSwitchRow(
-            title: '이메일 알림 받기',
+            title: store.strings.stEmail,
             subtitle:
-                store.emailUnsubscribed ? '지금은 메일을 보내지 않아요' : '끄면 바로 수신 거부돼요',
+                store.emailUnsubscribed ? store.strings.stEmailOff : store.strings.stEmailOn,
             value: !store.emailUnsubscribed,
             onChanged: (v) => store.setEmailUnsubscribed(!v),
           ),
           _LinkRow(
-            title: '내 환불 기록 백업',
+            title: store.strings.stBackupTitle,
             onTap: () => _showJsonExportDialog(context, store),
           ),
           _LinkRow(
-            title: '약관 · 개인정보 처리방침 · 정책',
+            title: store.strings.stLegal,
             onTap: () => store.openLegalDocument('checklist'),
           ),
-          _LinkRow(title: '로그아웃', onTap: store.logout),
+          _LinkRow(title: store.strings.stLogout, onTap: store.logout),
           _LinkRow(
-            title: '회원 탈퇴 · 내 정보 모두 삭제',
+            title: store.strings.stDelete,
             danger: true,
             onTap: () => store.openLegalDocument('delete'),
           ),

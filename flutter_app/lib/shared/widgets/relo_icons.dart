@@ -47,4 +47,7 @@ abstract final class ReloIcons {
   static const IconData bolt = LucideIcons.zap;
   static const IconData block = LucideIcons.ban;
   static const IconData cookie = LucideIcons.cookie;
+  static const IconData offline = LucideIcons.cloudOff;
+  static const IconData camera = LucideIcons.camera;
+  static const IconData folder = LucideIcons.folderOpen;
 }

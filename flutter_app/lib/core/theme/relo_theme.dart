@@ -157,6 +157,22 @@ class ReloPalette {
 class ReloAppTheme {
   static const String fontFamily = 'Pretendard Variable';
 
+  /// 안내 띠(스낵바). 기본 모양은 화면 아래를 통째로 덮는 밝은 띠라 어두운 화면에서 혼자 튄다.
+  /// 탭 바 위에 떠 있는 둥근 띠로 두고, 색은 한 단계 밝은 면(다크) / 짙은 글자색(라이트)을 쓴다.
+  static SnackBarThemeData _snackBar(ReloPalette p) => SnackBarThemeData(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: p.isDark ? p.surfaceElevated : p.ink,
+        contentTextStyle: TextStyle(
+          fontFamily: fontFamily,
+          fontSize: 14,
+          fontWeight: FontWeight.w600,
+          color: p.isDark ? p.ink : Colors.white,
+        ),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        insetPadding: const EdgeInsets.fromLTRB(20, 0, 20, 84),
+        elevation: 0,
+      );
+
   static ThemeData dark({bool highContrast = false}) {
     final p = highContrast ? ReloPalette.highContrastDark : ReloPalette.dark;
     return ThemeData(
@@ -173,6 +189,7 @@ class ReloAppTheme {
       dividerColor: p.line,
       focusColor: p.focusRing.withValues(alpha: 0.35),
       splashFactory: NoSplash.splashFactory,
+      snackBarTheme: _snackBar(p),
     );
   }
 
@@ -192,6 +209,7 @@ class ReloAppTheme {
       dividerColor: p.line,
       focusColor: p.focusRing.withValues(alpha: 0.25),
       splashFactory: NoSplash.splashFactory,
+      snackBarTheme: _snackBar(p),
     );
   }
 }

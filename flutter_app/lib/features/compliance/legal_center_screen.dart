@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../core/config/sdk_registry.dart';
+import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
@@ -22,23 +23,37 @@ class LegalCenterScreen extends StatefulWidget {
 }
 
 class _LegalCenterScreenState extends State<LegalCenterScreen> {
+  /// 지금 언어의 문구
+  ReloStrings get _s => ReloScope.of(context).strings;
+
   final _deletePassCtrl = TextEditingController();
   bool _confirmImmediateDelete = false;
   bool _deleting = false;
 
-  static const List<({String id, String label})> _tabs = [
-    (id: 'checklist', label: '보호 항목'),
-    (id: 'privacy', label: '개인정보 처리방침'),
-    (id: 'terms', label: '이용약관'),
-    (id: 'refund', label: '환불·요금'),
-    (id: 'cookie', label: '쿠키'),
-    (id: 'sdk', label: '외부 서비스·수신거부'),
-    (id: 'licenses', label: '글꼴·이미지'),
-    (id: 'delete', label: '내 정보 삭제'),
+  List<({String id, String label})> get _tabs => [
+    (id: 'checklist', label: _s.lgTabChecklist),
+    (id: 'privacy', label: _s.lgTabPrivacy),
+    (id: 'terms', label: _s.lgTabTerms),
+    (id: 'refund', label: _s.lgTabRefund),
+    (id: 'cookie', label: _s.lgTabCookie),
+    (id: 'sdk', label: _s.lgTabSdk),
+    (id: 'licenses', label: _s.lgTabLicenses),
+    (id: 'delete', label: _s.lgTabDelete),
+  ];
+
+  static const List<String> _tabIds = [
+    'checklist',
+    'privacy',
+    'terms',
+    'refund',
+    'cookie',
+    'sdk',
+    'licenses',
+    'delete',
   ];
 
   final Map<String, GlobalKey> _tabKeys = {
-    for (final tab in _tabs) tab.id: GlobalKey(),
+    for (final id in _tabIds) id: GlobalKey(),
   };
 
   @override
@@ -93,14 +108,14 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             child: Row(
               children: [
                 IconButton(
-                  tooltip: '설정으로',
+                  tooltip: _s.lgBack,
                   icon: Icon(ReloIcons.back, color: palette.ink),
                   onPressed: () => store.navigateToTab(4),
                 ),
                 const SizedBox(width: 4),
                 Expanded(
                   child: Text(
-                    '약관과 개인정보 보호',
+                    _s.lgTitle,
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.w800,
@@ -115,7 +130,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
           Padding(
             padding: const EdgeInsets.fromLTRB(20, 6, 20, 0),
             child: Text(
-              '처리방침, 이용약관, 환불 정책, 쿠키 설정, 내 정보 삭제를 한곳에서 봐요.',
+              _s.lgIntro,
               style: TextStyle(fontSize: 14, color: palette.muted, height: 1.45),
             ),
           ),
@@ -147,20 +162,20 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
             child: switch (activeId) {
               'privacy' => _buildPolicyDocument(
-                  title: '개인정보 처리방침 (최소 수집 · 아동 보호 · 즉시 파기)',
-                  lawNote: '개인정보보호법 제30조 준수',
+                  title: _s.lgPrivacyTitle,
+                  lawNote: _s.lgPrivacyLaw,
                   body: ReloComplianceData.privacyPolicyFullText,
                   palette: palette,
                 ),
               'terms' => _buildPolicyDocument(
-                  title: '서비스 이용약관 및 법적 한계 고지',
-                  lawNote: '약관규제법 · 변호사법 준수',
+                  title: _s.lgTermsTitle,
+                  lawNote: _s.lgTermsLaw,
                   body: ReloComplianceData.termsOfServiceFullText,
                   palette: palette,
                 ),
               'refund' => _buildPolicyDocument(
-                  title: '환불정책 및 숨겨진 요금 제로(0원) 선언',
-                  lawNote: '전자상거래법 제17조 준수',
+                  title: _s.lgRefundTitle,
+                  lawNote: _s.lgRefundLaw,
                   body: ReloComplianceData.refundPolicyFullText,
                   palette: palette,
                 ),
@@ -193,6 +208,14 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         ),
       );
 
+  /// 문서 본문과 보호 항목은 한국어 원문 그대로 보여 준다.
+  /// 다른 언어로 볼 때는 그렇다는 것을 한 줄로 알린다 (한국어에서는 아무것도 나오지 않는다).
+  List<Widget> _koreanOnly(ReloPalette palette) {
+    final note = _s.lgKoreanOnly;
+    if (note.isEmpty) return const [];
+    return [const SizedBox(height: 8), _note(note, palette)];
+  }
+
   /// 근거 법령 · 분류 같은 한 줄 (배지로 만들지 않고 회색 글자로)
   Widget _note(String text, ReloPalette palette) => Text(
         text,
@@ -210,9 +233,10 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _paragraph(
-          '개인정보보호법·전자상거래법·표시광고법·장애인차별금지법·저작권법 기준 20개 항목을 적용했습니다.',
+          _s.lgChecklistIntro,
           palette,
         ),
+        ..._koreanOnly(palette),
         const SizedBox(height: 6),
         for (final item in ReloComplianceData.twentyPointChecklist)
           InkWell(
@@ -283,6 +307,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         _heading(title, palette),
         const SizedBox(height: 4),
         _note(lawNote, palette),
+        ..._koreanOnly(palette),
         const SizedBox(height: 16),
         SelectableText(
           body.trim(),
@@ -297,14 +322,14 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _heading('쿠키 운영 정책 및 동의 상태 변경', palette),
+        _heading(_s.lgCookieTitle, palette),
         const SizedBox(height: 6),
         Text(
-          '현재 선택된 쿠키 설정: ${switch (store.cookieConsent) {
-            CookieConsentChoice.pending => '아직 선택 전',
-            CookieConsentChoice.essentialOnly => '필수 보안 쿠키만 허용 (선택 쿠키 거절됨)',
-            CookieConsentChoice.allAccepted => '전체 쿠키 동의 완료',
-          }}',
+          _s.lgCookieCurrent(switch (store.cookieConsent) {
+            CookieConsentChoice.pending => _s.lgCookiePending,
+            CookieConsentChoice.essentialOnly => _s.lgCookieEssential,
+            CookieConsentChoice.allAccepted => _s.lgCookieAll,
+          }),
           style: TextStyle(fontSize: 14, color: palette.muted, height: 1.45),
         ),
         const SizedBox(height: 16),
@@ -313,7 +338,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
           children: [
             Expanded(
               child: ReloButton(
-                text: '필수만 허용 (거절)',
+                text: _s.lgCookieDecline,
                 isPrimary: false,
                 height: 48,
                 onPressed: () => store.setCookieConsent(
@@ -324,7 +349,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             const SizedBox(width: 8),
             Expanded(
               child: ReloButton(
-                text: '전체 쿠키 동의',
+                text: _s.lgCookieAccept,
                 height: 48,
                 onPressed: () => store.setCookieConsent(
                   CookieConsentChoice.allAccepted,
@@ -337,10 +362,11 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         Align(
           alignment: Alignment.centerLeft,
           child: ReloTextAction(
-            label: '아직 고르지 않은 상태로 되돌리기',
+            label: _s.lgCookieReset,
             onTap: () => store.setCookieConsent(CookieConsentChoice.pending),
           ),
         ),
+        ..._koreanOnly(palette),
         const SizedBox(height: 12),
         SelectableText(
           ReloComplianceData.cookiePolicyFullText.trim(),
@@ -359,12 +385,12 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         // [항목 #18] 이메일 원클릭 수신거부
-        _heading('원클릭 이메일 알림 · 안내 메일 수신거부', palette),
+        _heading(_s.lgUnsubTitle, palette),
         ReloSwitchRow(
-          title: '이메일 받기',
+          title: _s.lgEmailReceive,
           subtitle: store.emailUnsubscribed
-              ? '현재 상태: 수신거부 완료 (마케팅·안내 이메일이 발송되지 않습니다)'
-              : '현재 상태: 이메일 수신 허용 중 (언제든 스위치 하나로 즉시 거부 가능)',
+              ? _s.lgEmailStateOff
+              : _s.lgEmailStateOn,
           value: !store.emailUnsubscribed,
           onChanged: (receive) => store.setEmailUnsubscribed(!receive),
         ),
@@ -377,10 +403,13 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         const SizedBox(height: 32),
 
         // [항목 #8] 외부 SDK 점검 및 패키지 버전 충돌 방지 매트릭스
-        _heading('탑재 SDK · 패키지 버전 호환성 및 데이터 전송 제어', palette),
+        _heading(_s.lgSdkTitle, palette),
         const SizedBox(height: 6),
         _paragraph(
-          'Flutter ${ReloSdkRegistry.flutterFrameworkVersion} / Dart ${ReloSdkRegistry.dartSdkVersion} 기준 모든 서브 패키지 버전을 dependency_overrides로 고정하여 구형/신형 충돌을 원천 차단했습니다.',
+          _s.lgSdkPinned(
+            ReloSdkRegistry.flutterFrameworkVersion,
+            ReloSdkRegistry.dartSdkVersion,
+          ),
           palette,
         ),
         const SizedBox(height: 4),
@@ -389,7 +418,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             ReloSwitchRow(
               title: '${sdk.name} (${sdk.pinnedVersion})',
               subtitle:
-                  '용도: ${sdk.purpose}\n데이터 전송 범위: ${sdk.dataShared}\n라이선스: ${sdk.license}',
+                  _s.lgSdkDetail(sdk.purpose, sdk.dataShared, sdk.license),
               value: switch (sdk.id) {
                 'gemini_ai_bridge' => store.sdkAiEnabled,
                 'resend_mail_bridge' => store.sdkMailEnabled,
@@ -417,7 +446,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                         ),
                         const SizedBox(height: 3),
                         Text(
-                          '용도: ${sdk.purpose}\n데이터 전송 범위: ${sdk.dataShared}\n라이선스: ${sdk.license}',
+                          _s.lgSdkDetail(sdk.purpose, sdk.dataShared, sdk.license),
                           style: TextStyle(
                             fontSize: 13,
                             color: palette.subtle,
@@ -429,7 +458,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                   ),
                   const SizedBox(width: 12),
                   Text(
-                    '로컬 필수',
+                    _s.lgLocalRequired,
                     style: TextStyle(fontSize: 13, color: palette.subtle),
                   ),
                 ],
@@ -437,7 +466,7 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
             ),
         const SizedBox(height: 24),
         Text(
-          '차단된 제3자 광고·추적 SDK 목록 (0개 탑재 보증)',
+          _s.lgBlockedTitle,
           style: TextStyle(
             fontSize: 13,
             fontWeight: FontWeight.w600,
@@ -470,10 +499,10 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _heading('글꼴(Font) · 아이콘 · 그래픽 상업적 라이선스 검증서', palette),
+        _heading(_s.lgLicenseTitle, palette),
         const SizedBox(height: 6),
         _paragraph(
-          '폰트 저작권 합의금 내용증명이나 무단 이미지 도용 분쟁을 원천 차단하기 위해, 상업적 무료 이용 및 임베딩이 검증된 오픈소스 글꼴과 100% 자체 제작 코드 그래픽만 사용합니다.',
+          _s.lgLicenseIntro,
           palette,
         ),
         const SizedBox(height: 4),
@@ -495,7 +524,11 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                 _note(lic.licenseType, palette),
                 const SizedBox(height: 6),
                 _paragraph(
-                  '분류: ${lic.category} | 권리자: ${lic.copyrightHolder}\n검증 결과: ${lic.commercialRightNote}',
+                  _s.lgLicenseDetail(
+                    lic.category,
+                    lic.copyrightHolder,
+                    lic.commercialRightNote,
+                  ),
                   palette,
                 ),
               ],
@@ -510,16 +543,16 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        _heading('개인정보 및 증빙 파일 즉시 영구 파기 요청 (Right to be Forgotten)', palette),
+        _heading(_s.lgPurgeTitle, palette),
         const SizedBox(height: 6),
         Text(
-          '고객센터에 별도로 전화하거나 이메일을 보낼 필요 없이, 지금 바로 아래 버튼 하나로 내 계정, 환불 클레임 내역, 영수증·파손 사진 원본을 데이터베이스에서 즉시 영구 삭제할 수 있습니다.',
+          _s.lgPurgeIntro,
           style: TextStyle(fontSize: 14, color: palette.muted, height: 1.5),
         ),
         if (store.lastPurgeReceiptCode != null) ...[
           const SizedBox(height: 12),
           Text(
-            '✓ 최근 개인정보 영구 파기 완료 증명 번호: ${store.lastPurgeReceiptCode}',
+            _s.lgPurgeReceipt(store.lastPurgeReceiptCode!),
             style: TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -529,10 +562,10 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
         ],
         const SizedBox(height: 20),
         ReloTextField(
-          label: '본인 확인 비밀번호 (체험 계정이면 비워 두어도 바로 실행돼요)',
+          label: _s.lgPurgePassword,
           controller: _deletePassCtrl,
           obscureText: true,
-          hint: '현재 비밀번호 입력',
+          hint: _s.lgPurgePasswordHint,
           fillColor: palette.raised,
         ),
         const SizedBox(height: 6),
@@ -540,12 +573,12 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
           value: _confirmImmediateDelete,
           onChanged: (v) => setState(() => _confirmImmediateDelete = v),
           isRequired: true,
-          title: '내 계정과 모든 환불 내역·사진을 복구 불가능하게 즉시 파기하는 것에 동의합니다.',
+          title: _s.lgPurgeConsent,
         ),
         const SizedBox(height: 10),
         // 되돌릴 수 없는 일이라 이 버튼만 빨갛게 둔다
         ReloButton(
-          text: _deleting ? '영구 파기 실행 중…' : '내 정보와 사진 모두 영구 삭제하기',
+          text: _deleting ? _s.lgPurging : _s.lgPurgeButton,
           isDanger: true,
           icon: ReloIcons.trash,
           onPressed: (!_confirmImmediateDelete || _deleting)

@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- 앱 프로세스가 뜨는 동안의 창. 앱 바탕색으로 채운다 -->
+    <style name="LaunchTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@drawable/launch_background</item>
+    </style>
+    <!-- Flutter 화면 뒤의 창. 화면이 그려지기 전과 화면 크기가 바뀔 때 흰색이 비치지 않게 한다 -->
+    <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
+        <item name="android:windowBackground">@color/relo_canvas</item>
+    </style>
+</resources>

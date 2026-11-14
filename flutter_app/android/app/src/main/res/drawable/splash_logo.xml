@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 시작 화면의 로고. 앱 안의 시작 연출이 같은 자리 · 같은 크기(96dp)에서 이어받는다 (lib/shared/widgets/relo_intro.dart) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:aapt="http://schemas.android.com/aapt"
+    android:width="288dp"
+    android:height="288dp"
+    android:viewportWidth="288"
+    android:viewportHeight="288">
+    <path android:pathData="M124.8,96 H163.2 A28.8,28.8 0 0 1 192,124.8 V163.2 A28.8,28.8 0 0 1 163.2,192 H124.8 A28.8,28.8 0 0 1 96,163.2 V124.8 A28.8,28.8 0 0 1 124.8,96 Z">
+        <aapt:attr name="android:fillColor">
+            <gradient
+                android:type="linear"
+                android:startX="96"
+                android:startY="96"
+                android:endX="192"
+                android:endY="192"
+                android:startColor="#FF2B7FFF"
+                android:endColor="#FF1B64DA" />
+        </aapt:attr>
+    </path>
+    <path
+        android:pathData="M120,149.76 C130.56,120 159.36,120 167.04,139.2"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="7.68"
+        android:strokeLineCap="round" />
+    <path
+        android:pathData="M167.04,145.92 C155.52,168.96 128.64,168.96 120.96,147.84"
+        android:strokeColor="#FFFFFF"
+        android:strokeWidth="7.68"
+        android:strokeLineCap="round" />
+</vector>

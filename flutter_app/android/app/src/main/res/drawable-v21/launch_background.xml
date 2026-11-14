@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 앱이 뜨기 전에 보이는 화면: 앱 바탕색 가운데에 로고. 앱 안의 시작 연출이 이 로고에서 이어진다 -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:drawable="@color/relo_canvas" />
+    <item
+        android:width="288dp"
+        android:height="288dp"
+        android:drawable="@drawable/splash_logo"
+        android:gravity="center" />
+</layer-list>

@@ -40,6 +40,16 @@ class ReloAppShell extends StatelessWidget {
     final palette = ReloPalette.of(context);
     final s = store.strings;
 
+    // 저장소가 남긴 한 줄 알림(공유받은 파일을 붙이지 못했을 때 등)을 화면 아래에 한 번 보여 준다
+    if (store.pendingNotice != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        final text = store.takePendingNotice();
+        if (text == null || !context.mounted) return;
+        ScaffoldMessenger.of(context)
+            .showSnackBar(SnackBar(content: Text(text)));
+      });
+    }
+
     return Shortcuts(
       shortcuts: const <ShortcutActivator, Intent>{
         SingleActivator(LogicalKeyboardKey.digit1, alt: true):
@@ -74,6 +84,13 @@ class ReloAppShell extends StatelessWidget {
                   child: Column(
                     children: [
                       _buildTopBar(context, store, palette, s),
+                      // 서버에 붙는 중이거나 붙지 못했으면 한 줄로 알린다.
+                      // (붙지 못해도 앱은 체험 데이터로 돌아가므로, 알리지 않으면 저장된 줄 안다)
+                      if (store.isLoading || store.isOfflineFallback)
+                        _ConnectionNotice(
+                          connecting: store.isLoading,
+                          onRetry: store.bootstrap,
+                        ),
                       Expanded(child: body),
                       // 글자를 칠 때는 탭 바를 내려서 대화가 보이는 자리를 넓힌다
                       if (MediaQuery.viewInsetsOf(context).bottom == 0)
@@ -105,7 +122,7 @@ class ReloAppShell extends StatelessWidget {
           children: [
             Semantics(
               button: true,
-              label: 'ReLo 홈 화면으로 이동 (단축키 Alt+1)',
+              label: s.shHomeLabel,
               child: GestureDetector(
                 onTap: () => store.navigateToTab(0),
                 behavior: HitTestBehavior.opaque,
@@ -136,7 +153,7 @@ class ReloAppShell extends StatelessWidget {
             const SizedBox(width: 6),
             Semantics(
               button: true,
-              label: user != null ? '${user.name}님 계정 설정 열기' : '로그인 및 회원가입 열기',
+              label: user != null ? s.shAccount(user.name) : s.shLogin,
               child: GestureDetector(
                 onTap: onUserTap,
                 child: Container(
@@ -195,7 +212,7 @@ class ReloAppShell extends StatelessWidget {
         child: Semantics(
           button: true,
           selected: on,
-          label: '$label 탭 (단축키 Alt+${index + 1})',
+          label: s.shTab(label, index + 1),
           child: Material(
             color: Colors.transparent,
             child: InkWell(
@@ -248,6 +265,62 @@ class ReloAppShell extends StatelessWidget {
             item(0, ReloIcons.chat, s.navHome),
             item(2, ReloIcons.receipt, s.navClaims),
             item(4, ReloIcons.person, s.navSettings),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+/// 서버 연결 상태 한 줄 (상단 바 바로 아래). 붙는 중이면 그렇게 말하고, 붙지 못했으면
+/// 지금 보이는 것이 이 기기에만 있는 체험 데이터라는 것과 다시 연결하는 길을 알려 준다.
+class _ConnectionNotice extends StatelessWidget {
+  final bool connecting;
+  final VoidCallback onRetry;
+  const _ConnectionNotice({required this.connecting, required this.onRetry});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    final s = ReloScope.of(context).strings;
+    final text = connecting ? s.connConnecting : s.connOffline;
+    return Semantics(
+      liveRegion: true,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 0, 14, 6),
+        child: Row(
+          children: [
+            Icon(
+              connecting ? ReloIcons.clock : ReloIcons.offline,
+              size: 14,
+              color: palette.subtle,
+            ),
+            const SizedBox(width: 6),
+            Expanded(
+              child: Text(
+                text,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: TextStyle(fontSize: 12, color: palette.subtle),
+              ),
+            ),
+            if (!connecting)
+              InkWell(
+                onTap: onRetry,
+                borderRadius: BorderRadius.circular(8),
+                child: Padding(
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+                  child: Text(
+                    s.connRetry,
+                    style: TextStyle(
+                      fontSize: 12,
+                      fontWeight: FontWeight.w700,
+                      color: palette.focusRing,
+                    ),
+                  ),
+                ),
+              ),
           ],
         ),
       ),

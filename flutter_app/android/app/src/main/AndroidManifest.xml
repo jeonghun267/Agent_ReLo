@@ -1,8 +1,15 @@
-<manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.relolabs.relo_flutter">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
 
     <!-- [필수 SDK 권한] 백엔드 API 통신용 인터넷 권한 -->
     <uses-permission android:name="android.permission.INTERNET" />
+
+    <!-- [마감 알림] 사용자가 설정에서 "마감 알림"을 켤 때만 묻는다. 알림은 기기 안에서 만들어 띄우고 서버를 거치지 않는다. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- [마감 알림] 기기를 껐다 켜면 맞춰 둔 알림이 지워지므로, 켜질 때 다시 맞춘다. -->
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!-- [사진 · 영수증 첨부] 카메라 · 사진첩 · 저장소 권한은 선언하지 않는다.
+         찍는 것은 기기의 카메라 앱이, 고르는 것은 기기의 고르기 화면이 하고 앱은 고른 한 장만 받는다. -->
 
     <!-- [개인정보 최소수집 원칙 준수 (항목 #7 & #8)]
          위치(ACCESS_FINE_LOCATION), 주소록(READ_CONTACTS), 통화기록, 마이크, 광고식별자(AD_ID) 등
@@ -13,11 +20,12 @@
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher"
         android:networkSecurityConfig="@xml/network_security_config"
+        android:enableOnBackInvokedCallback="true"
         android:supportsRtl="true">
         <activity
             android:name=".MainActivity"
             android:exported="true"
-            android:launchMode="singleTop"
+            android:launchMode="singleTask"
             android:theme="@style/LaunchTheme"
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|smallestScreenSize|locale|layoutDirection|fontScale|screenLayout|density|uiMode"
             android:hardwareAccelerated="true"
@@ -29,9 +37,41 @@
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+            <!-- 다른 앱(메일 · 사진첩 · 쇼핑몰 앱)의 "공유"에 ReLo가 보인다: 영수증 사진이나 PDF 한 개를 받아 환불 신청을 시작한다.
+                 이미 켜져 있는 앱(로그인한 상태)으로 받도록 launchMode는 singleTask 이다. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="image/*" />
+                <data android:mimeType="application/pdf" />
+            </intent-filter>
         </activity>
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />
+
+        <!-- 마감 알림: 맞춰 둔 시각에 알림을 띄우는 곳과, 기기를 다시 켰을 때 다시 맞추는 곳 -->
+        <receiver
+            android:name=".ReloReminderReceiver"
+            android:exported="false" />
+        <receiver
+            android:name=".ReloBootReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
+
+        <!-- 사진 찍기: 카메라 앱이 찍은 사진을 앱의 임시 폴더(cache/captures)에 받기 위한 통로. 올리고 나면 지운다 -->
+        <provider
+            android:name="androidx.core.content.FileProvider"
+            android:authorities="${applicationId}.relo.files"
+            android:exported="false"
+            android:grantUriPermissions="true">
+            <meta-data
+                android:name="android.support.FILE_PROVIDER_PATHS"
+                android:resource="@xml/relo_file_paths" />
+        </provider>
     </application>
 </manifest>

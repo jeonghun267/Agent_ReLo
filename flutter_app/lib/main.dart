@@ -125,48 +125,55 @@ class _ReloMainNavigation extends StatelessWidget {
         activeBody = const HomeScreen();
     }
 
-    return ReloAppShell(
-      onHistoryTap: () => showReloAssistant(context, historyOnly: true),
-      onUserTap: () {
-        if (store.user == null) {
-          _openAuthModal(context);
-        } else {
-          store.navigateToTab(4);
-        }
+    // 안드로이드 뒤로 가기: 앱을 끄지 않고 한 화면 뒤로 간다. 홈에서만 앱이 닫힌다.
+    return PopScope(
+      canPop: store.activeTabIndex == 0,
+      onPopInvokedWithResult: (didPop, _) {
+        if (!didPop) store.handleSystemBack();
       },
-      body: Stack(
-        children: [
-          // 이전 화면이 사라진 뒤 새 화면이 나타난다 (두 화면이 겹쳐 보이지 않게)
-          Positioned.fill(
-            child: PageTransitionSwitcher(
-              duration: ReloMotion.tabSwitch,
-              // 기본값은 가운데 정렬이라 내용이 짧은 화면이 아래로 내려간다. 위에 붙여 꽉 채운다.
-              layoutBuilder: (entries) =>
-                  Stack(fit: StackFit.expand, children: entries),
-              transitionBuilder: (child, primary, secondary) =>
-                  FadeThroughTransition(
-                animation: primary,
-                secondaryAnimation: secondary,
-                fillColor: Colors.transparent,
-                child: child,
-              ),
-              child: KeyedSubtree(
-                key: ValueKey<String>(
-                  'tab_${store.activeTabIndex}_claim_${store.selectedClaimId ?? "none"}_doc_${store.activeLegalDocId}',
+      child: ReloAppShell(
+        onHistoryTap: () => showReloAssistant(context, historyOnly: true),
+        onUserTap: () {
+          if (store.user == null) {
+            _openAuthModal(context);
+          } else {
+            store.navigateToTab(4);
+          }
+        },
+        body: Stack(
+          children: [
+            // 이전 화면이 사라진 뒤 새 화면이 나타난다 (두 화면이 겹쳐 보이지 않게)
+            Positioned.fill(
+              child: PageTransitionSwitcher(
+                duration: ReloMotion.tabSwitch,
+                // 기본값은 가운데 정렬이라 내용이 짧은 화면이 아래로 내려간다. 위에 붙여 꽉 채운다.
+                layoutBuilder: (entries) =>
+                    Stack(fit: StackFit.expand, children: entries),
+                transitionBuilder: (child, primary, secondary) =>
+                    FadeThroughTransition(
+                  animation: primary,
+                  secondaryAnimation: secondary,
+                  fillColor: Colors.transparent,
+                  child: child,
                 ),
-                child: activeBody,
+                child: KeyedSubtree(
+                  key: ValueKey<String>(
+                    'tab_${store.activeTabIndex}_claim_${store.selectedClaimId ?? "none"}_doc_${store.activeLegalDocId}',
+                  ),
+                  child: activeBody,
+                ),
               ),
             ),
-          ),
-          // 화면을 스크롤해도 제자리에 떠 있는 도우미 캐릭터.
-          // 홈과 내 환불(목록·상세)에는 아래에 도우미에게 말 거는 칸이 있어서 띄우지 않고,
-          // 신청 화면에서는 "다음" 버튼을 가리지 않도록 숨긴다. 약관·정책과 설정에서만 뜬다.
-          // 로그아웃한 설정 화면은 로그인 화면이고 맨 위에 말랑이가 있으니 또 띄우지 않는다.
-          if (store.showAssistantButton &&
-              store.activeTabIndex > 2 &&
-              !(store.activeTabIndex == 4 && store.user == null))
-            const Positioned.fill(child: ReloAssistantLauncher()),
-        ],
+            // 화면을 스크롤해도 제자리에 떠 있는 도우미 캐릭터.
+            // 홈과 내 환불(목록·상세)에는 아래에 도우미에게 말 거는 칸이 있어서 띄우지 않고,
+            // 신청 화면에서는 "다음" 버튼을 가리지 않도록 숨긴다. 약관·정책과 설정에서만 뜬다.
+            // 로그아웃한 설정 화면은 로그인 화면이고 맨 위에 말랑이가 있으니 또 띄우지 않는다.
+            if (store.showAssistantButton &&
+                store.activeTabIndex > 2 &&
+                !(store.activeTabIndex == 4 && store.user == null))
+              const Positioned.fill(child: ReloAssistantLauncher()),
+          ],
+        ),
       ),
     );
   }

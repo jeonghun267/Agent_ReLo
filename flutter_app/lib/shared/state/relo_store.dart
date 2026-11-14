@@ -1,8 +1,15 @@
+import 'dart:async';
 import 'dart:convert';
 import 'package:flutter/material.dart';
+import '../../core/attachments/evidence_picker.dart';
+import '../../core/attachments/evidence_rules.dart';
 import '../../core/i18n/relo_i18n.dart';
 import '../../core/network/api_client.dart';
+import '../../core/platform/text_sharer.dart';
+import '../../core/reminders/reminder_planner.dart';
+import '../../core/reminders/reminder_scheduler.dart';
 import '../../core/storage/assistant_history_storage.dart';
+import '../../core/storage/reminder_prefs.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
@@ -13,7 +20,7 @@ import '../models/domain_models.dart';
 /// @purpose 백엔드 API 연동, 로컬 체험 폴백, 그리고 20대 법적 컴플라이언스
 ///          (쿠키 동의, 고대비 모드, 외부 SDK 제어, 이메일 수신거부, 개인정보 즉시 파기) 상태를 관리합니다.
 class ReloStore extends ChangeNotifier {
-  final ReloApiClient api = ReloApiClient();
+  final ReloApiClient api;
 
   bool isDarkMode = true; // 승인된 다크 미드나잇 블루 테마 기본값
   bool isHighContrast = false; // [항목 #14] WCAG AAA 초고대비 접근성 모드
@@ -62,10 +69,52 @@ class ReloStore extends ChangeNotifier {
 
   ReloStrings get strings => ReloStrings(locale);
 
-  ReloStore() {
+  /// 기기 기능: 영수증 · 사진 고르기. 시험에서는 가짜로 바꿔 끼운다.
+  final EvidencePicker evidencePicker;
+
+  /// 기기 기능: 마감 알림 맞추기
+  final ReminderScheduler reminders;
+  final ReminderPrefs _reminderPrefs = ReminderPrefs();
+
+  /// "마감 알림 받기"를 켰는지 (이 기기에만 저장). 기기에서 알림을 막으면 꺼진다.
+  bool deadlineRemindersOn = false;
+
+  /// 알림을 켤지 한 번이라도 정했는지. 아직이면 신청을 마친 화면에서 한 번 권한다.
+  bool reminderChoiceMade = false;
+  bool _reminderPrefsLoaded = false;
+  String? _reminderSignature;
+  String? _pendingReminderClaimId;
+
+  /// 기기 기능: 다른 앱에서 "공유 → ReLo"로 넘어온 영수증 받기
+  final SharedEvidenceInbox sharedInbox;
+
+  /// 다른 앱에서 공유로 넘어온 영수증. 신청 화면이 가져가서 붙인다.
+  PickedEvidence? incomingEvidence;
+
+  /// 기기 기능: 쓴 메시지를 메일 · 메신저 앱으로 넘기기
+  final TextSharer textSharer;
+
+  /// 화면 아래에 한 번 보여 줄 알림 글 (공유받은 파일을 붙이지 못했을 때 등).
+  /// 앱 껍데기(ReloAppShell)가 보여 주고 비운다.
+  String? pendingNotice;
+
+  ReloStore({
+    ReloApiClient? api,
+    EvidencePicker? evidencePicker,
+    SharedEvidenceInbox? sharedInbox,
+    ReminderScheduler? reminders,
+    TextSharer? textSharer,
+  })  : api = api ?? ReloApiClient(),
+        evidencePicker = evidencePicker ?? defaultEvidencePicker(),
+        sharedInbox = sharedInbox ?? defaultSharedEvidenceInbox(),
+        reminders = reminders ?? defaultReminderScheduler(),
+        textSharer = textSharer ?? defaultTextSharer() {
     _seedInitialDemoData();
     bootstrap();
     _loadAssistantHistory();
+    _loadReminderPrefs();
+    this.sharedInbox.setOnArrived(() => unawaited(_receiveSharedEvidence()));
+    unawaited(_receiveSharedEvidence()); // 공유로 앱이 켜졌을 때
   }
 
   void _seedInitialDemoData() {
@@ -338,7 +387,11 @@ class ReloStore extends ChangeNotifier {
     ];
   }
 
+  /// 서버에 붙어 설정과 내 환불을 받아 온다. 앱을 켤 때와 "다시 연결"을 누를 때 부른다.
+  /// 붙는 동안은 [isLoading], 붙지 못했으면 [isOfflineFallback]이 켜져 화면 위에 한 줄로 알린다.
   Future<void> bootstrap() async {
+    isLoading = true;
+    notifyListeners();
     try {
       final cfgJson = await api.requestJson('/api/config');
       config = AppConfig.fromJson(cfgJson);
@@ -359,9 +412,10 @@ class ReloStore extends ChangeNotifier {
           );
         }
       }
-      notifyListeners();
     } catch (_) {
       isOfflineFallback = true;
+    } finally {
+      isLoading = false;
       notifyListeners();
     }
   }
@@ -677,6 +731,29 @@ class ReloStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 안드로이드 뒤로 가기: 앱을 끄지 않고 한 화면 뒤로 간다. 옮겼으면 true.
+  /// 상세 → 내 환불 → 홈, 약관 → 설정 → 홈. 홈에서는 앱이 닫힌다 (main.dart의 PopScope).
+  /// 신청 화면은 단계가 있어서 화면이 직접 처리한다 (wizard_screen.dart).
+  bool handleSystemBack() {
+    switch (activeTabIndex) {
+      case 2:
+        if (selectedClaimId != null) {
+          closeClaimDetail();
+        } else {
+          navigateToTab(0);
+        }
+        return true;
+      case 3:
+        navigateToTab(4);
+        return true;
+      case 4:
+        navigateToTab(0);
+        return true;
+      default:
+        return false;
+    }
+  }
+
   void setFilter({String? state, bool? trash, String? query}) {
     if (state != null) stateFilter = state;
     if (trash != null) showTrash = trash;
@@ -815,6 +892,7 @@ class ReloStore extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    _clearRemindersForSignOut();
     try {
       await api.requestJson('/api/auth/logout', method: 'POST');
     } catch (_) {}
@@ -827,6 +905,7 @@ class ReloStore extends ChangeNotifier {
 
   /// [항목 #20] 개인정보 즉시 파기 및 회원 탈퇴 요청 (`POST /api/account/delete`)
   Future<String> deleteAccountAndPurgeAllData(String password) async {
+    _clearRemindersForSignOut();
     try {
       await api.requestJson(
         '/api/account/delete',
@@ -935,11 +1014,16 @@ class ReloStore extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// 영수증에서 쇼핑몰 · 주문번호 · 금액을 읽어 온다 (서버의 AI).
+  /// [allowSample]이 false면(사용자가 진짜 파일을 골랐을 때) 서버가 읽지 못했을 때
+  /// 예시 값을 지어내지 않고 빈 결과를 돌려준다.
   Future<Map<String, dynamic>> scanReceiptDocument({
     required String fileName,
     required List<int> bytes,
+    String? mime,
+    bool allowSample = true,
   }) async {
-    final mime = fileName.toLowerCase().endsWith('.pdf')
+    mime ??= fileName.toLowerCase().endsWith('.pdf')
         ? 'application/pdf'
         : 'image/jpeg';
     final safeBytes = ensureValidFileSignature(mime, bytes);
@@ -976,6 +1060,7 @@ class ReloStore extends ChangeNotifier {
         }
       } catch (_) {}
     }
+    if (!allowSample) return const {};
 
     final lower = fileName.toLowerCase();
     if (lower.contains('ali')) {
@@ -1720,6 +1805,71 @@ class ReloStore extends ChangeNotifier {
     );
   }
 
+  /// 판매자가 정한 기한을 적어 둔다 (`PATCH /api/claims/:id`). 마감 알림은 이 날짜를 보고 맞춘다.
+  /// 서버는 기한을 판매자 원문([quote])과 함께만 받는다. [deadline]이 null이면 기한을 지운다.
+  Future<void> setClaimDeadline({
+    required String claimId,
+    String? deadline,
+    String quote = '',
+  }) async {
+    final target = findClaim(claimId);
+    if (target == null) return;
+    final nextQuote = deadline == null ? '' : quote;
+    try {
+      await api.requestJson(
+        '/api/claims/${Uri.encodeComponent(claimId)}',
+        method: 'PATCH',
+        version: target.version,
+        data: _buildClaimMutationPayload(target)
+          ..['deadline'] = deadline
+          ..['deadlineQuote'] = nextQuote,
+      );
+      await refreshClaims();
+      return;
+    } catch (_) {}
+
+    final nowIso = DateTime.now().toIso8601String();
+    _replaceClaim(
+      ClaimView(
+        id: target.id,
+        title: target.title,
+        vendor: target.vendor,
+        vendorUrl: target.vendorUrl,
+        orderRef: target.orderRef,
+        orderedOn: target.orderedOn,
+        kind: target.kind,
+        currency: target.currency,
+        items: target.items,
+        claimed: target.claimed,
+        agreed: target.agreed,
+        issue: target.issue,
+        issueEnglish: target.issueEnglish,
+        deadline: deadline,
+        deadlineQuote: nextQuote,
+        deadlineZone: target.deadlineZone,
+        state: target.state,
+        version: target.version + 1,
+        deleted: target.deleted,
+        createdAt: target.createdAt,
+        updatedAt: nowIso,
+        files: target.files,
+        ledger: target.ledger,
+        drafts: target.drafts,
+        replies: target.replies,
+        events: [
+          ClaimAuditEvent(
+            id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
+            action: deadline == null ? '마감일 지움' : '마감일 기록 ($deadline)',
+            createdAt: nowIso,
+          ),
+          ...target.events,
+        ],
+        summary: target.summary,
+        nextStep: target.nextStep,
+      ),
+    );
+  }
+
   Map<String, dynamic> _buildClaimMutationPayload(
     ClaimView claim, {
     String? agreedAmountStr,
@@ -1944,6 +2094,143 @@ class ReloStore extends ChangeNotifier {
       claims = copy;
       notifyListeners();
     }
+  }
+
+  // ── 마감 알림 ───────────────────────────────────────────────────────
+  // 환불 건이나 언어가 바뀔 때마다 "맞춰 둘 알림"을 다시 계산해 기기에 맡긴다.
+  // 무엇이 바뀌었는지 일일이 챙기지 않도록, 화면에 변화를 알릴 때마다 함께 본다.
+
+  @override
+  void notifyListeners() {
+    super.notifyListeners();
+    _openPendingReminderClaim();
+    _syncReminders();
+  }
+
+  Future<void> _loadReminderPrefs() async {
+    deadlineRemindersOn = await _reminderPrefs.loadOn();
+    reminderChoiceMade = await _reminderPrefs.loadAsked();
+    // 기기 설정에서 알림을 막았으면 앱의 스위치도 꺼진 것으로 맞춘다
+    if (deadlineRemindersOn && !(await reminders.isAllowed())) {
+      deadlineRemindersOn = false;
+    }
+    reminders.setOnOpened(_rememberReminderClaim);
+    final opened = await reminders.takeOpenedClaim();
+    if (opened != null) _pendingReminderClaimId = opened;
+    _reminderPrefsLoaded = true;
+    notifyListeners();
+  }
+
+  /// 마감 알림을 켜고 끈다. 켤 때 기기가 알림을 허용하지 않으면 꺼진 채로 두고 false를 돌려준다.
+  Future<bool> setDeadlineReminders(bool on) async {
+    reminderChoiceMade = true;
+    unawaited(_reminderPrefs.saveAsked(true));
+    if (on && !(await reminders.requestPermission())) {
+      deadlineRemindersOn = false;
+      unawaited(_reminderPrefs.saveOn(false));
+      notifyListeners();
+      return false;
+    }
+    deadlineRemindersOn = on;
+    unawaited(_reminderPrefs.saveOn(on));
+    notifyListeners();
+    return true;
+  }
+
+  /// 지금 환불 건으로 맞춰 둘 알림 (언어에 맞춘 글자 포함)
+  List<ReminderNotice> plannedReminderNotices({DateTime? now}) {
+    final s = strings;
+    return [
+      for (final r in ReminderPlanner.plan(claims, now: now ?? DateTime.now()))
+        ReminderNotice(
+          id: r.id,
+          when: r.when,
+          claimId: r.claimId,
+          title: switch (r.kind) {
+            ReminderKind.deadlineIn3Days => s.rmIn3Title,
+            ReminderKind.deadlineTomorrow => s.rmTomorrowTitle,
+            ReminderKind.deadlineToday => s.rmTodayTitle,
+            ReminderKind.replyCheck => s.rmReplyTitle,
+          },
+          body: r.kind == ReminderKind.replyCheck
+              ? s.rmReplyBody(r.vendor)
+              : '${r.vendor} · ${r.claimTitle}',
+        ),
+    ];
+  }
+
+  void _syncReminders() {
+    if (!_reminderPrefsLoaded || !reminders.isSupported) return;
+    if (!deadlineRemindersOn) {
+      _replaceReminders(const []);
+      return;
+    }
+    // 서버에서 받아 온 내 환불 건일 때만 다시 맞춘다. 로그인 전이거나 서버에 붙지 못해
+    // 예시 건을 보여 주는 동안에는, 기기에 맞춰 둔 알림을 그대로 둔다.
+    if (isLoading || isOfflineFallback || user == null || !api.hasSession) {
+      return;
+    }
+    _replaceReminders(plannedReminderNotices());
+  }
+
+  void _replaceReminders(List<ReminderNotice> notices) {
+    final signature = notices
+        .map((n) =>
+            '${n.id}@${n.when.millisecondsSinceEpoch}#${n.title}#${n.body}')
+        .join('|');
+    if (signature == _reminderSignature) return;
+    _reminderSignature = signature;
+    unawaited(reminders.replaceAll(notices));
+  }
+
+  /// 로그아웃 · 탈퇴: 다른 사람이 이 기기를 쓸 수 있으니 맞춰 둔 알림을 모두 지운다
+  void _clearRemindersForSignOut() {
+    if (!reminders.isSupported) return;
+    _reminderSignature = '';
+    unawaited(reminders.replaceAll(const []));
+  }
+
+  // ── 다른 앱에서 공유로 넘어온 영수증 ────────────────────────────────
+
+  Future<void> _receiveSharedEvidence() async {
+    try {
+      final evidence = await sharedInbox.take();
+      if (evidence == null) return;
+      incomingEvidence = evidence;
+      activeTabIndex = 1; // 신청 화면이 가져가서 붙인다
+      selectedClaimId = null;
+    } on EvidenceException catch (e) {
+      pendingNotice = strings.evProblem(e.problem);
+    } catch (_) {
+      return;
+    }
+    notifyListeners();
+  }
+
+  /// 신청 화면이 공유받은 영수증을 가져간다 (한 번만)
+  PickedEvidence? takeIncomingEvidence() {
+    final evidence = incomingEvidence;
+    incomingEvidence = null;
+    return evidence;
+  }
+
+  String? takePendingNotice() {
+    final text = pendingNotice;
+    pendingNotice = null;
+    return text;
+  }
+
+  void _rememberReminderClaim(String claimId) {
+    _pendingReminderClaimId = claimId;
+    _openPendingReminderClaim();
+  }
+
+  /// 알림을 눌러 들어왔으면 그 환불 건의 상세를 연다 (환불 목록을 받아 온 뒤에)
+  void _openPendingReminderClaim() {
+    final id = _pendingReminderClaimId;
+    if (id == null || isLoading) return;
+    _pendingReminderClaimId = null;
+    if (user != null && findClaim(id) != null) openClaimDetail(id);
   }
 }
 

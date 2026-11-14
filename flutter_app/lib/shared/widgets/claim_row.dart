@@ -21,16 +21,13 @@ bool isClaimDone(ClaimView c) =>
 /// "후지필름 XF 35mm 렌즈 오배송 전액 환불" → "후지필름 XF 35mm"
 String shortClaimTitle(String title) => title.split(' ').take(3).join(' ');
 
-/// 지금 할 일을 사람 말로. 기록에 있는 사실만 말한다.
-String claimStatusText(ClaimView c, {required bool korean}) {
-  String t(String k, String e) => korean ? k : e;
+/// 지금 할 일을 사람 말로 (지금 언어로). 기록에 있는 사실만 말한다.
+String claimStatusText(ClaimView c, ReloStrings s) {
   return switch (c.state) {
-    'preparing' || 'review' => t('메시지 보낼 차례', 'Send your message'),
-    'awaiting' => t('답장 기다리는 중', 'Waiting for a reply'),
-    'negotiating' => c.agreed != null
-        ? t('제안 확인할 차례', 'Check the offer')
-        : t('조건 정하는 중', 'Working out terms'),
-    'recovered' || 'completed' => t('입금 확인', 'Refund received'),
+    'preparing' || 'review' => s.csSend,
+    'awaiting' => s.csWaiting,
+    'negotiating' => c.agreed != null ? s.csCheckOffer : s.csNegotiating,
+    'recovered' || 'completed' => s.csReceived,
     _ => c.nextStep,
   };
 }
@@ -137,7 +134,7 @@ class ClaimRow extends StatelessWidget {
     final palette = ReloPalette.of(context);
     final title = shortClaimTitle(claim.title);
     final status =
-        claimStatusText(claim, korean: store.locale == ReloLocale.ko);
+        claimStatusText(claim, store.strings);
     final done = isClaimDone(claim);
     final hasDeadline = !done && DDay.label(claim.deadline) != null;
 

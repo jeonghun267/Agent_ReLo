@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
+import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/relo_theme.dart';
+import '../../core/utils/input_rules.dart';
 import '../../shared/state/relo_store.dart';
 import '../../shared/widgets/claim_row.dart';
 import '../../shared/widgets/relo_mascot.dart';
@@ -23,6 +25,9 @@ class AuthScreen extends StatefulWidget {
 }
 
 class _AuthScreenState extends State<AuthScreen> {
+  /// 지금 언어의 문구
+  ReloStrings get _s => ReloScope.of(context).strings;
+
   bool _isSignup = false;
   bool _busy = false;
   final _nameCtrl = TextEditingController(text: '김직구');
@@ -38,6 +43,13 @@ class _AuthScreenState extends State<AuthScreen> {
   final _guardianNameCtrl = TextEditingController();
   bool _agreeAiOptional = false;
   bool _agreeEmailOptional = false;
+
+  /// 칸마다의 오류 (칸 아래 빨간 글자). 키: name, email, password
+  final Map<String, String> _fieldErrors = {};
+
+  void _clearFieldError(String key) {
+    if (_fieldErrors.containsKey(key)) setState(() => _fieldErrors.remove(key));
+  }
 
   @override
   void dispose() {
@@ -57,10 +69,28 @@ class _AuthScreenState extends State<AuthScreen> {
   }
 
   Future<void> _submit(ReloStore store) async {
+    // 보내기 전에 칸부터 본다. 고칠 것은 그 칸 아래에 알린다.
+    final errors = <String, String>{};
+    if (_isSignup && _nameCtrl.text.trim().isEmpty) {
+      errors['name'] = _s.auErrName;
+    }
+    if (!InputRules.email(_emailCtrl.text)) {
+      errors['email'] = _s.auErrEmail;
+    }
+    if (_passwordCtrl.text.length < 8) {
+      errors['password'] = _s.auErrPassword;
+    }
+    setState(() {
+      _fieldErrors
+        ..clear()
+        ..addAll(errors);
+    });
+    if (errors.isNotEmpty) return;
+
     if (_isSignup && !_canSubmitSignup) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('필수 약관 동의 및 연령 확인 항목을 체크해 주세요.'),
+        SnackBar(
+          content: Text(_s.auErrConsent),
         ),
       );
       return;
@@ -120,7 +150,7 @@ class _AuthScreenState extends State<AuthScreen> {
           ),
           const SizedBox(height: 14),
           Text(
-            _isSignup ? '내 환불 보관함 만들기' : '내 환불 보관함 열기',
+            _isSignup ? _s.auTitleSignup : _s.auTitleLogin,
             style: TextStyle(
               fontSize: 22,
               fontWeight: FontWeight.w800,
@@ -131,7 +161,7 @@ class _AuthScreenState extends State<AuthScreen> {
           const SizedBox(height: 6),
           // [항목 #7] 불필요한 개인정보 미수집 안내
           Text(
-            '주민등록번호·집 주소·카드 전체 번호는 받지 않아요.',
+            _s.auNoCollect,
             style: TextStyle(fontSize: 14, color: palette.muted, height: 1.45),
           ),
           const SizedBox(height: 22),
@@ -159,7 +189,7 @@ class _AuthScreenState extends State<AuthScreen> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
-                              '체험 계정으로 바로 시작',
+                              _s.auDemo,
                               style: TextStyle(
                                 fontSize: 15,
                                 fontWeight: FontWeight.w700,
@@ -168,7 +198,7 @@ class _AuthScreenState extends State<AuthScreen> {
                             ),
                             const SizedBox(height: 2),
                             Text(
-                              '비밀번호 없이 샘플 환불 건으로 둘러봐요',
+                              _s.auDemoSub,
                               style: TextStyle(
                                 fontSize: 13,
                                 color: palette.subtle,
@@ -189,34 +219,40 @@ class _AuthScreenState extends State<AuthScreen> {
 
           if (_isSignup) ...[
             ReloTextField(
-              label: '이름 또는 닉네임 (실명이 아니어도 돼요)',
+              label: _s.auName,
               controller: _nameCtrl,
-              hint: '김직구',
+              hint: _s.auNameHint,
               fillColor: palette.raised,
+              errorText: _fieldErrors['name'],
+              onChanged: (_) => _clearFieldError('name'),
             ),
             const SizedBox(height: 14),
           ],
           ReloTextField(
-            label: '이메일 주소',
+            label: _s.auEmail,
             controller: _emailCtrl,
             keyboardType: TextInputType.emailAddress,
             hint: 'you@example.com',
             fillColor: palette.raised,
+            errorText: _fieldErrors['email'],
+            onChanged: (_) => _clearFieldError('email'),
           ),
           const SizedBox(height: 14),
           ReloTextField(
-            label: '비밀번호',
+            label: _s.auPassword,
             controller: _passwordCtrl,
             obscureText: true,
-            hint: '8자 이상 비밀번호',
+            hint: _s.auPasswordHint,
             fillColor: palette.raised,
+            errorText: _fieldErrors['password'],
+            onChanged: (_) => _clearFieldError('password'),
           ),
 
           // [항목 #6, #9, #17] 회원가입 시 명시적 동의 항목 & 만 14세 연령 확인
           if (_isSignup) ...[
             const SizedBox(height: 24),
             Text(
-              '동의',
+              _s.cmConsent,
               style: TextStyle(
                 fontSize: 13,
                 fontWeight: FontWeight.w600,
@@ -225,7 +261,7 @@ class _AuthScreenState extends State<AuthScreen> {
             ),
             const SizedBox(height: 2),
             Text(
-              '선택 항목은 동의하지 않아도 가입할 수 있어요.',
+              _s.auOptionalNote,
               style: TextStyle(fontSize: 12, color: palette.subtle),
             ),
             const SizedBox(height: 4),
@@ -233,16 +269,16 @@ class _AuthScreenState extends State<AuthScreen> {
               value: _agreePrivacyRequired,
               onChanged: (v) => setState(() => _agreePrivacyRequired = v),
               isRequired: true,
-              title: '개인정보 수집 및 이용 동의',
-              subtitle: '수집항목: 이메일, 닉네임, 암호화 비밀번호 (탈퇴 시 즉시 파기)',
+              title: _s.auC1,
+              subtitle: _s.auC1Sub,
               onViewDetail: () => store.openLegalDocument('privacy'),
             ),
             ReloConsentRow(
               value: _agreeTermsRequired,
               onChanged: (v) => setState(() => _agreeTermsRequired = v),
               isRequired: true,
-              title: '서비스 이용약관 동의',
-              subtitle: '직구 환불 기록 및 외국어 초안 작성 도구 이용 기준',
+              title: _s.auC2,
+              subtitle: _s.auC2Sub,
               onViewDetail: () => store.openLegalDocument('terms'),
             ),
             // [항목 #17 아동 나이 확인 절차]
@@ -253,8 +289,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 if (v) _isUnder14Mode = false;
               }),
               isRequired: true,
-              title: '만 14세 이상 본인입니다 (연령 확인)',
-              subtitle: '개인정보보호법 제22조의2에 따른 필수 연령 확인 절차',
+              title: _s.auC3,
+              subtitle: _s.auC3Sub,
             ),
             Align(
               alignment: Alignment.centerLeft,
@@ -263,8 +299,8 @@ class _AuthScreenState extends State<AuthScreen> {
                 padding: const EdgeInsets.only(left: 30),
                 child: ReloTextAction(
                   label: _isUnder14Mode
-                      ? '만 14세 이상 일반 가입으로 돌아가기'
-                      : '만 14세 미만이면 보호자 동의로 가입하기',
+                      ? _s.auBackToAdult
+                      : _s.auUnder14,
                   onTap: () => setState(() {
                     _isUnder14Mode = !_isUnder14Mode;
                     if (_isUnder14Mode) _isOver14Required = false;
@@ -275,9 +311,9 @@ class _AuthScreenState extends State<AuthScreen> {
             if (_isUnder14Mode) ...[
               const SizedBox(height: 8),
               ReloTextField(
-                label: '법정대리인(보호자) 성명 및 연락 이메일',
+                label: _s.auGuardian,
                 controller: _guardianNameCtrl,
-                hint: '예: 홍길동 (parent@example.com)',
+                hint: _s.auGuardianHint,
                 fillColor: palette.raised,
                 // 다 채워야 가입 버튼이 켜진다
                 onChanged: (_) => setState(() {}),
@@ -287,28 +323,29 @@ class _AuthScreenState extends State<AuthScreen> {
                 value: _guardianVerified,
                 onChanged: (v) => setState(() => _guardianVerified = v),
                 isRequired: true,
-                title: '법정대리인 본인이 아동의 개인정보 수집·이용에 동의합니다.',
+                title: _s.auGuardianConsent,
               ),
             ],
             ReloConsentRow(
               value: _agreeAiOptional,
               onChanged: (v) => setState(() => _agreeAiOptional = v),
               isRequired: false,
-              title: 'AI 영수증 자동 읽기 및 외국어 번역 도우미 사용 동의',
-              subtitle: '미동의 시에도 직접 입력 및 기본 템플릿을 100% 이용할 수 있어요.',
+              title: _s.auC4,
+              subtitle: _s.auC4Sub,
             ),
             ReloConsentRow(
               value: _agreeEmailOptional,
               onChanged: (v) => setState(() => _agreeEmailOptional = v),
               isRequired: false,
-              title: '환불 마감일 알림 및 안내 이메일 수신 동의',
-              subtitle: '언제든 메일 하단 또는 설정에서 원클릭으로 수신거부할 수 있어요.',
+              title: _s.auC5,
+              subtitle: _s.auC5Sub,
             ),
           ],
 
           const SizedBox(height: 22),
           ReloButton(
-            text: _busy ? '처리 중…' : (_isSignup ? '동의하고 가입하기' : '로그인하기'),
+            text: _busy ? _s.auBusy : (_isSignup ? _s.auSignup : _s.auLogin),
+            busy: _busy,
             onPressed: _busy || (_isSignup && !_canSubmitSignup)
                 ? null
                 : () => _submit(store),
@@ -316,8 +353,11 @@ class _AuthScreenState extends State<AuthScreen> {
           const SizedBox(height: 6),
           Center(
             child: ReloTextAction(
-              label: _isSignup ? '이미 보관함이 있어요 · 로그인' : '처음이에요 · 보관함 만들기',
-              onTap: () => setState(() => _isSignup = !_isSignup),
+              label: _isSignup ? _s.auToLogin : _s.auToSignup,
+              onTap: () => setState(() {
+                _isSignup = !_isSignup;
+                _fieldErrors.clear();
+              }),
             ),
           ),
         ],

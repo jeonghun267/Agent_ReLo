@@ -5,8 +5,8 @@ import 'package:flutter/animation.dart';
 class ReloMotion {
   ReloMotion._();
 
-  /// 앱 시작 연출 전체 길이 (로고 고리 → 헤더 이동 → 홈 등장)
-  static const Duration intro = Duration(milliseconds: 900);
+  /// 앱 시작 연출 전체 길이 (로고가 말랑이로 깨어남 → 인사 → 상단 로고 자리로 → 홈 등장)
+  static const Duration intro = Duration(milliseconds: 1300);
 
   /// 탭 전환 (FadeThrough)
   static const Duration tabSwitch = Duration(milliseconds: 250);
