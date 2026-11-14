@@ -91,17 +91,22 @@ export function Button({
 	);
 }
 
+// Labels are plain text, not colored pills: the product keeps to one blue accent and gray
+// text, the same as the app. A tone only picks the text color:
+//   brand / ai / emerald → blue, for a label that names a feature or an action
+//   danger               → red, for something that needs the person's attention
+//   neutral / sunny      → dark gray, for a state or a note ("sunny" used to be a yellow pill)
 const badgeVariants = cva(
-	"inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold tracking-[-0.01em]",
+	"inline-flex items-center gap-1.5 text-xs font-semibold tracking-[-0.01em]",
 	{
 		variants: {
 			tone: {
-				brand: "bg-relo-brand-soft text-relo-brand",
-				ai: "bg-relo-brand-soft text-relo-brand",
-				sunny: "bg-relo-sunny-soft text-relo-sunny-ink",
-				emerald: "bg-[#eef4ff] text-relo-brand",
-				danger: "bg-relo-danger-soft text-relo-danger",
-				neutral: "bg-relo-sunken text-relo-muted",
+				brand: "text-relo-brand",
+				ai: "text-relo-brand",
+				sunny: "text-relo-body",
+				emerald: "text-relo-brand",
+				danger: "text-relo-danger",
+				neutral: "text-relo-body",
 			},
 		},
 		defaultVariants: {

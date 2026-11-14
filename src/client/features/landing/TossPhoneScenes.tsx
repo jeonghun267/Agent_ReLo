@@ -71,7 +71,9 @@ export function TossPhoneScenes() {
 		<section
 			ref={stageRef}
 			data-testid="phone-story-stage"
-			className="relative border-b border-relo-line/70 bg-linear-to-b from-[#f9fafb] via-white to-[#f2f6fc] lg:min-h-[290vh]"
+			// overflow-x-clip: the pop-out cards reach past the phone on narrow screens and made the
+			// whole page scroll sideways. "clip" (not "hidden") keeps the sticky stage working.
+			className="relative overflow-x-clip border-b border-relo-line/70 bg-linear-to-b from-[#f9fafb] via-white to-[#f2f6fc] lg:min-h-[290vh]"
 		>
 			<div className="mx-auto max-w-6xl px-4 py-20 sm:px-6 lg:sticky lg:top-15 lg:flex lg:min-h-[calc(100vh-3.75rem)] lg:flex-col lg:justify-center lg:py-10">
 				<div className="mb-10 flex flex-col items-start justify-between gap-4 sm:flex-row sm:items-center">

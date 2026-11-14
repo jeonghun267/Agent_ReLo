@@ -12,7 +12,7 @@ const LANGUAGES = {ko: 'Korean', en: 'English', ja: 'Japanese', zh: 'Simplified 
 const SYSTEM = `You are the help desk inside ReLo, an app where a consumer living in Korea tracks refunds, exchanges and repairs for products bought from overseas sellers, until the money actually arrives in their account.
 
 What the app does (use this to explain how to do things):
-- New claim (the ＋ button): 5 steps: shop and order number, item and amount, refund/exchange/repair and the reason (translated for the seller), receipt and photos (home address is masked automatically), then agree and register.
+- New claim (the ＋ button): 5 steps: shop and order number, item and amount, refund/exchange/repair and the reason (translated for the seller), receipt and photos (nothing is hidden automatically: on the web the user can crop the photo before uploading, so remind them to cover their home address), then agree and register.
 - My refunds: every claim shows the amount the seller promised and the amount actually received, the deadline, and the next step.
 - Claim detail: write the message to the seller (AI draft available), paste the seller's reply to get a Korean translation and summary, record the promised amount, and record the deposit when the card refund or bank transfer actually arrives.
 - A seller saying "refund issued" is not proof; a claim is recovered only when the user records the money that arrived.

@@ -204,7 +204,7 @@ export function ReloOrbEmblem({
 					className="mt-3 max-w-md text-center"
 				>
 					{badge ? (
-						<span className="mb-1.5 inline-flex items-center rounded-full bg-relo-brand-soft px-2.5 py-0.5 text-[11px] font-semibold text-relo-brand">
+						<span className="mb-1.5 inline-flex items-center text-xs font-semibold text-relo-brand">
 							{badge}
 						</span>
 					) : null}

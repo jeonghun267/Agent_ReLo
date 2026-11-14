@@ -87,6 +87,16 @@
 		word-break: keep-all;
 	}
 
+	/* Korean reads best when words stay whole (the two rules above). Japanese and Chinese
+	   put no spaces between words, so the same rule stops their lines from wrapping at all
+	   and long headings run off narrow screens. The language is set on <html> by I18nProvider. */
+	html:lang(ja) body,
+	html:lang(zh) body,
+	html:lang(ja) :is(h1, h2, h3, h4),
+	html:lang(zh) :is(h1, h2, h3, h4) {
+		word-break: normal;
+	}
+
 	button,
 	a,
 	input,

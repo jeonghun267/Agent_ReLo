@@ -2,7 +2,8 @@
  * @module client/features/claim-detail/ClaimLifecycleFlow
  * @layer View (Single-Case Progress Pipeline)
  * @purpose Renders the 6-stage refund status pipeline for an individual claim using
- *          plain consumer Korean and a unified Toss Blue + Slate palette.
+ *          plain consumer Korean and a unified Toss Blue + Slate palette: a flow diagram
+ *          on wide screens, and a readable two-per-row list on narrow ones.
  */
 
 import {
@@ -16,7 +17,7 @@ import {
 	ReactFlow,
 } from "@xyflow/react";
 import { CheckCircle2, CircleDot } from "lucide-react";
-import { useMemo } from "react";
+import { useMemo, useSyncExternalStore } from "react";
 import type { ClaimState } from "@/client/types";
 
 const ORDERED_FLOW: Array<{ id: ClaimState; label: string; sub: string }> = [
@@ -41,14 +42,32 @@ type LifecycleNodeData = {
 	status: "done" | "current" | "upcoming" | "alert";
 };
 
+/** How a stage looks by where the claim stands: shared by the diagram and the narrow-screen list. */
+const STAGE_STYLES: Record<LifecycleNodeData["status"], string> = {
+	done: "border-relo-brand-line bg-relo-brand-soft/85 text-relo-brand",
+	current:
+		"border-relo-brand bg-white text-relo-brand shadow-float ring-4 ring-relo-brand/15",
+	alert: "border-relo-danger bg-relo-danger-soft text-relo-danger",
+	upcoming: "border-relo-line bg-white/85 text-relo-muted",
+};
+
+/** True from the "sm" width up (640px), where the diagram has room to stay readable. */
+function useIsWide(): boolean {
+	return useSyncExternalStore(
+		(onChange) => {
+			const query = window.matchMedia(WIDE_QUERY);
+			query.addEventListener("change", onChange);
+			return () => query.removeEventListener("change", onChange);
+		},
+		() => window.matchMedia(WIDE_QUERY).matches,
+		() => true,
+	);
+}
+
+const WIDE_QUERY = "(min-width: 640px)";
+
 function LifecycleNode({ data }: NodeProps<Node<LifecycleNodeData>>) {
-	const styles = {
-		done: "border-relo-brand-line bg-relo-brand-soft/85 text-relo-brand",
-		current:
-			"border-relo-brand bg-white text-relo-brand shadow-float ring-4 ring-relo-brand/15",
-		alert: "border-relo-danger bg-relo-danger-soft text-relo-danger",
-		upcoming: "border-relo-line bg-white/85 text-relo-muted",
-	}[data.status];
+	const styles = STAGE_STYLES[data.status];
 
 	return (
 		<div className={`w-36 rounded-2xl border-2 px-3 py-2.5 ${styles}`}>
@@ -84,7 +103,10 @@ const NODE_TYPES = { lifecycle: LifecycleNode };
 export function ClaimLifecycleFlow({ state }: { state: ClaimState }) {
 	const rank = stageRank(state);
 
-	const nodes = useMemo<Node<LifecycleNodeData>[]>(
+	const isWide = useIsWide();
+
+	// The six stages with where this claim stands. Both layouts below draw from this.
+	const stages = useMemo(
 		() =>
 			ORDERED_FLOW.map((stage, idx) => {
 				let status: LifecycleNodeData["status"] = "upcoming";
@@ -95,22 +117,29 @@ export function ClaimLifecycleFlow({ state }: { state: ClaimState }) {
 				}
 				return {
 					id: stage.id,
-					type: "lifecycle",
-					position: { x: idx * 172, y: idx % 2 === 0 ? 18 : 66 },
-					draggable: false,
-					data: {
-						label:
-							idx === 3 && state === "partial"
-								? "일부 입금 확인"
-								: idx === 3 && state === "disputed"
-									? "추가 확인 필요"
-									: stage.label,
-						sub: stage.sub,
-						status,
-					},
+					label:
+						idx === 3 && state === "partial"
+							? "일부 입금 확인"
+							: idx === 3 && state === "disputed"
+								? "추가 확인 필요"
+								: stage.label,
+					sub: stage.sub,
+					status,
 				};
 			}),
 		[rank, state],
+	);
+
+	const nodes = useMemo<Node<LifecycleNodeData>[]>(
+		() =>
+			stages.map((stage, idx) => ({
+				id: stage.id,
+				type: "lifecycle",
+				position: { x: idx * 172, y: idx % 2 === 0 ? 18 : 66 },
+				draggable: false,
+				data: { label: stage.label, sub: stage.sub, status: stage.status },
+			})),
+		[stages],
 	);
 
 	const edges = useMemo<Edge[]>(
@@ -127,6 +156,41 @@ export function ClaimLifecycleFlow({ state }: { state: ClaimState }) {
 			})),
 		[rank],
 	);
+
+	// Narrow screens: the diagram shrinks until the labels cannot be read, so the same six
+	// stages are listed two per row instead (read left to right, then down).
+	if (!isWide) {
+		return (
+			<ol className="grid grid-cols-2 gap-2 rounded-2xl border border-relo-line bg-relo-sunken/70 p-3">
+				{stages.map((stage, idx) => (
+					<li
+						key={stage.id}
+						aria-current={stage.status === "current" ? "step" : undefined}
+						className={`rounded-xl border px-3 py-2.5 ${STAGE_STYLES[stage.status]}`}
+					>
+						<div className="flex items-center gap-1.5">
+							{stage.status === "done" ? (
+								<CheckCircle2
+									className="h-3.5 w-3.5 shrink-0"
+									aria-hidden="true"
+								/>
+							) : (
+								<span className="w-3.5 shrink-0 text-center text-[11px] font-extrabold tabular-nums">
+									{idx + 1}
+								</span>
+							)}
+							<p className="truncate text-[13px] font-extrabold text-relo-ink">
+								{stage.label}
+							</p>
+						</div>
+						<p className="mt-0.5 truncate pl-5 text-[11px] font-medium text-relo-muted">
+							{stage.sub}
+						</p>
+					</li>
+				))}
+			</ol>
+		);
+	}
 
 	return (
 		<div className="relo-flow h-44 w-full overflow-hidden rounded-2xl border border-relo-line bg-relo-sunken/70">

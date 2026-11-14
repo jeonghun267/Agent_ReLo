@@ -2,8 +2,8 @@
  * @module client/components/AppShell
  * @layer View (Application Chrome & Responsive Navigation)
  * @purpose Renders the Toss-style sticky navigation header, header 4-language switcher,
- *          unverified-email banner, main content viewport, Toss multi-column closing footer,
- *          and mobile bottom tab bar.
+ *          one-line unverified-email banner, main content viewport, the closing footer
+ *          (full on the landing page, one compact row elsewhere), and mobile bottom tab bar.
  */
 
 import {
@@ -144,10 +144,14 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 			{showVerifyBanner ? (
 				<div className="border-b border-relo-brand-line bg-relo-brand-soft px-4 py-2 text-xs text-relo-brand">
-					<div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-2">
-						<span className="inline-flex items-center gap-1.5 font-medium">
+					{/* One line at every width: narrow screens get the short notice, wider ones the full sentence */}
+					<div className="mx-auto flex max-w-6xl items-center justify-between gap-3">
+						<span className="inline-flex min-w-0 items-center gap-1.5 font-medium">
 							<MailCheck className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
-							<span>
+							<span className="truncate sm:hidden">
+								{t.nav.verifyNoticeShort}
+							</span>
+							<span className="hidden truncate sm:inline">
 								{t.nav.verifyNoticePrefix} <strong>{user?.email}</strong>{" "}
 								{t.nav.verifyNoticeSuffix}
 							</span>
@@ -156,7 +160,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 							type="button"
 							disabled={resendMutation.isPending}
 							onClick={handleResendVerification}
-							className="cursor-pointer rounded-full bg-white px-3 py-1 text-xs font-semibold text-relo-brand hover:bg-white/90 disabled:opacity-60"
+							className="shrink-0 cursor-pointer rounded-full bg-white px-3 py-1 text-xs font-semibold whitespace-nowrap text-relo-brand hover:bg-white/90 disabled:opacity-60"
 						>
 							{resendMutation.isPending ? t.nav.sending : t.nav.resendVerify}
 						</button>
@@ -246,8 +250,8 @@ export function AppShell({ children }: { children: ReactNode }) {
 				{children}
 			</main>
 
-			{/* Toss-Style Atmospheric Multi-Column Closing Footer */}
-			<TossClosingFooter />
+			{/* Full closing footer on the landing page; one compact row on working screens */}
+			<TossClosingFooter compact={pathname !== "/"} />
 
 			{/* Mobile Bottom Navigation */}
 			<nav
