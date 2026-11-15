@@ -14,8 +14,8 @@
 			type="image/svg+xml"
 			href="/favicon.svg"
 		/>
-		<script type="module" crossorigin src="/assets/index-CgRFxp8w.js"></script>
-		<link rel="stylesheet" crossorigin href="/assets/index-2QDa4JVb.css">
+		<script type="module" crossorigin src="/assets/index-DEzTV6LE.js"></script>
+		<link rel="stylesheet" crossorigin href="/assets/index-DmpMQr8f.css">
 	</head>
 	<body class="bg-relo-canvas text-relo-ink antialiased selection:bg-relo-brand-soft selection:text-relo-brand">
 		<a
@@ -24,6 +24,69 @@
 		>
 			본문으로 바로 이동
 		</a>
-		<div id="root"></div>
+		<div id="root">
+			<!-- The page frame, shown while the app's script is still on its way. React replaces
+			     everything inside #root on its first render, so nothing here needs removing.
+			     Classes only: the CSP allows no inline styles or scripts. -->
+			<div class="min-h-dvh bg-white">
+				<header class="sticky top-0 z-30 border-b border-relo-line/70 bg-white/88 backdrop-blur-xl">
+					<div class="mx-auto flex h-15 max-w-6xl items-center justify-between gap-3 px-4 sm:px-6">
+						<a
+							href="/"
+							class="inline-flex items-center gap-2.5 text-[19px] font-bold tracking-[-0.04em] text-relo-ink"
+						>
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 36 36"
+								aria-hidden="true"
+								class="h-8 w-8 shrink-0 rounded-[10px] shadow-2xs"
+							>
+								<defs>
+									<linearGradient id="reloBootGrad" x1="0" y1="0" x2="1" y2="1">
+										<stop offset="0%" stop-color="#3182f6" />
+										<stop offset="100%" stop-color="#1b64da" />
+									</linearGradient>
+								</defs>
+								<rect width="36" height="36" rx="10" fill="url(#reloBootGrad)" />
+								<circle
+									cx="18"
+									cy="18"
+									r="9.5"
+									fill="none"
+									stroke="rgba(255,255,255,0.32)"
+									stroke-width="1.5"
+								/>
+								<path
+									d="M9 21c4.5-8 12.5-9.5 18-4.5"
+									fill="none"
+									stroke="#ffffff"
+									stroke-width="2.4"
+									stroke-linecap="round"
+								/>
+								<g transform="translate(26.5, 16.5) rotate(28)">
+									<path d="M 3.2 0 L -2.6 -2.2 L -1.2 0 L -2.6 2.2 Z" fill="#ffffff" />
+								</g>
+							</svg>
+							<span>ReLo</span>
+						</a>
+					</div>
+				</header>
+				<p class="sr-only" role="status">불러오는 중</p>
+				<noscript>
+					<p class="mx-auto max-w-xl px-4 pt-10 text-center text-sm font-semibold text-relo-muted">
+						ReLo를 쓰려면 브라우저에서 자바스크립트를 켜 주세요.
+					</p>
+				</noscript>
+				<!-- Quiet placeholders where the first screen's sentence and button will appear. -->
+				<div class="mx-auto max-w-4xl px-4 pt-14 sm:px-6 sm:pt-20" aria-hidden="true">
+					<div class="mx-auto flex max-w-2xl flex-col items-center gap-4 motion-safe:animate-pulse">
+						<div class="h-9 w-4/5 rounded-xl bg-relo-line sm:h-14"></div>
+						<div class="h-9 w-3/5 rounded-xl bg-relo-line sm:h-14"></div>
+						<div class="mt-2 h-5 w-2/3 rounded-lg bg-relo-line"></div>
+						<div class="mt-3 h-13 w-44 rounded-full bg-relo-line"></div>
+					</div>
+				</div>
+			</div>
+		</div>
 	</body>
 </html>

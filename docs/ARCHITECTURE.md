@@ -26,7 +26,7 @@ View ──(사용자 행동)──▶ ViewModel ──▶ Model ──fetch─�
 | `repositories/migrations/` | `NNN_이름.sql`. 한 번만 순서대로 적용 | 이미 적용된 파일은 고치지 말고 새 파일을 추가 |
 | `services/` | 업무 흐름: 권한(본인 것만), 버전 검사, 재시도 키, 감사 기록 | **트랜잭션은 서비스만 연다.** SQL 금지 |
 | `routes/` | HTTP ↔ 서비스 변환 | 요청 읽기와 응답 형태만. 리포지토리 import 금지 |
-| `http/` | 라우터, 요청·응답 도우미, 보안 헤더·Host·Origin·CSRF, 정적 파일, 시도 제한 | |
+| `http/` | 라우터, 요청·응답 도우미, 보안 헤더·Host·Origin·CSRF, 정적 파일(글자 파일은 Brotli·gzip으로 눌러 보냄), 시도 제한 | |
 | `ai/` | Gemini·가짜·비활성 provider, `prompts/`(프롬프트 + 응답 스키마 + 응답 검증) | AI는 미리보기만 만들고 저장하지 않는다 |
 | `mail/` | 계정 메일 provider 경계(`provider.mjs` 계약), `resend`(Resend REST API, SDK 없음), `console`(개발·시험: 서버 로그에 출력), `disabled`, `messages.mjs`(메일 본문) | 서비스는 발송을 기다리지 않는다. API 키는 `.env`에만 |
 | `dev/` | 개발용 데모 계정 seed, 합성 주문서 PDF | 운영에서 seed 금지 |
