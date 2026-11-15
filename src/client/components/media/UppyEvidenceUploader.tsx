@@ -22,7 +22,8 @@ import { type ChangeEvent, useEffect, useId, useMemo, useState } from "react";
 import { DamagePhotoCropperModal } from "@/client/components/media/DamagePhotoCropperModal";
 import { PdfPreviewCanvas } from "@/client/components/media/PdfPreviewCanvas";
 import { Badge, Button, useToast } from "@/client/components/ui/Primitives";
-import { formatFileSize } from "@/client/lib/format";
+import { useI18n } from "@/client/i18n";
+import { fill, formatFileSize } from "@/client/lib/format";
 
 export interface StagedEvidenceItem {
 	uppyId: string;
@@ -54,6 +55,8 @@ export function UppyEvidenceUploader({
 }: UppyEvidenceUploaderProps) {
 	const inputId = useId();
 	const { showToast } = useToast();
+	const { t } = useI18n();
+	const u = t.upload;
 	const [cropTarget, setCropTarget] = useState<{
 		uppyId: string;
 		file: File;
@@ -75,22 +78,15 @@ export function UppyEvidenceUploader({
 	);
 
 	useEffect(() => {
-		const onRestrictionFailed = (
-			_file: unknown,
-			error: { message?: string },
-		) => {
-			showToast(
-				error?.message ??
-					"PNG·JPG·WebP·PDF 형식의 10MB 이하 파일만 올릴 수 있어요.",
-				"error",
-			);
+		const onRestrictionFailed = () => {
+			showToast(u.restriction, "error");
 		};
 		uppy.on("restriction-failed", onRestrictionFailed);
 		return () => {
 			uppy.off("restriction-failed", onRestrictionFailed);
 			uppy.destroy();
 		};
-	}, [uppy, showToast]);
+	}, [uppy, showToast, u.restriction]);
 
 	const uppyFilesMap = useUppyState(uppy, (state) => state.files);
 
@@ -135,32 +131,29 @@ export function UppyEvidenceUploader({
 			type: croppedFile.type,
 			data: croppedFile,
 		});
-		showToast("불량 부분만 깔끔하게 잘라서 준비했어요!");
+		showToast(u.toastCropped);
 	};
 
 	return (
-		<div className="space-y-4">
+		<div className="@container space-y-4">
 			<div className="rounded-2xl border-2 border-dashed border-relo-brand-line bg-relo-brand-soft/35 p-5 transition-colors hover:border-relo-brand">
-				<div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:text-left">
+				<div className="flex flex-col items-center gap-3 text-center @xl:flex-row @xl:text-left">
 					<div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-white text-relo-brand shadow-2xs">
 						<UploadCloud className="h-6 w-6" aria-hidden="true" />
 					</div>
 					<div className="min-w-0 flex-1">
 						<p className="text-sm font-extrabold text-relo-ink">
-							주문 영수증(PDF·캡처)이나 불량 상품 사진을 올려주세요
+							{u.dropTitle}
 						</p>
-						<p className="mt-0.5 text-xs text-relo-muted">
-							PNG · JPG · WebP · PDF 지원 (파일당 최대 10MB, 최대 8장 · 내
-							계정에만 안전 보관)
-						</p>
+						<p className="mt-0.5 text-xs text-relo-muted">{u.dropHint}</p>
 					</div>
-					<div className="flex flex-wrap items-center gap-2">
+					<div className="flex flex-wrap items-center justify-center gap-2">
 						<label
 							htmlFor={inputId}
-							className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-xl bg-relo-brand px-4 py-2 text-xs font-bold text-white shadow-2xs transition hover:bg-relo-brand-hover"
+							className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 rounded-xl border border-relo-brand-line bg-white px-4 py-2 text-xs font-bold whitespace-nowrap text-relo-brand transition hover:bg-relo-brand-soft"
 						>
 							<UploadCloud className="h-4 w-4" aria-hidden="true" />
-							<span>사진·영수증 선택</span>
+							<span>{u.pick}</span>
 						</label>
 						<input
 							id={inputId}
@@ -174,8 +167,9 @@ export function UppyEvidenceUploader({
 							variant="secondary"
 							size="sm"
 							onClick={() => setOpenDashboard((v) => !v)}
+							className="max-sm:hidden"
 						>
-							{openDashboard ? "창 닫기" : "끌어다 놓기 창 열기"}
+							{openDashboard ? u.closeDrop : u.openDrop}
 						</Button>
 					</div>
 				</div>
@@ -187,7 +181,7 @@ export function UppyEvidenceUploader({
 							height={230}
 							hideUploadButton
 							proudlyDisplayPoweredByUppy={false}
-							note="최대 10MB · PNG, JPG, WebP, PDF"
+							note={u.dashboardNote}
 						/>
 					</div>
 				) : null}
@@ -197,9 +191,9 @@ export function UppyEvidenceUploader({
 				<div className="space-y-2.5">
 					<div className="flex items-center justify-between">
 						<p className="text-xs font-bold text-relo-muted">
-							준비된 파일 ({stagedItems.length}/8)
+							{fill(u.staged, { n: stagedItems.length })}
 						</p>
-						<Badge tone="brand">안전 보관 대기</Badge>
+						<Badge tone="neutral">{u.stagedNote}</Badge>
 					</div>
 
 					<ul className="space-y-2">
@@ -226,7 +220,7 @@ export function UppyEvidenceUploader({
 											</p>
 											<p className="text-xs text-relo-muted">
 												{formatFileSize(item.size)} ·{" "}
-												{isPdf ? "PDF 영수증" : "상품 사진"}
+												{isPdf ? u.kindPdf : u.kindPhoto}
 											</p>
 										</div>
 									</div>
@@ -244,7 +238,7 @@ export function UppyEvidenceUploader({
 												}
 											>
 												<Crop className="h-3.5 w-3.5" aria-hidden="true" />
-												<span>필요한 부분만 자르기</span>
+												<span>{u.crop}</span>
 											</Button>
 										) : null}
 
@@ -260,9 +254,7 @@ export function UppyEvidenceUploader({
 											>
 												<Eye className="h-3.5 w-3.5" aria-hidden="true" />
 												<span>
-													{previewPdf === item.file
-														? "영수증 닫기"
-														: "영수증 크게 보기"}
+													{previewPdf === item.file ? u.pdfClose : u.pdfOpen}
 												</span>
 											</Button>
 										) : null}
@@ -275,14 +267,14 @@ export function UppyEvidenceUploader({
 												onClick={() => onAiExtractFile(item.file)}
 											>
 												<Sparkles className="h-3.5 w-3.5" aria-hidden="true" />
-												<span>주문 정보 자동 채우기</span>
+												<span>{u.autoFill}</span>
 											</Button>
 										) : null}
 
 										<Button
 											variant="ghost"
 											size="sm"
-											aria-label={`${item.name} 제거`}
+											aria-label={fill(u.removeAria, { name: item.name })}
 											onClick={() => uppy.removeFile(item.uppyId)}
 										>
 											<Trash2

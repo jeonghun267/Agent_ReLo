@@ -18,7 +18,13 @@ import {
 } from "@/client/components/ui/Primitives";
 import { ClaimFilesVaultCard } from "@/client/features/claim-detail/ClaimFilesVaultCard";
 import { useRecordReceiptMutation } from "@/client/hooks/useClaims";
-import { formatMinorMoney, minorToDecimalString } from "@/client/lib/format";
+import { useI18n } from "@/client/i18n";
+import { errorText, fieldError } from "@/client/lib/claim-words";
+import {
+	fill,
+	formatMinorMoney,
+	minorToDecimalString,
+} from "@/client/lib/format";
 import { zodV4Resolver } from "@/client/lib/zod-resolver";
 import {
 	type ClaimView,
@@ -29,6 +35,8 @@ import {
 export function EvidenceAndSettlementTab({ claim }: { claim: ClaimView }) {
 	const proofSelectId = useId();
 	const { showToast } = useToast();
+	const { t, locale } = useI18n();
+	const s = t.detail.settlement;
 	const recordReceiptMutation = useRecordReceiptMutation(claim.id);
 
 	const defaultReceiptKind =
@@ -78,14 +86,9 @@ export function EvidenceAndSettlementTab({ claim }: { claim: ClaimView }) {
 				spread: 80,
 				origin: { y: 0.6 },
 			});
-			showToast("축하드려요! 실제 카드 취소·통장 입금 내역이 확인되었어요!");
+			showToast(s.toastDone);
 		} catch (error) {
-			showToast(
-				error instanceof Error
-					? error.message
-					: "입금 확인 기록 저장에 실패했어요.",
-				"error",
-			);
+			showToast(errorText(error, s.toastFail, locale), "error");
 		}
 	});
 
@@ -97,15 +100,14 @@ export function EvidenceAndSettlementTab({ claim }: { claim: ClaimView }) {
 				<div>
 					<Badge tone="brand">
 						<Wallet className="h-3.5 w-3.5" aria-hidden="true" />
-						<span>실제 통장 입금 · 카드 취소 확인</span>
+						<span>{s.eyebrow}</span>
 					</Badge>
 					<h3 className="mt-1 text-lg font-extrabold text-relo-ink">
-						쇼핑몰 말만 믿지 않고, 내 카드·통장 입금을 직접 확인해요
+						{s.title}
 					</h3>
 					{claim.kind === "refund" && claim.agreed === null ? (
 						<p className="mt-1 text-xs font-semibold text-relo-sunny-ink">
-							먼저 [쇼핑몰 답장 · 약속 금액] 탭에서 쇼핑몰이 돌려주기로 약속한
-							금액을 저장해 주세요.
+							{s.needAgreed}
 						</p>
 					) : null}
 				</div>
@@ -117,14 +119,14 @@ export function EvidenceAndSettlementTab({ claim }: { claim: ClaimView }) {
 								htmlFor={proofSelectId}
 								className="block text-sm font-semibold text-relo-ink"
 							>
-								입금·카드 취소 캡처 파일 선택
+								{s.proofLabel}
 							</label>
 							<select
 								id={proofSelectId}
 								className="min-h-12 w-full rounded-xl border border-relo-line-strong bg-white px-3 text-sm text-relo-ink"
 								{...receiptForm.register("proofId")}
 							>
-								<option value="">보관된 파일 중 선택하세요</option>
+								<option value="">{s.proofPlaceholder}</option>
 								{claim.files.map((f) => (
 									<option key={f.id} value={f.id}>
 										{f.name}
@@ -133,16 +135,19 @@ export function EvidenceAndSettlementTab({ claim }: { claim: ClaimView }) {
 							</select>
 							{receiptForm.formState.errors.proofId ? (
 								<p className="text-xs text-relo-danger">
-									{receiptForm.formState.errors.proofId.message}
+									{fieldError(t, receiptForm.formState.errors.proofId.message)}
 								</p>
 							) : null}
 						</div>
 
 						<TextField
-							label="실제 입금·수령 날짜"
+							label={s.dateLabel}
 							type="date"
 							max={new Date().toISOString().slice(0, 10)}
-							error={receiptForm.formState.errors.receivedOn?.message}
+							error={fieldError(
+								t,
+								receiptForm.formState.errors.receivedOn?.message,
+							)}
 							{...receiptForm.register("receivedOn")}
 						/>
 					</div>
@@ -150,16 +155,22 @@ export function EvidenceAndSettlementTab({ claim }: { claim: ClaimView }) {
 					{claim.kind === "refund" ? (
 						<div className="grid gap-4 sm:grid-cols-2">
 							<TextField
-								label={`실제 돌아온 금액 (${claim.currency})`}
-								placeholder="예: 129.99"
-								error={receiptForm.formState.errors.amount?.message}
+								label={fill(s.amountLabel, { cur: claim.currency })}
+								placeholder={s.amountPlaceholder}
+								error={fieldError(
+									t,
+									receiptForm.formState.errors.amount?.message,
+								)}
 								{...receiptForm.register("amount")}
 							/>
 							<TextField
-								label="카드 취소·입금 번호 (선택)"
-								placeholder="예: AMZ-RF-20261027"
-								hint="영문·숫자·하이픈(-) 3자 이상 적으면 같은 내역이 두 번 적히지 않아요."
-								error={receiptForm.formState.errors.transactionRef?.message}
+								label={s.refLabel}
+								placeholder={s.refPlaceholder}
+								hint={s.refHint}
+								error={fieldError(
+									t,
+									receiptForm.formState.errors.transactionRef?.message,
+								)}
 								{...receiptForm.register("transactionRef")}
 							/>
 						</div>
@@ -171,14 +182,11 @@ export function EvidenceAndSettlementTab({ claim }: { claim: ClaimView }) {
 							className="h-4 w-4 rounded accent-relo-brand"
 							{...receiptForm.register("confirmed")}
 						/>
-						<span>
-							쇼핑몰 안내 메일이 아니라, 내 실제 카드 취소·통장 입금 내역임을
-							직접 확인했어요.
-						</span>
+						<span>{s.confirmLabel}</span>
 					</label>
 					{receiptForm.formState.errors.confirmed ? (
 						<p className="text-xs text-relo-danger">
-							{receiptForm.formState.errors.confirmed.message}
+							{fieldError(t, receiptForm.formState.errors.confirmed.message)}
 						</p>
 					) : null}
 
@@ -190,14 +198,14 @@ export function EvidenceAndSettlementTab({ claim }: { claim: ClaimView }) {
 						isLoading={recordReceiptMutation.isPending}
 					>
 						<PartyPopper className="h-5 w-5" aria-hidden="true" />
-						<span>실제 입금 완료 기록하기</span>
+						<span>{s.submit}</span>
 					</Button>
 				</form>
 
 				{claim.ledger.length > 0 ? (
 					<div className="space-y-2 border-t border-relo-line pt-4">
 						<p className="text-xs font-extrabold text-relo-muted">
-							확인된 입금 내역 ({claim.ledger.length}건)
+							{fill(s.ledgerTitle, { n: claim.ledger.length })}
 						</p>
 						<ul className="space-y-2">
 							{claim.ledger.map((entry) => (

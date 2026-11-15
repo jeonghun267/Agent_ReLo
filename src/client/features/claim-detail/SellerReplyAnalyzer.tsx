@@ -25,7 +25,13 @@ import {
 	useAppConfig,
 	useSession,
 } from "@/client/hooks/useSession";
-import { formatKoreanDate, minorToDecimalString } from "@/client/lib/format";
+import { useI18n } from "@/client/i18n";
+import { errorText } from "@/client/lib/claim-words";
+import {
+	fill,
+	formatLocalDate,
+	minorToDecimalString,
+} from "@/client/lib/format";
 import { useCalmPreparation } from "@/client/lib/preparation";
 import type { ClaimView, ReplyKind } from "@/client/types";
 
@@ -40,6 +46,8 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 	const updateClaimMutation = useUpdateClaimMutation(claim.id);
 	const { isPreparing, runCalmly } = useCalmPreparation();
 	const { showToast } = useToast();
+	const { t, locale, localeOption } = useI18n();
+	const r = t.detail.reply;
 
 	const [rawReply, setRawReply] = useState("");
 	const [replyKind, setReplyKind] = useState<ReplyKind>("agreement");
@@ -50,10 +58,14 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 	const [agreedInput, setAgreedInput] = useState(
 		minorToDecimalString(claim.agreed, claim.currency),
 	);
+	// The promised amount only needs the blue button while it differs from what is saved.
+	const agreedChanged =
+		agreedInput.trim() !== "" &&
+		agreedInput.trim() !== minorToDecimalString(claim.agreed, claim.currency);
 
 	const handleAiAnalyze = async () => {
 		if (rawReply.trim().length < 5) {
-			showToast("쇼핑몰에서 받은 외국어 답장을 먼저 붙여넣어 주세요!", "error");
+			showToast(r.toastNeedReply, "error");
 			return;
 		}
 		try {
@@ -72,12 +84,9 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 			) {
 				setAgreedInput(res.mentionedAmount);
 			}
-			showToast("쇼핑몰 답장의 핵심 내용과 약속 금액을 쉽게 정리했어요!");
+			showToast(r.toastAnalyzed);
 		} catch (error) {
-			showToast(
-				error instanceof Error ? error.message : "답장 요약에 실패했어요.",
-				"error",
-			);
+			showToast(errorText(error, r.toastAnalyzeFail, locale), "error");
 		}
 	};
 
@@ -95,12 +104,9 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 			setTranslationKo("");
 			setSummaryKo("");
 			setAiAssisted(false);
-			showToast("쇼핑몰 답장 내역이 안전하게 저장되었어요!");
+			showToast(r.toastSaved);
 		} catch (error) {
-			showToast(
-				error instanceof Error ? error.message : "답장 저장에 실패했어요.",
-				"error",
-			);
+			showToast(errorText(error, r.toastSaveFail, locale), "error");
 		}
 	};
 
@@ -132,14 +138,9 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 					})),
 				},
 			});
-			showToast(
-				"쇼핑몰이 약속한 환불 금액을 저장했어요! 이제 실제 입금을 확인할 수 있어요.",
-			);
+			showToast(r.toastAgreedSaved);
 		} catch (error) {
-			showToast(
-				error instanceof Error ? error.message : "약속 금액 저장에 실패했어요.",
-				"error",
-			);
+			showToast(errorText(error, r.toastAgreedFail, locale), "error");
 		}
 	};
 
@@ -151,26 +152,28 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 						<div className="flex-1">
 							<Badge tone="brand">
 								<HandCoins className="h-3.5 w-3.5" aria-hidden="true" />
-								<span>쇼핑몰이 약속한 환불 금액</span>
+								<span>{r.agreedEyebrow}</span>
 							</Badge>
 							<div className="mt-2">
 								<TextField
-									label={`쇼핑몰에서 돌려주기로 약속한 금액 (${claim.currency})`}
+									label={fill(r.agreedLabel, { cur: claim.currency })}
 									value={agreedInput}
 									onChange={(e) => setAgreedInput(e.target.value)}
-									placeholder={`신청 금액: ${minorToDecimalString(claim.claimed, claim.currency)}`}
-									hint="전액 환불하기로 했다면 신청 금액과 똑같이 적고 저장해 주세요."
+									placeholder={fill(r.agreedPlaceholder, {
+										amount: minorToDecimalString(claim.claimed, claim.currency),
+									})}
+									hint={r.agreedHint}
 								/>
 							</div>
 						</div>
 						<Button
-							variant="primary"
+							variant={agreedChanged ? "primary" : "secondary"}
 							size="md"
 							isLoading={updateClaimMutation.isPending}
 							onClick={handleSaveAgreedAmount}
 						>
 							<Check className="h-4 w-4" aria-hidden="true" />
-							<span>약속 금액 저장</span>
+							<span>{r.agreedSave}</span>
 						</Button>
 					</div>
 				</Card>
@@ -179,20 +182,20 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 			<Card className="space-y-4">
 				<div className="flex flex-wrap items-center justify-between gap-2">
 					<div>
-						<Badge tone="brand">외국어 답장 쉬운 요약</Badge>
+						<Badge tone="brand">{r.eyebrow}</Badge>
 						<h3 className="mt-1 text-lg font-extrabold text-relo-ink">
-							쇼핑몰에서 온 이메일·채팅 답장을 그대로 붙여넣으세요
+							{r.title}
 						</h3>
 					</div>
 					{config?.ai.enabled ? (
 						<Button
-							variant="primary"
+							variant="secondary"
 							size="md"
 							isLoading={isPreparing || analyzeMutation.isPending}
 							onClick={handleAiAnalyze}
 						>
 							<Languages className="h-4 w-4" aria-hidden="true" />
-							<span>쉬운 우리말로 요약하기</span>
+							<span>{r.summarize}</span>
 						</Button>
 					) : null}
 				</div>
@@ -202,7 +205,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 						<ReloOrbEmblem
 							variant="processing"
 							size="md"
-							speech="답장 내용이 환불 승인인지, 추가 사진 요청인지, 반품 기한이 있는지 읽고 있어요..."
+							speech={r.analyzing}
 						/>
 					</div>
 				) : (
@@ -212,14 +215,14 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 								htmlFor={replyTextareaId}
 								className="block text-xs font-bold text-relo-muted"
 							>
-								쇼핑몰 답장 원문 (영어·일본어·중국어 등 모든 언어)
+								{r.rawLabel}
 							</label>
 							<textarea
 								id={replyTextareaId}
 								rows={4}
 								value={rawReply}
 								onChange={(e) => setRawReply(e.target.value)}
-								placeholder="예: Hello, we sincerely apologize for the damaged package. We have approved a full refund of $129.99..."
+								placeholder={r.rawPlaceholder}
 								className="w-full rounded-2xl border border-relo-line-strong bg-white p-3.5 text-xs leading-relaxed text-relo-ink"
 							/>
 						</div>
@@ -228,7 +231,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 							<div className="space-y-2 rounded-2xl border border-relo-brand-line bg-relo-brand-soft/45 p-4 text-xs">
 								{summaryKo ? (
 									<p className="font-extrabold text-relo-brand">
-										핵심 요약: {summaryKo}
+										{r.summaryPrefix} {summaryKo}
 									</p>
 								) : null}
 								{translationKo ? (
@@ -245,7 +248,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 									htmlFor={kindSelectId}
 									className="block text-xs font-bold text-relo-muted"
 								>
-									답장 내용 분류
+									{r.kindLabel}
 								</label>
 								<select
 									id={kindSelectId}
@@ -253,13 +256,13 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 									onChange={(e) => setReplyKind(e.target.value as ReplyKind)}
 									className="min-h-11 rounded-xl border border-relo-line-strong bg-white px-3 text-xs font-bold text-relo-ink"
 								>
-									<option value="agreement">환불·교환 약속 (금액 합의)</option>
+									<option value="agreement">{r.kindOptions.agreement}</option>
 									<option value="refund_notice">
-										환불 처리 안내 (아직 실제 입금 전)
+										{r.kindOptions.refund_notice}
 									</option>
-									<option value="evidence">추가 사진·자료 요청</option>
-									<option value="denied">환불 거절 · 재문의 필요</option>
-									<option value="other">기타 안내</option>
+									<option value="evidence">{r.kindOptions.evidence}</option>
+									<option value="denied">{r.kindOptions.denied}</option>
+									<option value="other">{r.kindOptions.other}</option>
 								</select>
 							</div>
 
@@ -271,7 +274,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 								onClick={handleRecordReply}
 							>
 								<MessageSquarePlus className="h-4 w-4" aria-hidden="true" />
-								<span>답장 내역 저장하기</span>
+								<span>{r.save}</span>
 							</Button>
 						</div>
 					</>
@@ -281,7 +284,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 			{claim.replies.length > 0 ? (
 				<Card className="space-y-3">
 					<h4 className="text-sm font-extrabold text-relo-ink">
-						저장된 쇼핑몰 답장 ({claim.replies.length}건)
+						{fill(r.savedTitle, { n: claim.replies.length })}
 					</h4>
 					<ul className="space-y-2.5">
 						{claim.replies.map((rep) => (
@@ -291,10 +294,10 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 							>
 								<div className="flex items-center justify-between">
 									<Badge tone={rep.kind === "denied" ? "danger" : "brand"}>
-										{config?.replyKinds[rep.kind] ?? rep.kind}
+										{t.shared.replyKinds[rep.kind]}
 									</Badge>
 									<span className="text-relo-muted">
-										{formatKoreanDate(rep.recordedAt)}
+										{formatLocalDate(rep.recordedAt, localeOption.bcp47)}
 									</span>
 								</div>
 								{rep.summaryKo ? (

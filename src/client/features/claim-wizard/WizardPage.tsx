@@ -29,6 +29,7 @@ import {
 } from "@/client/hooks/useSession";
 import { useI18n } from "@/client/i18n";
 import { filesApi } from "@/client/lib/api-client";
+import { errorText } from "@/client/lib/claim-words";
 import { useCalmPreparation } from "@/client/lib/preparation";
 import { useRouter } from "@/client/lib/router";
 import { zodV4Resolver } from "@/client/lib/zod-resolver";
@@ -41,25 +42,14 @@ import {
 	claimWizardSchema,
 } from "@/client/types";
 
-const STEP_TITLES = [
-	{ step: 1, title: "어디서 주문하셨나요?", sub: "쇼핑몰 · 주문번호" },
-	{ step: 2, title: "어떤 상품인가요?", sub: "상품 이름 · 결제 금액" },
-	{ step: 3, title: "어떻게 해결해 드릴까요?", sub: "환불 방법 · 문제 설명" },
-	{
-		step: 4,
-		title: "영수증이나 불량 사진이 있나요?",
-		sub: "사진 자르기 · 10MB 안전 보관",
-	},
-	{ step: 5, title: "마지막으로 확인해 볼까요?", sub: "내용 확인 · 등록 완료" },
-] as const;
-
 function todayIsoDate(): string {
 	return new Date().toISOString().slice(0, 10);
 }
 
 export function WizardPage() {
 	const { search, navigate } = useRouter();
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
+	const w = t.wizard;
 	const { data: session, isLoading: sessionLoading } = useSession();
 	const { data: config } = useAppConfig();
 	const loginMutation = useLoginMutation();
@@ -139,7 +129,7 @@ export function WizardPage() {
 				email: config.demoAccount.email,
 				password: config.demoAccount.password,
 			});
-			showToast("체험 계정으로 바로 연결되었어요! 이어서 작성해 보세요.");
+			showToast(w.toastDemo);
 		} catch {
 			navigate("/auth");
 		}
@@ -170,7 +160,7 @@ export function WizardPage() {
 	const handleTranslateIssue = async () => {
 		const issueText = form.getValues("issue").trim();
 		if (issueText.length < 5) {
-			showToast("먼저 우리말 문제 설명을 5자 이상 적어 주세요!", "error");
+			showToast(w.toastNeedIssue, "error");
 			return;
 		}
 		try {
@@ -182,15 +172,10 @@ export function WizardPage() {
 			);
 			if (res) {
 				form.setValue("issueEnglish", res.english);
-				showToast("쇼핑몰에 보낼 자연스러운 영어로 번역했어요!");
+				showToast(w.toastTranslated);
 			}
 		} catch (error) {
-			showToast(
-				error instanceof Error
-					? error.message
-					: "영어 변환 중 오류가 발생했어요.",
-				"error",
-			);
+			showToast(errorText(error, w.toastTranslateFail, locale), "error");
 		}
 	};
 
@@ -214,7 +199,7 @@ export function WizardPage() {
 		}
 		if (step === 2 && values.claimQty > values.orderedQty) {
 			form.setError("claimQty", {
-				message: "문제가 생긴 수량은 전체 주문 수량보다 많을 수 없어요.",
+				message: "claimQtyOver",
 			});
 			return;
 		}
@@ -277,14 +262,9 @@ export function WizardPage() {
 				spread: 75,
 				origin: { y: 0.55 },
 			});
-			showToast("환불 신청서와 사진 파일이 안전하게 저장되었어요!");
+			showToast(w.toastSaved);
 		} catch (error) {
-			showToast(
-				error instanceof Error
-					? error.message
-					: "신청서 저장 중 문제가 발생했어요.",
-				"error",
-			);
+			showToast(errorText(error, w.toastSaveFail, locale), "error");
 		} finally {
 			setIsSubmittingAll(false);
 		}
@@ -311,7 +291,7 @@ export function WizardPage() {
 		);
 	}
 
-	const currentStepMeta = STEP_TITLES[step - 1] ?? STEP_TITLES[0];
+	const currentStepMeta = w.steps[step - 1] ?? w.steps[0];
 
 	return (
 		<div className="bg-relo-canvas py-8 sm:py-14">
@@ -356,7 +336,6 @@ export function WizardPage() {
 										isTranslating={isPreparing || translateMutation.isPending}
 										stagedFilesCount={stagedFiles.length}
 										extraScannedCount={extraScannedFiles.length}
-										claimKinds={config?.claimKinds}
 										onInvoiceExtracted={handleInvoiceExtracted}
 										onTranslateIssue={handleTranslateIssue}
 										onStagedFilesChange={setStagedFiles}

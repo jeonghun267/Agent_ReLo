@@ -18,6 +18,7 @@ import {
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useRef, useState } from "react";
 import { Button } from "@/client/components/ui/Primitives";
+import { useI18n } from "@/client/i18n";
 
 interface DamagePhotoCropperModalProps {
 	file: File | null;
@@ -54,6 +55,8 @@ export function DamagePhotoCropperModal({
 	const hostRef = useRef<HTMLDivElement | null>(null);
 	const cropperRef = useRef<Cropper | null>(null);
 	const [isExporting, setIsExporting] = useState(false);
+	const { t } = useI18n();
+	const u = t.upload;
 
 	useEffect(() => {
 		if (!file || !hostRef.current) return;
@@ -64,7 +67,7 @@ export function DamagePhotoCropperModal({
 
 		const img = document.createElement("img");
 		img.src = objectUrl;
-		img.alt = "불량 부위 원본 사진";
+		img.alt = u.cropImageAlt;
 		host.appendChild(img);
 
 		const instance = new Cropper(img, {
@@ -78,7 +81,7 @@ export function DamagePhotoCropperModal({
 			cropperRef.current = null;
 			URL.revokeObjectURL(objectUrl);
 		};
-	}, [file]);
+	}, [file, u.cropImageAlt]);
 
 	const handleZoom = (delta: number) => {
 		cropperRef.current?.getCropperImage()?.$zoom(delta);
@@ -140,23 +143,20 @@ export function DamagePhotoCropperModal({
 							<div>
 								<span className="inline-flex items-center gap-1 text-xs font-bold text-relo-brand">
 									<Crop className="h-3.5 w-3.5" aria-hidden="true" />
-									<span>집 주소 가리고 필요한 부분만 자르기</span>
+									<span>{u.cropEyebrow}</span>
 								</span>
 								<h3
 									id="cropper-modal-title"
 									className="mt-1.5 text-lg font-extrabold text-relo-ink"
 								>
-									깨지거나 불량인 부분만 네모로 골라보세요
+									{u.cropTitle}
 								</h3>
-								<p className="text-xs text-relo-muted">
-									택배 스티커의 집 주소나 전화번호는 잘라내고 불량 부분만
-									확대하면 훨씬 안전하고 빠르게 확인돼요.
-								</p>
+								<p className="text-xs text-relo-muted">{u.cropBody}</p>
 							</div>
 							<button
 								type="button"
 								onClick={onClose}
-								aria-label="닫기"
+								aria-label={u.close}
 								className="rounded-xl p-2 text-relo-muted hover:bg-relo-sunken hover:text-relo-ink"
 							>
 								<X className="h-5 w-5" aria-hidden="true" />
@@ -176,7 +176,7 @@ export function DamagePhotoCropperModal({
 									onClick={() => handleZoom(0.15)}
 								>
 									<ZoomIn className="h-3.5 w-3.5" aria-hidden="true" />
-									<span>크게 보기</span>
+									<span>{u.zoomIn}</span>
 								</Button>
 								<Button
 									variant="secondary"
@@ -184,21 +184,21 @@ export function DamagePhotoCropperModal({
 									onClick={() => handleZoom(-0.15)}
 								>
 									<ZoomOut className="h-3.5 w-3.5" aria-hidden="true" />
-									<span>작게 보기</span>
+									<span>{u.zoomOut}</span>
 								</Button>
 								<Button variant="secondary" size="sm" onClick={handleRotate}>
 									<RotateCw className="h-3.5 w-3.5" aria-hidden="true" />
-									<span>돌리기</span>
+									<span>{u.rotate}</span>
 								</Button>
 								<Button variant="ghost" size="sm" onClick={handleReset}>
 									<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-									<span>원래대로</span>
+									<span>{u.reset}</span>
 								</Button>
 							</div>
 
 							<div className="flex items-center gap-2">
 								<Button variant="ghost" size="md" onClick={onClose}>
-									취소
+									{u.cancel}
 								</Button>
 								<Button
 									variant="primary"
@@ -207,7 +207,7 @@ export function DamagePhotoCropperModal({
 									onClick={handleApplyCrop}
 								>
 									<Check className="h-4 w-4" aria-hidden="true" />
-									<span>이 영역만 남기기</span>
+									<span>{u.apply}</span>
 								</Button>
 							</div>
 						</div>

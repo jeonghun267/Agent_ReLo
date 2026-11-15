@@ -5,25 +5,27 @@ import {sha256} from './primitives.mjs';
 
 export const CLAIM_KINDS = Object.freeze({refund: '반품·환불', exchange: '교환', repair: 'AS'});
 
+// The words people see for each state. The web and the app use the same words
+// (shop = 쇼핑몰, money that came back = 입금), so one refund is never called two things.
 export const STATES = Object.freeze({
-  preparing: '자료 준비',
-  review: '문의 검토',
-  awaiting: '판매처 답변 대기',
-  negotiating: '합의 진행',
-  partial: '부분 회수',
+  preparing: '서류 준비',
+  review: '메시지 검토',
+  awaiting: '답변 대기',
+  negotiating: '조율 중',
+  partial: '일부 입금',
   disputed: '분쟁',
   waived: '포기',
-  recovered: '회수 확인',
-  completed: '종료',
+  recovered: '입금 확인',
+  completed: '완료',
 });
 
 export const CLOSED_STATES = Object.freeze(['waived', 'completed']);
 
 export const REPLY_KINDS = Object.freeze({
-  evidence: '추가 증빙 요청',
-  agreement: '합의 안내',
-  refund_notice: '환불 처리 통지',
-  denied: '거절·분쟁',
+  evidence: '자료 추가 요청',
+  agreement: '환불 약속',
+  refund_notice: '환불 처리 알림',
+  denied: '거절',
   other: '기타',
 });
 
@@ -171,16 +173,36 @@ export function factualFingerprint(claim, files) {
   }));
 }
 
+// The one thing to do next, as a code. The web shows its own sentence for the code in the
+// reader's language; NEXT_STEP_TEXT is the Korean sentence for anything that does not.
+export function nextStepCode(view) {
+  if (view.deleted) return 'trashed';
+  if (view.state === 'waived') return 'waived';
+  if (view.state === 'disputed') return 'disputed';
+  if (view.state === 'completed') return 'completed';
+  if (view.state === 'recovered') return 'recovered';
+  if (view.summary.remaining && view.summary.cash) return 'remaining';
+  if (view.state === 'awaiting') return 'awaiting';
+  if (!view.files.length) return 'needFiles';
+  if (!view.drafts.length) return 'needMessage';
+  if (view.agreed === null) return 'needAgreed';
+  return 'needProof';
+}
+
+export const NEXT_STEP_TEXT = Object.freeze({
+  trashed: '휴지통에 있어요. 복원하면 이어서 진행할 수 있어요.',
+  waived: '포기로 기록했어요. 필요하면 다시 진행할 수 있어요.',
+  disputed: '쇼핑몰과 의견이 달라요. 근거를 더 올리고 다음 조건을 정리해 보세요.',
+  completed: '마무리된 건이에요. 입금 기록을 확인할 수 있어요.',
+  recovered: '입금을 확인했어요. 내용을 살펴보고 마무리해 주세요.',
+  remaining: '남은 금액과 쇼핑몰이 정한 기한을 확인해 주세요.',
+  awaiting: '쇼핑몰 답장이 오면 붙여 넣고 약속 금액을 적어 주세요.',
+  needFiles: '주문 내역이나 불량 사진을 올려 주세요.',
+  needMessage: '쇼핑몰에 보낼 메시지를 준비해 주세요.',
+  needAgreed: '쇼핑몰이 약속한 금액이 정해지면 적어 주세요.',
+  needProof: '실제로 들어온 돈을 캡처와 함께 기록해 주세요.',
+});
+
 export function nextStep(view) {
-  if (view.deleted) return '휴지통에 있어요. 복원하면 이어서 진행할 수 있어요.';
-  if (view.state === 'waived') return '포기로 기록했어요. 필요하면 사유를 남기고 다시 진행하세요.';
-  if (view.state === 'disputed') return '쟁점과 근거를 추가하고 판매처와 다음 조건을 정리하세요.';
-  if (view.state === 'completed') return '종료된 건이에요. 회수 기록을 확인하세요.';
-  if (view.state === 'recovered') return '실제 회수를 확인했어요. 내용을 검토하고 종료하세요.';
-  if (view.summary.remaining && view.summary.cash) return '남은 금액과 판매처 기한을 확인하세요.';
-  if (view.state === 'awaiting') return '판매처 답변이 오면 기록하고 합의 조건을 갱신하세요.';
-  if (!view.files.length) return '주문 내역·불량 사진 같은 증빙을 올려 주세요.';
-  if (!view.drafts.length) return '판매처에 보낼 문의를 준비하세요.';
-  if (view.agreed === null) return '판매처와 합의한 금액이 정해지면 기록하세요.';
-  return '실제 입금·수령을 증빙과 함께 기록하세요.';
+  return NEXT_STEP_TEXT[nextStepCode(view)];
 }

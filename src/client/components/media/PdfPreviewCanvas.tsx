@@ -25,9 +25,11 @@ interface PdfPreviewCanvasProps {
 	compact?: boolean;
 }
 
+import { useI18n } from "@/client/i18n";
+
 export function PdfPreviewCanvas({
 	source,
-	fileName = "영수증.pdf",
+	fileName = "receipt.pdf",
 	compact = false,
 }: PdfPreviewCanvasProps) {
 	const canvasRef = useRef<HTMLCanvasElement | null>(null);
@@ -37,6 +39,8 @@ export function PdfPreviewCanvas({
 	const [scale, setScale] = useState(compact ? 0.9 : 1.15);
 	const [errorMsg, setErrorMsg] = useState<string | null>(null);
 	const [isLoading, setIsLoading] = useState(true);
+	const { t } = useI18n();
+	const u = t.upload;
 
 	useEffect(() => {
 		let cancelled = false;
@@ -61,7 +65,7 @@ export function PdfPreviewCanvas({
 				setPageNum(1);
 			} catch {
 				if (!cancelled) {
-					setErrorMsg("PDF 영수증 미리보기를 열지 못했어요.");
+					setErrorMsg("pdf");
 				}
 			} finally {
 				if (!cancelled) {
@@ -136,7 +140,7 @@ export function PdfPreviewCanvas({
 					<Button
 						variant="ghost"
 						size="sm"
-						aria-label="축소"
+						aria-label={u.pdfZoomOut}
 						onClick={() =>
 							setScale((s) => Math.max(0.6, +(s - 0.2).toFixed(2)))
 						}
@@ -149,7 +153,7 @@ export function PdfPreviewCanvas({
 					<Button
 						variant="ghost"
 						size="sm"
-						aria-label="확대"
+						aria-label={u.pdfZoomIn}
 						onClick={() =>
 							setScale((s) => Math.min(2.2, +(s + 0.2).toFixed(2)))
 						}
@@ -162,7 +166,7 @@ export function PdfPreviewCanvas({
 							<Button
 								variant="ghost"
 								size="sm"
-								aria-label="이전 페이지"
+								aria-label={u.pdfPrev}
 								disabled={pageNum <= 1}
 								onClick={() => setPageNum((p) => Math.max(1, p - 1))}
 							>
@@ -174,7 +178,7 @@ export function PdfPreviewCanvas({
 							<Button
 								variant="ghost"
 								size="sm"
-								aria-label="다음 페이지"
+								aria-label={u.pdfNext}
 								disabled={pageNum >= numPages}
 								onClick={() => setPageNum((p) => Math.min(numPages, p + 1))}
 							>
@@ -188,11 +192,11 @@ export function PdfPreviewCanvas({
 			<div className="flex max-h-96 justify-center overflow-auto p-4">
 				{isLoading ? (
 					<div className="flex h-44 items-center justify-center text-xs font-semibold text-relo-muted">
-						영수증 화면을 불러오는 중이에요...
+						{u.pdfLoading}
 					</div>
 				) : errorMsg ? (
 					<div className="flex h-36 items-center justify-center text-xs font-semibold text-relo-danger">
-						{errorMsg}
+						{u.pdfError}
 					</div>
 				) : (
 					<canvas ref={canvasRef} className="rounded-lg bg-white shadow-card" />

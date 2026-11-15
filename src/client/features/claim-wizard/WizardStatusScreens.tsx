@@ -9,6 +9,9 @@ import { CheckCircle2, LogIn, Sparkles } from "lucide-react";
 import { InteractiveAuroraCanvas } from "@/client/components/effects/InteractiveAuroraCanvas";
 import { ReloOrbEmblem } from "@/client/components/ReloOrbEmblem";
 import { Badge, Button, Card } from "@/client/components/ui/Primitives";
+import { useI18n } from "@/client/i18n";
+import { nextStepText } from "@/client/lib/claim-words";
+import { fill } from "@/client/lib/format";
 import type { ClaimView } from "@/client/types";
 
 interface WizardGuestGateProps {
@@ -24,16 +27,14 @@ export function WizardGuestGate({
 	onDemoLogin,
 	onNavigateAuth,
 }: WizardGuestGateProps) {
+	const { t } = useI18n();
+	const w = t.wizard;
 	return (
 		<InteractiveAuroraCanvas className="py-12">
 			<div className="mx-auto max-w-lg px-4">
 				<Card className="space-y-5 p-6 text-center sm:p-8">
-					<Badge tone="brand">내 계정 전용 안전 보관</Badge>
-					<ReloOrbEmblem
-						variant="default"
-						size="md"
-						speech="내 주문 영수증과 환불 금액은 본인 계정에만 안전하게 저장돼요. 지금 바로 시작해 볼까요?"
-					/>
+					<Badge tone="brand">{w.guestEyebrow}</Badge>
+					<ReloOrbEmblem variant="default" size="md" speech={w.guestSpeech} />
 					<div className="space-y-2.5 pt-2">
 						{demoAccountName ? (
 							<Button
@@ -44,7 +45,7 @@ export function WizardGuestGate({
 								onClick={onDemoLogin}
 							>
 								<Sparkles className="h-5 w-5" aria-hidden="true" />
-								<span>체험 계정({demoAccountName})으로 1초 시작</span>
+								<span>{fill(w.demoStart, { name: demoAccountName })}</span>
 							</Button>
 						) : null}
 						<Button
@@ -54,7 +55,7 @@ export function WizardGuestGate({
 							onClick={onNavigateAuth}
 						>
 							<LogIn className="h-4 w-4" aria-hidden="true" />
-							<span>내 이메일로 로그인 · 회원가입</span>
+							<span>{w.emailStart}</span>
 						</Button>
 					</div>
 				</Card>
@@ -74,26 +75,30 @@ export function WizardSuccessScreen({
 	onOpenDetail,
 	onOpenList,
 }: WizardSuccessScreenProps) {
+	const { t } = useI18n();
+	const w = t.wizard;
 	return (
 		<InteractiveAuroraCanvas className="py-10">
 			<div className="mx-auto max-w-xl px-4">
 				<Card className="space-y-6 p-6 text-center sm:p-8">
 					<Badge tone="brand">
 						<CheckCircle2 className="h-3.5 w-3.5" aria-hidden="true" />
-						<span>등록 완료 · 첨부 파일 {claim.files.length}개 보관됨</span>
+						<span>
+							{claim.files.length > 0
+								? fill(w.doneWithFiles, { n: claim.files.length })
+								: w.doneEyebrow}
+						</span>
 					</Badge>
-					<ReloOrbEmblem
-						variant="verified"
-						size="lg"
-						speech="등록이 완료되었어요! 이제 다음 화면에서 쇼핑몰에 보낼 외국어 환불 메시지를 바로 복사해 보세요."
-					/>
+					<ReloOrbEmblem variant="verified" size="lg" speech={w.doneSpeech} />
 					<div className="space-y-1.5 rounded-2xl bg-relo-sunken p-4 text-left text-xs">
 						<p className="text-sm font-extrabold text-relo-ink">
 							{claim.vendor} · {claim.title}
 						</p>
 						<p className="text-relo-muted">
-							주문번호 {claim.orderRef} · 다음 할 일:{" "}
-							<strong className="text-relo-brand">{claim.nextStep}</strong>
+							{t.shared.orderNo} {claim.orderRef} · {t.shared.nextStepLabel}:{" "}
+							<strong className="text-relo-brand">
+								{nextStepText(t, claim)}
+							</strong>
 						</p>
 					</div>
 					<div className="flex flex-col gap-2.5 sm:flex-row">
@@ -104,10 +109,15 @@ export function WizardSuccessScreen({
 							onClick={onOpenDetail}
 						>
 							<Sparkles className="h-5 w-5" aria-hidden="true" />
-							<span>외국어 환불 메시지 만들러 가기</span>
+							<span>{w.goMessage}</span>
 						</Button>
-						<Button variant="secondary" size="lg" onClick={onOpenList}>
-							내 환불 내역
+						<Button
+							variant="secondary"
+							size="lg"
+							onClick={onOpenList}
+							className="whitespace-nowrap"
+						>
+							{t.nav.myRefunds}
 						</Button>
 					</div>
 				</Card>

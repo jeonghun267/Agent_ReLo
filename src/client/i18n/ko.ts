@@ -5,6 +5,15 @@
  *          with zero industry/developer jargon and zero legacy character names.
  */
 
+import { authKo } from "@/client/i18n/screens/auth";
+import { claimsKo } from "@/client/i18n/screens/claims";
+import { detailKo } from "@/client/i18n/screens/detail";
+import { settingsKo } from "@/client/i18n/screens/settings";
+import { sharedKo } from "@/client/i18n/screens/shared";
+import { signinKo } from "@/client/i18n/screens/signin";
+import { uploadKo } from "@/client/i18n/screens/upload";
+import { wizardKo } from "@/client/i18n/screens/wizard";
+
 export const koMessages = {
 	common: {
 		skipToContent: "본문으로 바로 이동",
@@ -120,7 +129,7 @@ export const koMessages = {
 				screenHeader: "주문 영수증 자동 읽기",
 				screenStatus: "자동 입력 완료",
 				screenSubTitle: "자동으로 찾은 주문 정보",
-				popLeftTitle: "주문번호 3초 자동 입력",
+				popLeftTitle: "주문번호 자동 입력",
 				popLeftSub: "#114-8920411 · $184.00",
 				popRightTitle: "집 주소·연락처 가리기",
 				popRightSub: "불량 부분만 선명하게 남김",
@@ -208,7 +217,7 @@ export const koMessages = {
 				stepNo: "1단계",
 				title: "주문 영수증 읽기",
 				subtitle: "사진·PDF 자동 입력",
-				badge: "3초 자동 입력",
+				badge: "자동 입력",
 				guide:
 					"결제 내역 캡처나 영수증 파일만 올리면 쇼핑몰 이름, 주문번호, 금액을 알아서 채워드려요.",
 				previewTitle: "자동으로 읽어온 주문 정보 예시",
@@ -390,4 +399,12 @@ export const koMessages = {
 		authTitle: "내 직구 환불 내역 안전하게 보관하기",
 		settingsTitle: "계정 및 개인정보 설정",
 	},
+	shared: sharedKo,
+	claims: claimsKo,
+	detail: detailKo,
+	wizard: wizardKo,
+	settings: settingsKo,
+	upload: uploadKo,
+	auth: authKo,
+	signin: signinKo,
 } as const;

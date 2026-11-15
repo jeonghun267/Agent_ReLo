@@ -1,4 +1,4 @@
-import {scrypt, randomBytes, timingSafeEqual} from 'node:crypto';
+import {scrypt, randomBytes, timingSafeEqual, createHash} from 'node:crypto';
 import {promisify} from 'node:util';
 import {transaction} from '../repositories/db.mjs';
 import {reject, AppError, forField} from '../domain/errors.mjs';
@@ -21,7 +21,7 @@ const INVALID_LINK = {
   reset: '재설정 링크가 만료됐거나 이미 사용됐어요. 비밀번호 재설정을 다시 요청하세요.',
 };
 
-export function createAuthService({db, repos, config, mail, logger}) {
+export function createAuthService({db, repos, config, mail, google, logger}) {
   const ttlMs = config.sessionTtlSeconds * 1000;
   const linkTtlSeconds = {verify: config.verifyTokenTtlSeconds, reset: config.resetTokenTtlSeconds};
   const verifyLinkHours = Math.max(1, Math.round(linkTtlSeconds.verify / 3600));
@@ -187,6 +187,53 @@ export function createAuthService({db, repos, config, mail, logger}) {
     });
   }
 
+  // Sign in with Google, step 1: where to send the browser, plus the one-time values
+  // the callback must get back (the route keeps them in a short-lived cookie).
+  function googleStart(redirectUri) {
+    const state = randomToken(24);
+    const nonce = randomToken(24);
+    const codeVerifier = randomToken(48);
+    const codeChallenge = createHash('sha256').update(codeVerifier).digest('base64url');
+    return {state, nonce, codeVerifier, url: google.authorizationUrl({redirectUri, state, nonce, codeChallenge})};
+  }
+
+  // Step 2: Google sent the browser back with a code. Returns a session for
+  //   - the user this Google account is already linked to, or
+  //   - the user with the same email, if that email is verified (linked from now on), or
+  //   - a new account (its email counts as verified: Google confirmed it).
+  // An account whose email was never verified is not handed over: someone else could
+  // have made it with this address, and would still know its password.
+  async function signInWithGoogle({code, redirectUri, codeVerifier, nonce}) {
+    const profile = await google.exchange({code, redirectUri, codeVerifier, nonce});
+    const email = parseEmail(profile.email);
+    const linkedId = repos.identities.findUserId('google', profile.subject);
+    if (linkedId && repos.users.findById(linkedId)) return createSession(linkedId);
+
+    const existing = repos.users.findByEmail(email);
+    reject(existing && !existing.emailVerifiedAt,
+      '이 이메일로 만든 계정이 있어요. 비밀번호로 로그인해 이메일 인증을 마치면 Google로도 들어올 수 있어요.', 'google_unverified_account', 409);
+    const at = nowIso();
+    if (existing) {
+      repos.identities.insert({provider: 'google', subject: profile.subject, userId: existing.id, email, createdAt: at});
+      return createSession(existing.id);
+    }
+    // No password was chosen, so the stored one is random: the person signs in with
+    // Google, or sets a password later through the reset link.
+    const {salt, passwordHash} = await newCredentials(randomToken(32));
+    const id = newId();
+    transaction(db, () => {
+      repos.users.insert({id, email, name: cleanText(profile.name, 50) || email.split('@')[0], salt, passwordHash, createdAt: at});
+      repos.users.markEmailVerified(id, at);
+      repos.identities.insert({provider: 'google', subject: profile.subject, userId: id, email, createdAt: at});
+    });
+    return createSession(id);
+  }
+
+  // Which extra ways to sign in the operator has switched on.
+  function signInMethods() {
+    return {google: google.enabled, passkey: config.passkey.enabled};
+  }
+
   function mailStatus() {
     return {enabled: mail.enabled, verifyLinkHours, resetLinkMinutes};
   }
@@ -198,7 +245,8 @@ export function createAuthService({db, repos, config, mail, logger}) {
   }
 
   return {
-    register, signup, login, resolveSession, logout, verifyPassword,
+    register, signup, login, resolveSession, logout, verifyPassword, startSession: createSession,
+    googleStart, signInWithGoogle, signInMethods,
     resendVerification, verifyEmail, requestPasswordReset, resetPassword, mailStatus, cleanupExpired,
   };
 }

@@ -20,6 +20,7 @@ export function registerMetaRoutes(router, {config, services}) {
       files: {types: ALLOWED_FILE_TYPES, maxBytes: MAX_FILE_BYTES},
       ai: services.ai.status(),
       mail: services.auth.mailStatus(),
+      signIn: services.auth.signInMethods(),
       ...(config.seedDemo ? {demoAccount: DEMO_ACCOUNT} : {}),
     },
   }), {auth: false});

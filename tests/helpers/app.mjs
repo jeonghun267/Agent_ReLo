@@ -30,10 +30,10 @@ export function createOutbox() {
 }
 
 // Starts the real app on a random loopback port with a throwaway database.
-export async function startApp(t, {env = {}, aiProvider = createFakeProvider(), mail = createOutbox()} = {}) {
+export async function startApp(t, {env = {}, aiProvider = createFakeProvider(), mail = createOutbox(), googleProvider} = {}) {
   const dir = await mkdtemp(join(tmpdir(), 'relo-http-'));
   const config = loadConfig({APP_ENV: 'test', PORT: '0', DATA_DIR: dir, AI_PROVIDER: 'fake', ...env});
-  const app = createApp(config, {aiProvider, mailProvider: mail, logger: silent});
+  const app = createApp(config, {aiProvider, mailProvider: mail, googleProvider, logger: silent});
   const base = await app.listen(0, '127.0.0.1');
   t.after(async () => {
     await app.close();

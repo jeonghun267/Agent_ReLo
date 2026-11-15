@@ -156,6 +156,14 @@ export async function apiRequest<TResponse>(
 	return payload as TResponse;
 }
 
+import type {
+	PasskeyLoginAnswer,
+	PasskeyLoginOptions,
+	PasskeyRegistrationAnswer,
+	PasskeyRegistrationOptions,
+	PasskeySummary,
+} from "@/client/lib/passkey";
+
 export const metaApi = {
 	health: () => apiRequest<{ ok: boolean }>("/api/health", { quiet: true }),
 	config: () => apiRequest<AppConfig>("/api/config", { quiet: true }),
@@ -195,6 +203,18 @@ export const authApi = {
 		apiRequest<{ ok: boolean }>("/api/auth/reset", {
 			method: "POST",
 			data: { token, password },
+			quiet: true,
+		}),
+	passkeyLoginOptions: () =>
+		apiRequest<PasskeyLoginOptions>("/api/auth/passkey/options", {
+			method: "POST",
+			data: {},
+			quiet: true,
+		}),
+	passkeyLogin: (answer: PasskeyLoginAnswer) =>
+		apiRequest<SessionResponse>("/api/auth/passkey/login", {
+			method: "POST",
+			data: answer,
 			quiet: true,
 		}),
 };
@@ -416,5 +436,26 @@ export const accountApi = {
 		apiRequest<{ ok: boolean }>("/api/account/delete", {
 			method: "POST",
 			data: { password },
+		}),
+	passkeys: () =>
+		apiRequest<{ passkeys: PasskeySummary[] }>("/api/account/passkeys", {
+			quiet: true,
+		}),
+	passkeyRegisterOptions: () =>
+		apiRequest<PasskeyRegistrationOptions>("/api/account/passkeys/options", {
+			method: "POST",
+			data: {},
+			quiet: true,
+		}),
+	passkeyRegister: (input: PasskeyRegistrationAnswer & { name: string }) =>
+		apiRequest<{ passkeys: PasskeySummary[] }>("/api/account/passkeys", {
+			method: "POST",
+			data: input,
+			quiet: true,
+		}),
+	passkeyRemove: (id: string) =>
+		apiRequest<{ passkeys: PasskeySummary[] }>(`/api/account/passkeys/${id}`, {
+			method: "DELETE",
+			quiet: true,
 		}),
 };

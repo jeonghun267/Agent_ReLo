@@ -13,6 +13,21 @@
       "runtimeArgs": ["src/server/main.mjs"],
       "env": {"PORT": "4181", "AI_PROVIDER": "fake", "DATA_DIR": ".relo-data-fake"},
       "port": 4181
+    },
+    {
+      "name": "relo-signin-trial",
+      "runtimeExecutable": "node",
+      "runtimeArgs": ["src/server/main.mjs"],
+      "env": {
+        "PORT": "4182",
+        "AI_PROVIDER": "fake",
+        "DATA_DIR": ".relo-data-fake",
+        "PASSKEY_RP_ID": "localhost",
+        "GOOGLE_CLIENT_ID": "placeholder-not-a-real-client.apps.googleusercontent.com",
+        "GOOGLE_CLIENT_SECRET": "placeholder-not-a-real-secret"
+      },
+      "port": 4182,
+      "url": "http://localhost:4182"
     }
   ]
 }

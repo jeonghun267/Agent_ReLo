@@ -91,6 +91,9 @@ View ──(사용자 행동)──▶ ViewModel ──▶ Model ──fetch─�
 - **비밀번호 재설정**(`POST /api/auth/reset`): 새 비밀번호를 먼저 검증하고(틀리면 링크를 쓰지 않음), 한 트랜잭션에서 비밀번호 변경 → 그 사용자 세션 전부 삭제 → 이메일 인증 처리(링크가 메일함 소유를 증명) → 남은 재설정 링크 삭제. 요청한 브라우저의 쿠키도 지운다.
 - **가입 409**: 가입 즉시 로그인되는 흐름이라 이미 가입한 이메일은 409로 알릴 수밖에 없다. IP당 가입 시도 제한(시간당 10회)으로 대량 수집만 늦춘다. 완전히 숨기려면 '메일 링크를 연 뒤 계정 생성' 흐름이 필요하다(README '상용화 전에 남은 일').
 - **provider**: `RESEND_API_KEY`가 있으면 `resend`가 기본이다. `POST https://api.resend.com/emails`에 `User-Agent`(없으면 403)와 `Idempotency-Key`를 붙여 보내고, 네트워크 오류·시간 초과·429·5xx면 같은 키로 한 번만 다시 보낸다(두 번 배달되지 않음). 실패는 `mail_*` 코드와 Resend 오류 이름만 로그에 남긴다. 키가 없으면 개발·시험은 `console`(링크를 서버 로그에 출력), 운영은 `disabled`가 되어 `/api/config`의 `mail.enabled`가 false다. 화면은 이 값으로 '비밀번호를 잊었어요' 링크와 인증 띠를 숨긴다. 운영의 `resend`는 `MAIL_FROM`(인증된 도메인)이 있어야 시작한다.
+- **Google 로그인**(`GOOGLE_CLIENT_ID`·`GOOGLE_CLIENT_SECRET`이 둘 다 있을 때만 켜짐): `GET /api/auth/google/start` → Google → `GET /api/auth/google/callback`. 인가 코드 + PKCE이고, `state`·`nonce`·`code_verifier`는 10분짜리 `relo_google` 쿠키(HttpOnly, SameSite=Lax, 경로 한정)에 둔다. ID 토큰은 토큰 엔드포인트에서 직접 받아 발급자·대상·만료·nonce·`email_verified`를 확인한다(SDK 없음, 화면에 외부 스크립트 없음). 연결 규칙: 이미 연결된 Google 계정 → 그 사용자, 같은 이메일의 **인증된** 계정 → 연결, 없으면 새 계정(이메일 인증됨, 비밀번호는 임의값). 인증 안 된 같은 이메일 계정에는 연결하지 않는다(`google_unverified_account`: 남이 그 주소로 만들어 둔 계정일 수 있다). 실패는 `/auth?mode=login&error=<코드>`로 돌려보낸다.
+- **패스키**(`PASSKEY_RP_ID`가 있을 때만 켜짐): WebAuthn을 `node:crypto`만으로 검증한다(`domain/webauthn.mjs`: ES256·RS256, attestation `none`, 기기의 사용자 확인 필수). 등록·목록·삭제는 로그인 상태에서(`/api/account/passkeys…`), 로그인은 공개(`POST /api/auth/passkey/options` → `POST /api/auth/passkey/login`). 챌린지는 메모리에 5분 두고 한 번만 쓴다(서버 프로세스 하나 기준). 서명 카운터가 늘지 않으면 거절한다. 공개키만 저장한다(`passkeys`).
+- **화면**: `/api/config`의 `signIn: {google, passkey}`를 보고 버튼을 보이거나 숨긴다. 값이 없으면 둘 다 보이지 않는다.
 
 ## 새 기능 추가 체크리스트
 

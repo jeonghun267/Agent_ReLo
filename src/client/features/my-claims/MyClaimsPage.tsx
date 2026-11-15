@@ -19,16 +19,19 @@ import {
 	useSession,
 } from "@/client/hooks/useSession";
 import { useI18n } from "@/client/i18n";
+import { stateLabel } from "@/client/lib/claim-words";
 import { useRouter } from "@/client/lib/router";
+import type { ClaimState } from "@/client/types";
 
-const FILTER_TABS = [
-	{ id: "", label: "전체" },
-	{ id: "preparing", label: "서류 준비" },
-	{ id: "awaiting", label: "답변 대기" },
-	{ id: "negotiating", label: "조율 중" },
-	{ id: "recovered", label: "입금 확인" },
-	{ id: "completed", label: "완료" },
-] as const;
+/** The stages offered as filters, in order ("" is every stage). Names come from the shared state words. */
+const FILTER_STATES: Array<ClaimState | ""> = [
+	"",
+	"preparing",
+	"awaiting",
+	"negotiating",
+	"recovered",
+	"completed",
+];
 
 export function MyClaimsPage() {
 	const { navigate } = useRouter();
@@ -37,7 +40,7 @@ export function MyClaimsPage() {
 	const { data: config } = useAppConfig();
 	const loginMutation = useLoginMutation();
 
-	const [stateFilter, setStateFilter] = useState("");
+	const [stateFilter, setStateFilter] = useState<ClaimState | "">("");
 	const [showTrash, setShowTrash] = useState(false);
 
 	const isLoggedIn = Boolean(session?.user);
@@ -56,7 +59,7 @@ export function MyClaimsPage() {
 					<ReloOrbEmblem
 						variant="default"
 						size="md"
-						speech="로그인하시면 진행 중인 직구 환불 내역과 실제 카드 취소 금액을 한눈에 확인할 수 있어요."
+						speech={t.claims.guestSpeech}
 					/>
 					<div className="space-y-2.5">
 						{config?.demoAccount ? (
@@ -73,7 +76,7 @@ export function MyClaimsPage() {
 								}
 							>
 								<Sparkles className="h-5 w-5" aria-hidden="true" />
-								<span>체험 계정으로 내 환불 내역 둘러보기</span>
+								<span>{t.claims.demoButton}</span>
 							</Button>
 						) : null}
 						<Button
@@ -92,14 +95,15 @@ export function MyClaimsPage() {
 	}
 
 	const claims = claimsData?.claims ?? [];
+	// Someone with no refunds yet sees one thing to do (the button in the empty card),
+	// so the filters and the second "new refund" button are left out.
+	const isBrandNew =
+		!claimsLoading && claims.length === 0 && !stateFilter && !showTrash;
 
 	return (
 		<div className="mx-auto max-w-5xl space-y-6 px-4 py-8 sm:px-6 sm:py-12">
 			<div className="flex flex-wrap items-end justify-between gap-4">
 				<div className="space-y-1">
-					<p className="text-sm font-semibold text-relo-muted">
-						{t.pages.myClaimsTitle}
-					</p>
 					<h1 className="text-2xl font-bold tracking-[-0.035em] text-relo-ink sm:text-[32px]">
 						{session?.user?.name}
 						{t.nav.userSuffix} · {t.pages.myClaimsTitle}
@@ -114,20 +118,22 @@ export function MyClaimsPage() {
 						variant={showTrash ? "danger" : "secondary"}
 						size="sm"
 						onClick={() => setShowTrash((v) => !v)}
-						className="rounded-full"
+						className="rounded-full max-sm:min-h-11"
 					>
 						<Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-						<span>{showTrash ? "진행 목록으로" : "휴지통"}</span>
+						<span>{showTrash ? t.claims.backToList : t.claims.trash}</span>
 					</Button>
-					<Button
-						variant="primary"
-						size="sm"
-						onClick={() => navigate("/wizard")}
-						className="rounded-full px-4"
-					>
-						<FilePlus2 className="h-4 w-4" aria-hidden="true" />
-						<span>{t.pages.myClaimsNewBtn}</span>
-					</Button>
+					{!isBrandNew ? (
+						<Button
+							variant="primary"
+							size="sm"
+							onClick={() => navigate("/wizard")}
+							className="rounded-full px-4 max-sm:min-h-11"
+						>
+							<FilePlus2 className="h-4 w-4" aria-hidden="true" />
+							<span>{t.pages.myClaimsNewBtn}</span>
+						</Button>
+					) : null}
 				</div>
 			</div>
 
@@ -135,17 +141,23 @@ export function MyClaimsPage() {
 				<ClaimsAnalyticsCard claims={claims} />
 			) : null}
 
-			{!showTrash ? (
+			{!showTrash && !isBrandNew ? (
 				<div className="overflow-x-auto pb-1">
-					<div className="inline-flex min-w-max items-center gap-1 rounded-full bg-relo-sunken p-1">
-						{FILTER_TABS.map((tab) => {
-							const active = stateFilter === tab.id;
+					{/* biome-ignore lint/a11y/useSemanticElements: a pill row of toggle buttons, not a form fieldset */}
+					<div
+						role="group"
+						aria-label={t.claims.filterLabel}
+						className="inline-flex min-w-max items-center gap-1 rounded-full bg-relo-sunken p-1"
+					>
+						{FILTER_STATES.map((id) => {
+							const active = stateFilter === id;
 							return (
 								<button
-									key={tab.id}
+									key={id || "all"}
 									type="button"
-									onClick={() => setStateFilter(tab.id)}
-									className="relative cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition"
+									aria-pressed={active}
+									onClick={() => setStateFilter(id)}
+									className="relative cursor-pointer rounded-full px-4 py-2 text-xs font-semibold transition max-sm:min-h-11"
 								>
 									{active ? (
 										<motion.span
@@ -165,7 +177,7 @@ export function MyClaimsPage() {
 												: "text-relo-muted hover:text-relo-ink"
 										}`}
 									>
-										{tab.label}
+										{id ? stateLabel(t, id) : t.claims.filterAll}
 									</span>
 								</button>
 							);
@@ -185,11 +197,25 @@ export function MyClaimsPage() {
 						size="md"
 						speech={
 							showTrash
-								? "휴지통이 비어 있어요."
-								: "아직 등록된 직구 환불 내역이 없어요."
+								? t.claims.emptyTrash
+								: stateFilter
+									? t.claims.emptyFiltered
+									: t.claims.empty
 						}
 					/>
-					{!showTrash ? (
+					{!showTrash && stateFilter ? (
+						<div className="flex justify-center">
+							<Button
+								variant="secondary"
+								size="lg"
+								onClick={() => setStateFilter("")}
+								className="rounded-full px-7"
+							>
+								<span>{t.claims.showAll}</span>
+							</Button>
+						</div>
+					) : null}
+					{!showTrash && !stateFilter ? (
 						<div className="flex justify-center">
 							<Button
 								variant="primary"
@@ -203,7 +229,7 @@ export function MyClaimsPage() {
 					) : null}
 				</Card>
 			) : (
-				<ConsumerClaimsLedger claims={claims} stateLabels={config?.states} />
+				<ConsumerClaimsLedger claims={claims} />
 			)}
 		</div>
 	);

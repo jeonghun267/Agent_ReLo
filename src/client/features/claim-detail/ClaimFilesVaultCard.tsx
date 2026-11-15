@@ -28,12 +28,16 @@ import {
 	useRemoveClaimFileMutation,
 	useUploadClaimFileMutation,
 } from "@/client/hooks/useClaims";
+import { useI18n } from "@/client/i18n";
 import { filesApi } from "@/client/lib/api-client";
-import { formatFileSize, formatKoreanDate } from "@/client/lib/format";
+import { errorText } from "@/client/lib/claim-words";
+import { fill, formatFileSize, formatLocalDate } from "@/client/lib/format";
 import type { ClaimFile, ClaimView } from "@/client/types";
 
 export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 	const { showToast } = useToast();
+	const { t, locale, localeOption } = useI18n();
+	const v = t.detail.files;
 	const uploadMutation = useUploadClaimFileMutation(claim.id);
 	const removeFileMutation = useRemoveClaimFileMutation(claim.id);
 
@@ -57,12 +61,7 @@ export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 			if (previewFile) URL.revokeObjectURL(previewFile.url);
 			setPreviewFile({ meta, blob, url: URL.createObjectURL(blob) });
 		} catch (error) {
-			showToast(
-				error instanceof Error
-					? error.message
-					: "파일 미리보기를 불러오지 못했어요.",
-				"error",
-			);
+			showToast(errorText(error, v.toastPreviewFail, locale), "error");
 		}
 	};
 
@@ -79,23 +78,18 @@ export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 				nextVersion = res.claim.version;
 			}
 			setStagedNewFiles([]);
-			showToast("추가한 파일이 내 전용 보관함에 저장되었어요!");
+			showToast(v.toastUploaded);
 		} catch (error) {
-			showToast(
-				error instanceof Error
-					? error.message
-					: "파일 업로드 중 오류가 발생했어요.",
-				"error",
-			);
+			showToast(errorText(error, v.toastUploadFail, locale), "error");
 		}
 	};
 
 	return (
 		<Card className="space-y-4">
 			<div>
-				<Badge tone="brand">10MB 내 전용 사진 보관함</Badge>
+				<Badge tone="brand">{v.eyebrow}</Badge>
 				<h3 className="mt-1 text-lg font-extrabold text-relo-ink">
-					보관된 영수증 · 불량 사진 ({claim.files.length}개)
+					{fill(v.title, { n: claim.files.length })}
 				</h3>
 			</div>
 
@@ -122,8 +116,8 @@ export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 										</p>
 										<p className="text-xs text-relo-muted">
 											{formatFileSize(file.size)} ·{" "}
-											{formatKoreanDate(file.createdAt)}
-											{file.usedAsProof ? " · 입금 확인 자료" : ""}
+											{formatLocalDate(file.createdAt, localeOption.bcp47)}
+											{file.usedAsProof ? ` · ${v.usedAsProof}` : ""}
 										</p>
 									</div>
 								</div>
@@ -137,15 +131,15 @@ export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 										<Eye className="h-3.5 w-3.5" aria-hidden="true" />
 										<span>
 											{previewFile?.meta.id === file.id
-												? "미리보기 닫기"
-												: "열어보기"}
+												? v.closePreview
+												: v.open}
 										</span>
 									</Button>
 									{!file.usedAsProof ? (
 										<Button
 											variant="ghost"
 											size="sm"
-											aria-label={`${file.name} 삭제`}
+											aria-label={fill(v.deleteAria, { name: file.name })}
 											onClick={() =>
 												void removeFileMutation.mutateAsync({
 													fileId: file.id,
@@ -165,10 +159,7 @@ export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 					})}
 				</ul>
 			) : (
-				<p className="text-xs text-relo-muted">
-					아직 보관된 파일이 없어요. 아래에서 카드 취소 내역 캡처나 영수증을
-					올려 보세요.
-				</p>
+				<p className="text-xs text-relo-muted">{v.empty}</p>
 			)}
 
 			{previewFile ? (
@@ -199,7 +190,7 @@ export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 							onClick={handleUploadStaged}
 						>
 							<Upload className="h-4 w-4" aria-hidden="true" />
-							<span>추가한 파일 {stagedNewFiles.length}개 저장하기</span>
+							<span>{fill(v.saveStaged, { n: stagedNewFiles.length })}</span>
 						</Button>
 					</div>
 				) : null}

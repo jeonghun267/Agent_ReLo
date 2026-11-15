@@ -42,6 +42,19 @@ export function loadConfig(env = process.env) {
   const mailFrom = (env.MAIL_FROM || '').trim() || (isProduction ? '' : RESEND_TEST_SENDER);
   if (mailProvider === 'resend' && !mailFrom) throw new Error('MAIL_FROM is required in production, e.g. "ReLo <no-reply@your-domain>" on a domain verified in Resend.');
 
+  // Sign in with Google: off until both values from the Google Cloud console are set.
+  const googleId = (env.GOOGLE_CLIENT_ID || '').trim();
+  const googleSecret = (env.GOOGLE_CLIENT_SECRET || '').trim();
+  if (!googleId !== !googleSecret) throw new Error('Sign in with Google needs both GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET.');
+
+  // Passkeys: off until the site's domain is set. A passkey belongs to that domain
+  // (or a parent of it), so in production it has to match APP_ORIGIN.
+  const passkeyRpId = (env.PASSKEY_RP_ID || '').trim().toLowerCase();
+  if (passkeyRpId && isProduction) {
+    const host = new URL(appOrigin).hostname;
+    if (host !== passkeyRpId && !host.endsWith(`.${passkeyRpId}`)) throw new Error('PASSKEY_RP_ID must be the APP_ORIGIN host or a parent domain of it.');
+  }
+
   return Object.freeze({
     root: ROOT,
     webRoot: resolve(ROOT, 'dist'),
@@ -60,6 +73,17 @@ export function loadConfig(env = process.env) {
       apiKey: resendKey,
       from: mailFrom,
       timeoutMs: integer(env.MAIL_TIMEOUT_MS, 10000, 'MAIL_TIMEOUT_MS'),
+    }),
+    google: Object.freeze({
+      enabled: !!googleId,
+      clientId: googleId,
+      clientSecret: googleSecret,
+      timeoutMs: integer(env.GOOGLE_TIMEOUT_MS, 10000, 'GOOGLE_TIMEOUT_MS'),
+    }),
+    passkey: Object.freeze({
+      enabled: !!passkeyRpId,
+      rpId: passkeyRpId,
+      rpName: 'ReLo',
     }),
     ai: Object.freeze({
       provider,

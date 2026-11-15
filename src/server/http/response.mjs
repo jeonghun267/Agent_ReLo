@@ -5,6 +5,12 @@ export function sendJson(res, status, value, headers = {}) {
   res.end(JSON.stringify(value));
 }
 
+// Sends the browser to another address (sign in with Google goes out and comes back this way).
+export function sendRedirect(res, location, headers = {}) {
+  res.writeHead(302, {...headers, Location: location});
+  res.end();
+}
+
 export function sendFile(res, file, headers = {}) {
   res.writeHead(200, {
     ...headers,
