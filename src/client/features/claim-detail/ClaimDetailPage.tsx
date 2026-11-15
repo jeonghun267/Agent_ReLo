@@ -35,25 +35,31 @@ import {
 	useTransitionClaimMutation,
 	useTrashClaimMutation,
 } from "@/client/hooks/useClaims";
-import { useAppConfig, useSession } from "@/client/hooks/useSession";
+import { useSession } from "@/client/hooks/useSession";
 import { useI18n } from "@/client/i18n";
-import { formatKoreanDate } from "@/client/lib/format";
+import {
+	errorText,
+	historyLabel,
+	nextStepText,
+	stateLabel,
+} from "@/client/lib/claim-words";
+import { fill, formatLocalDate } from "@/client/lib/format";
 import { useRouter } from "@/client/lib/router";
 
+/** The four things to do on a refund. Their names come from the dictionary (detail.tabs). */
 const DETAIL_TABS = [
-	{ id: "inquiry", label: "외국어 메시지 보내기", icon: FileText },
-	{ id: "reply", label: "쇼핑몰 답장 · 약속 금액", icon: MessageSquare },
-	{ id: "settlement", label: "사진 보관함 · 입금 확인", icon: Wallet },
-	{ id: "history", label: "진행 기록 · 마무리", icon: History },
+	{ id: "inquiry", icon: FileText },
+	{ id: "reply", icon: MessageSquare },
+	{ id: "settlement", icon: Wallet },
+	{ id: "history", icon: History },
 ] as const;
 
 type DetailTabId = (typeof DETAIL_TABS)[number]["id"];
 
 export function ClaimDetailPage({ claimId }: { claimId: string }) {
 	const { navigate } = useRouter();
-	const { t } = useI18n();
+	const { t, locale, localeOption } = useI18n();
 	const { data: session } = useSession();
-	const { data: config } = useAppConfig();
 	const { showToast } = useToast();
 
 	const {
@@ -73,7 +79,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 				<ReloOrbEmblem
 					variant="processing"
 					size="md"
-					speech="환불 진행 내역과 보관된 파일을 불러오고 있어요..."
+					speech={t.detail.loading}
 				/>
 			</div>
 		);
@@ -84,10 +90,10 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 			<div className="mx-auto max-w-lg px-4 py-14">
 				<Card className="space-y-4 text-center">
 					<p className="text-base font-bold text-relo-ink">
-						환불 신청 정보를 찾을 수 없어요.
+						{t.detail.notFound}
 					</p>
 					<Button variant="primary" onClick={() => navigate("/claims")}>
-						내 환불 내역으로 돌아가기
+						{t.detail.backToList}
 					</Button>
 				</Card>
 			</div>
@@ -106,12 +112,9 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 				action: "close",
 				reason: "실제 입금·수령 확인 완료 후 소비자 직접 마무리",
 			});
-			showToast("모든 환불 절차가 마무리되었어요.");
+			showToast(t.detail.toastClosed);
 		} catch (err) {
-			showToast(
-				err instanceof Error ? err.message : "마무리 처리에 실패했어요.",
-				"error",
-			);
+			showToast(errorText(err, t.detail.toastCloseFail, locale), "error");
 		}
 	};
 
@@ -121,24 +124,18 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 				version: claim.version,
 				reason: "사용자 휴지통 이동",
 			});
-			showToast("휴지통으로 옮겼어요. 언제든 복원할 수 있어요.");
+			showToast(t.detail.toastTrashed);
 		} catch (err) {
-			showToast(
-				err instanceof Error ? err.message : "휴지통 이동에 실패했어요.",
-				"error",
-			);
+			showToast(errorText(err, t.detail.toastTrashFail, locale), "error");
 		}
 	};
 
 	const handleRestore = async () => {
 		try {
 			await restoreMutation.mutateAsync(claim.version);
-			showToast("환불 내역이 다시 복원되었어요.");
+			showToast(t.detail.toastRestored);
 		} catch (err) {
-			showToast(
-				err instanceof Error ? err.message : "복원에 실패했어요.",
-				"error",
-			);
+			showToast(errorText(err, t.detail.toastRestoreFail, locale), "error");
 		}
 	};
 
@@ -148,7 +145,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 				<button
 					type="button"
 					onClick={() => navigate("/claims")}
-					className="inline-flex cursor-pointer items-center gap-1.5 text-sm font-semibold text-relo-muted hover:text-relo-ink"
+					className="inline-flex min-h-11 cursor-pointer items-center gap-1.5 text-sm font-semibold text-relo-muted hover:text-relo-ink"
 				>
 					<ArrowLeft className="h-4 w-4" aria-hidden="true" />
 					<span>{t.pages.myClaimsTitle}</span>
@@ -163,7 +160,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 						className="rounded-full"
 					>
 						<RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
-						<span>복원하기</span>
+						<span>{t.detail.restore}</span>
 					</Button>
 				) : (
 					<Button
@@ -171,10 +168,10 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 						size="sm"
 						isLoading={trashMutation.isPending}
 						onClick={handleMoveTrash}
-						className="rounded-full text-relo-muted"
+						className="rounded-full text-relo-muted max-sm:min-h-11"
 					>
 						<Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
-						<span>휴지통 이동</span>
+						<span>{t.detail.moveToTrash}</span>
 					</Button>
 				)}
 			</div>
@@ -183,14 +180,14 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 				<div className="flex flex-wrap items-start justify-between gap-4">
 					<div className="space-y-1.5">
 						<div className="flex flex-wrap items-center gap-2">
-							<span className="rounded-lg bg-[#f2f4f6] px-2 py-0.5 text-[11px] font-extrabold text-[#333d4b]">
+							<span className="rounded-lg bg-[#f2f4f6] px-2 py-0.5 text-xs font-extrabold text-[#333d4b]">
 								{claim.currency}
 							</span>
 							<Badge tone={claim.state === "disputed" ? "danger" : "neutral"}>
-								{config?.states[claim.state] ?? claim.state}
+								{stateLabel(t, claim.state)}
 							</Badge>
 							<span className="text-xs font-medium text-relo-muted">
-								{claim.vendor} · 주문번호 {claim.orderRef}
+								{claim.vendor} · {t.shared.orderNo} {claim.orderRef}
 							</span>
 						</div>
 						<h1 className="text-2xl font-bold tracking-[-0.035em] text-relo-ink sm:text-[28px]">
@@ -207,7 +204,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 							className="rounded-full"
 						>
 							<CheckCircle2 className="h-4 w-4" aria-hidden="true" />
-							<span>환불 절차 마무리하기</span>
+							<span>{t.detail.closeClaim}</span>
 						</Button>
 					) : null}
 				</div>
@@ -237,7 +234,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 						</div>
 
 						<span className="text-xs font-semibold text-relo-brand">
-							다음 할 일: {claim.nextStep}
+							{t.shared.nextStepLabel}: {nextStepText(t, claim)}
 						</span>
 					</div>
 
@@ -258,7 +255,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 							/>
 						</span>
 						<span className="text-relo-muted">
-							쇼핑몰 약속 금액{" "}
+							{t.detail.agreedLabel}{" "}
 							{claim.agreed !== null ? (
 								<MoneyDisplay
 									minor={claim.agreed}
@@ -267,7 +264,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 								/>
 							) : (
 								<strong className="ml-1 font-semibold text-relo-body">
-									확인 전
+									{t.detail.agreedPending}
 								</strong>
 							)}
 						</span>
@@ -286,7 +283,11 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 			</Card>
 
 			<div className="overflow-x-auto border-b border-relo-line">
-				<div className="flex min-w-max items-center gap-6 px-1">
+				<div
+					role="tablist"
+					aria-label={t.detail.tabsLabel}
+					className="flex min-w-max items-center gap-6 px-1"
+				>
 					{DETAIL_TABS.map((tab) => {
 						const Icon = tab.icon;
 						const active = tab.id === activeTab;
@@ -294,8 +295,10 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 							<button
 								key={tab.id}
 								type="button"
+								role="tab"
+								aria-selected={active}
 								onClick={() => setActiveTab(tab.id)}
-								className={`relative flex cursor-pointer items-center gap-2 pb-3.5 text-sm transition-colors ${
+								className={`relative flex min-h-11 cursor-pointer items-center gap-2 pb-3.5 text-sm transition-colors ${
 									active
 										? "font-bold text-relo-ink"
 										: "font-medium text-relo-muted hover:text-relo-ink"
@@ -305,7 +308,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 									className={`h-4 w-4 ${active ? "text-relo-brand" : "text-relo-muted"}`}
 									aria-hidden="true"
 								/>
-								<span>{tab.label}</span>
+								<span>{t.detail.tabs[tab.id]}</span>
 								{active ? (
 									<motion.span
 										layoutId="claim-detail-underline"
@@ -326,7 +329,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 			{activeTab === "history" ? (
 				<Card className="space-y-4">
 					<h3 className="text-base font-bold text-relo-ink">
-						시간순 진행 기록 ({claim.events.length}건)
+						{fill(t.detail.historyTitle, { n: claim.events.length })}
 					</h3>
 					<ul className="space-y-2">
 						{claim.events.map((ev) => (
@@ -334,9 +337,11 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 								key={ev.id}
 								className="flex items-center justify-between rounded-2xl bg-relo-sunken px-4 py-3 text-xs"
 							>
-								<span className="font-semibold text-relo-ink">{ev.action}</span>
+								<span className="font-semibold text-relo-ink">
+									{historyLabel(t, ev.action)}
+								</span>
 								<span className="text-relo-muted tabular-nums">
-									{formatKoreanDate(ev.createdAt)}
+									{formatLocalDate(ev.createdAt, localeOption.bcp47)}
 								</span>
 							</li>
 						))}

@@ -4,6 +4,14 @@
  * @purpose Japanese (日本語) consumer copy written in polite, easy-to-understand everyday language.
  */
 
+import { authJa } from "@/client/i18n/screens/auth";
+import { claimsJa } from "@/client/i18n/screens/claims";
+import { detailJa } from "@/client/i18n/screens/detail";
+import { settingsJa } from "@/client/i18n/screens/settings";
+import { sharedJa } from "@/client/i18n/screens/shared";
+import { signinJa } from "@/client/i18n/screens/signin";
+import { uploadJa } from "@/client/i18n/screens/upload";
+import { wizardJa } from "@/client/i18n/screens/wizard";
 import type { TranslationDictionary } from "@/client/i18n/types";
 
 export const jaMessages: TranslationDictionary = {
@@ -123,7 +131,7 @@ export const jaMessages: TranslationDictionary = {
 				screenHeader: "注文レシートの自動読み取り",
 				screenStatus: "自動入力完了",
 				screenSubTitle: "見つかった注文情報",
-				popLeftTitle: "注文番号を3秒で自動入力",
+				popLeftTitle: "注文番号を自動入力",
 				popLeftSub: "#114-8920411 · $184.00",
 				popRightTitle: "住所・電話番号をカット",
 				popRightSub: "傷や破損箇所だけを鮮明に保存",
@@ -211,7 +219,7 @@ export const jaMessages: TranslationDictionary = {
 				stepNo: "ステップ1",
 				title: "注文レシート読取",
 				subtitle: "画像・PDFを自動入力",
-				badge: "3秒自動入力",
+				badge: "自動入力",
 				guide:
 					"購入履歴のスクショやPDFをアップロードすると、ショップ名・注文番号・金額を自動で入力します。",
 				previewTitle: "自動で読み取った注文情報の例",
@@ -394,4 +402,12 @@ export const jaMessages: TranslationDictionary = {
 		authTitle: "海外通販の返金記録を安全に保管",
 		settingsTitle: "アカウントとプライバシー設定",
 	},
+	shared: sharedJa,
+	claims: claimsJa,
+	detail: detailJa,
+	wizard: wizardJa,
+	settings: settingsJa,
+	upload: uploadJa,
+	auth: authJa,
+	signin: signinJa,
 };

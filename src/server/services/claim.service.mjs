@@ -3,7 +3,7 @@ import {reject, notFound, forField} from '../domain/errors.mjs';
 import {newId, nowIso} from '../domain/primitives.mjs';
 import {cleanText} from '../domain/validation.mjs';
 import {
-  parseClaimInput, totals, requestedQuantity, factualFingerprint, nextStep,
+  parseClaimInput, totals, requestedQuantity, factualFingerprint, nextStepCode, NEXT_STEP_TEXT,
   nextStateForTransition, CLOSED_STATES,
 } from '../domain/claim.mjs';
 import {withIdempotency} from './idempotency.mjs';
@@ -54,7 +54,8 @@ export function createClaimService(ctx) {
       events: withEvents ? repos.audit.listForEntity(ownerId, row.id) : [],
       summary: totals(row.payload, ledger),
     };
-    view.nextStep = nextStep(view);
+    view.nextStepCode = nextStepCode(view);
+    view.nextStep = NEXT_STEP_TEXT[view.nextStepCode];
     return view;
   }
 

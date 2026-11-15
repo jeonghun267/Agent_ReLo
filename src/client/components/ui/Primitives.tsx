@@ -2,10 +2,11 @@
  * @module client/components/ui/Primitives
  * @layer View (Design System Primitives)
  * @purpose Provides accessible, Toss-inspired UI building blocks: Button, Badge, Card,
- *          MoneyDisplay (tabular split typography), TextField, and ToastProvider.
+ *          MoneyDisplay (tabular split typography), TextField, PasswordField, and ToastProvider.
  */
 
 import { cva, type VariantProps } from "class-variance-authority";
+import { Eye, EyeOff } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import {
 	type ButtonHTMLAttributes,
@@ -148,6 +149,7 @@ export function Card({ children, className }: CardProps) {
 
 /**
  * Toss-inspired split money typography: subtle currency symbol, crisp bold integer, quiet decimal.
+ * The symbol and the decimals are smaller than the integer but never below 12px.
  */
 export function MoneyDisplay({
 	minor,
@@ -169,10 +171,14 @@ export function MoneyDisplay({
 				className,
 			)}
 		>
-			<span className="mr-0.5 text-[0.72em] font-medium">{symbol}</span>
+			<span className="mr-0.5 text-[max(0.72em,12px)] font-medium">
+				{symbol}
+			</span>
 			<span className="font-bold">{integerPart}</span>
 			{fractionPart ? (
-				<span className="text-[0.76em] font-medium">{fractionPart}</span>
+				<span className="text-[max(0.76em,12px)] font-medium">
+					{fractionPart}
+				</span>
 			) : null}
 		</span>
 	);
@@ -182,6 +188,47 @@ interface TextFieldProps extends InputHTMLAttributes<HTMLInputElement> {
 	label: string;
 	hint?: string;
 	error?: string;
+}
+
+/** The look of an input box, shared by the plain field and the password field. */
+function fieldInputClass(hasError: boolean): string {
+	return cn(
+		"min-h-13 w-full rounded-2xl border px-4 py-3 text-[15px] font-medium text-relo-ink outline-none transition-all placeholder:font-normal placeholder:text-relo-subtle",
+		hasError
+			? "border-relo-danger bg-relo-danger-soft/30"
+			: "border-transparent bg-relo-sunken hover:bg-[#e8ebef] focus:border-relo-brand focus:bg-white focus:ring-4 focus:ring-relo-brand/10",
+	);
+}
+
+/** The line under an input: what is wrong with it, or else a hint on what to enter. */
+function FieldMessage({
+	id,
+	hint,
+	error,
+}: {
+	id: string;
+	hint?: string;
+	error?: string;
+}) {
+	if (error) {
+		return (
+			<p
+				id={`${id}-error`}
+				role="alert"
+				className="text-xs font-medium text-relo-danger"
+			>
+				{error}
+			</p>
+		);
+	}
+	if (hint) {
+		return (
+			<p id={`${id}-hint`} className="text-xs text-relo-muted">
+				{hint}
+			</p>
+		);
+	}
+	return null;
 }
 
 export function TextField({
@@ -209,28 +256,76 @@ export function TextField({
 				aria-describedby={
 					error ? `${id}-error` : hint ? `${id}-hint` : undefined
 				}
-				className={cn(
-					"min-h-13 w-full rounded-2xl border px-4 py-3 text-[15px] font-medium text-relo-ink outline-none transition-all placeholder:font-normal placeholder:text-relo-subtle",
-					error
-						? "border-relo-danger bg-relo-danger-soft/30"
-						: "border-transparent bg-relo-sunken hover:bg-[#e8ebef] focus:border-relo-brand focus:bg-white focus:ring-4 focus:ring-relo-brand/10",
-					className,
-				)}
+				className={cn(fieldInputClass(Boolean(error)), className)}
 				{...inputProps}
 			/>
-			{error ? (
-				<p
-					id={`${id}-error`}
-					role="alert"
-					className="text-xs font-medium text-relo-danger"
+			<FieldMessage id={id} hint={hint} error={error} />
+		</div>
+	);
+}
+
+interface PasswordFieldProps
+	extends Omit<InputHTMLAttributes<HTMLInputElement>, "type"> {
+	label: string;
+	hint?: string;
+	error?: string;
+	/** What the eye button is called while the password is hidden / shown. */
+	showLabel: string;
+	hideLabel: string;
+}
+
+/**
+ * A password input with an eye button, so a person can check what they typed
+ * instead of typing it twice. Hidden by default.
+ */
+export function PasswordField({
+	label,
+	hint,
+	error,
+	showLabel,
+	hideLabel,
+	className,
+	id: providedId,
+	...inputProps
+}: PasswordFieldProps) {
+	const autoId = useId();
+	const id = providedId ?? autoId;
+	const [shown, setShown] = useState(false);
+
+	return (
+		<div className="space-y-2">
+			<label
+				htmlFor={id}
+				className="block text-[13px] font-semibold text-relo-body"
+			>
+				{label}
+			</label>
+			<div className="relative">
+				<input
+					id={id}
+					type={shown ? "text" : "password"}
+					aria-invalid={Boolean(error)}
+					aria-describedby={
+						error ? `${id}-error` : hint ? `${id}-hint` : undefined
+					}
+					className={cn(fieldInputClass(Boolean(error)), "pr-14", className)}
+					{...inputProps}
+				/>
+				<button
+					type="button"
+					aria-label={shown ? hideLabel : showLabel}
+					aria-pressed={shown}
+					onClick={() => setShown((v) => !v)}
+					className="absolute top-1/2 right-1 flex h-11 w-11 -translate-y-1/2 cursor-pointer items-center justify-center rounded-xl text-relo-muted transition-colors hover:text-relo-ink"
 				>
-					{error}
-				</p>
-			) : hint ? (
-				<p id={`${id}-hint`} className="text-xs text-relo-muted">
-					{hint}
-				</p>
-			) : null}
+					{shown ? (
+						<EyeOff className="h-5 w-5" aria-hidden="true" />
+					) : (
+						<Eye className="h-5 w-5" aria-hidden="true" />
+					)}
+				</button>
+			</div>
+			<FieldMessage id={id} hint={hint} error={error} />
 		</div>
 	);
 }

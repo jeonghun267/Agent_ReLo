@@ -4,6 +4,14 @@
  * @purpose Simplified Chinese (中文) consumer copy written in clear, everyday language.
  */
 
+import { authZh } from "@/client/i18n/screens/auth";
+import { claimsZh } from "@/client/i18n/screens/claims";
+import { detailZh } from "@/client/i18n/screens/detail";
+import { settingsZh } from "@/client/i18n/screens/settings";
+import { sharedZh } from "@/client/i18n/screens/shared";
+import { signinZh } from "@/client/i18n/screens/signin";
+import { uploadZh } from "@/client/i18n/screens/upload";
+import { wizardZh } from "@/client/i18n/screens/wizard";
 import type { TranslationDictionary } from "@/client/i18n/types";
 
 export const zhMessages: TranslationDictionary = {
@@ -121,7 +129,7 @@ export const zhMessages: TranslationDictionary = {
 				screenHeader: "订单凭证自动读取",
 				screenStatus: "已自动填写",
 				screenSubTitle: "自动识别的订单信息",
-				popLeftTitle: "3秒自动填入订单号",
+				popLeftTitle: "自动填入订单号",
 				popLeftSub: "#114-8920411 · $184.00",
 				popRightTitle: "裁掉住址与手机号",
 				popRightSub: "只保留清晰的破损部位",
@@ -208,7 +216,7 @@ export const zhMessages: TranslationDictionary = {
 				stepNo: "第1步",
 				title: "读取订单小票",
 				subtitle: "截图·PDF自动填写",
-				badge: "3秒填入",
+				badge: "自动填入",
 				guide:
 					"只需上传付款截图或订单PDF，自动为您填好商城名称、订单号和金额。",
 				previewTitle: "自动识别的订单信息示例",
@@ -381,4 +389,12 @@ export const zhMessages: TranslationDictionary = {
 		authTitle: "安全保存您的海淘退款记录",
 		settingsTitle: "账户与隐私设置",
 	},
+	shared: sharedZh,
+	claims: claimsZh,
+	detail: detailZh,
+	wizard: wizardZh,
+	settings: settingsZh,
+	upload: uploadZh,
+	auth: authZh,
+	signin: signinZh,
 };

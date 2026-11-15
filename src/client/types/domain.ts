@@ -88,6 +88,8 @@ export interface AppConfig {
 	};
 	ai: AiStatus;
 	mail: MailStatus;
+	/** Extra ways to sign in that the operator has switched on. */
+	signIn?: { google: boolean; passkey: boolean };
 	demoAccount?: DemoAccountHint;
 }
 
@@ -200,6 +202,8 @@ export interface ClaimView {
 	events: ClaimAuditEvent[];
 	summary: ClaimSummaryTotals;
 	nextStep: string;
+	/** What to do next as a code, so each language shows its own sentence. */
+	nextStepCode?: string;
 }
 
 export interface ClaimMutationInput {

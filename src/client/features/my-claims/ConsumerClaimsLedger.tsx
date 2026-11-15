@@ -25,7 +25,8 @@ import {
 import { useId, useMemo, useState } from "react";
 import { Badge, Card, MoneyDisplay } from "@/client/components/ui/Primitives";
 import { useI18n } from "@/client/i18n";
-import { formatKoreanDate } from "@/client/lib/format";
+import { nextStepText, stateLabel } from "@/client/lib/claim-words";
+import { fill, formatLocalDate } from "@/client/lib/format";
 import { AppLink } from "@/client/lib/router";
 import type { ClaimState, ClaimView } from "@/client/types";
 
@@ -46,14 +47,8 @@ function stateTone(state: ClaimState): "danger" | "neutral" {
 	return state === "disputed" ? "danger" : "neutral";
 }
 
-export function ConsumerClaimsLedger({
-	claims,
-	stateLabels,
-}: {
-	claims: ClaimView[];
-	stateLabels?: Record<ClaimState, string>;
-}) {
-	const { t } = useI18n();
+export function ConsumerClaimsLedger({ claims }: { claims: ClaimView[] }) {
+	const { t, localeOption } = useI18n();
 	const searchId = useId();
 	const [searchQuery, setSearchQuery] = useState("");
 	const [viewMode, setViewMode] = useState<"cards" | "table">("cards");
@@ -76,7 +71,7 @@ export function ConsumerClaimsLedger({
 		() =>
 			columnHelper.columns([
 				columnHelper.accessor("title", {
-					header: "신청 상품 · 쇼핑몰",
+					header: t.claims.colProduct,
 					sortFn: "alphanumeric",
 					cell: (info) => {
 						const row = info.row.original;
@@ -84,20 +79,18 @@ export function ConsumerClaimsLedger({
 							<div>
 								<p className="font-extrabold text-relo-ink">{row.title}</p>
 								<p className="text-xs text-relo-muted">
-									{row.vendor} · 주문번호 {row.orderRef}
+									{row.vendor} · {t.shared.orderNo} {row.orderRef}
 								</p>
 							</div>
 						);
 					},
 				}),
 				columnHelper.accessor("state", {
-					header: "진행 상태",
+					header: t.claims.colState,
 					sortFn: "alphanumeric",
 					cell: (info) => {
 						const st = info.getValue();
-						return (
-							<Badge tone={stateTone(st)}>{stateLabels?.[st] ?? st}</Badge>
-						);
+						return <Badge tone={stateTone(st)}>{stateLabel(t, st)}</Badge>;
 					},
 				}),
 				columnHelper.accessor("claimed", {
@@ -130,16 +123,16 @@ export function ConsumerClaimsLedger({
 					},
 				}),
 				columnHelper.accessor("updatedAt", {
-					header: "최근 업데이트",
+					header: t.claims.colUpdated,
 					sortFn: "alphanumeric",
 					cell: (info) => (
 						<span className="text-xs text-relo-muted tabular-nums">
-							{formatKoreanDate(info.getValue())}
+							{formatLocalDate(info.getValue(), localeOption.bcp47)}
 						</span>
 					),
 				}),
 			]),
-		[stateLabels, t],
+		[t, localeOption.bcp47],
 	);
 
 	const table = useTable({
@@ -157,7 +150,7 @@ export function ConsumerClaimsLedger({
 			<div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-center">
 				<div className="relative flex-1">
 					<label htmlFor={searchId} className="sr-only">
-						내 환불 내역 검색
+						{t.claims.searchLabel}
 					</label>
 					<Search
 						className="pointer-events-none absolute top-1/2 left-4 h-4 w-4 -translate-y-1/2 text-relo-muted"
@@ -168,7 +161,7 @@ export function ConsumerClaimsLedger({
 						type="search"
 						value={searchQuery}
 						onChange={(e) => setSearchQuery(e.target.value)}
-						placeholder="쇼핑몰, 상품명, 주문번호 검색"
+						placeholder={t.claims.searchPlaceholder}
 						className="min-h-11 w-full rounded-full border border-transparent bg-relo-sunken pr-4 pl-10 text-sm font-medium text-relo-ink transition focus:border-relo-brand focus:bg-white"
 					/>
 				</div>
@@ -187,39 +180,63 @@ export function ConsumerClaimsLedger({
 						className="inline-flex min-h-10 cursor-pointer items-center gap-1.5 rounded-full bg-relo-sunken px-3.5 text-xs font-semibold text-relo-body hover:bg-[#e5e8eb]"
 					>
 						<ArrowUpDown className="h-3.5 w-3.5" aria-hidden="true" />
-						<span>금액순</span>
+						<span>{t.claims.sortByAmount}</span>
 					</button>
 
-					<div className="inline-flex rounded-full bg-relo-sunken p-1">
+					{/* biome-ignore lint/a11y/useSemanticElements: a two-way toggle, not a form fieldset */}
+					<div
+						role="group"
+						aria-label={t.claims.viewLabel}
+						className="inline-flex rounded-full bg-relo-sunken p-1"
+					>
 						<button
 							type="button"
+							aria-pressed={viewMode === "cards"}
 							onClick={() => setViewMode("cards")}
-							className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+							className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition max-sm:min-h-10 ${
 								viewMode === "cards"
 									? "bg-white font-bold text-relo-ink shadow-2xs"
 									: "text-relo-muted"
 							}`}
 						>
 							<LayoutGrid className="h-3.5 w-3.5" aria-hidden="true" />
-							<span>카드로 보기</span>
+							<span>{t.claims.viewCards}</span>
 						</button>
 						<button
 							type="button"
+							aria-pressed={viewMode === "table"}
 							onClick={() => setViewMode("table")}
-							className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition ${
+							className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-1.5 text-xs font-semibold transition max-sm:min-h-10 ${
 								viewMode === "table"
 									? "bg-white font-bold text-relo-ink shadow-2xs"
 									: "text-relo-muted"
 							}`}
 						>
 							<ListFilter className="h-3.5 w-3.5" aria-hidden="true" />
-							<span>표로 보기</span>
+							<span>{t.claims.viewTable}</span>
 						</button>
 					</div>
 				</div>
 			</div>
 
-			{viewMode === "cards" ? (
+			{rows.length === 0 ? (
+				// Nothing matches the search: say so, and offer the way back to the full list.
+				<Card className="space-y-4 py-12 text-center">
+					<div className="space-y-1.5">
+						<p className="text-base font-bold text-relo-ink">
+							{fill(t.claims.noResults, { q: searchQuery.trim() })}
+						</p>
+						<p className="text-sm text-relo-muted">{t.claims.noResultsHint}</p>
+					</div>
+					<button
+						type="button"
+						onClick={() => setSearchQuery("")}
+						className="inline-flex min-h-11 cursor-pointer items-center rounded-full bg-relo-sunken px-5 text-sm font-semibold text-relo-body hover:bg-[#e5e8eb]"
+					>
+						{t.claims.clearSearch}
+					</button>
+				</Card>
+			) : viewMode === "cards" ? (
 				<div className="grid gap-3">
 					{rows.map((row) => {
 						const c = row.original;
@@ -236,11 +253,11 @@ export function ConsumerClaimsLedger({
 								<div className="flex items-start justify-between gap-3">
 									<div className="min-w-0 space-y-1">
 										<div className="flex flex-wrap items-center gap-2">
-											<span className="rounded-lg bg-[#f2f4f6] px-2 py-0.5 text-[11px] font-extrabold text-[#333d4b]">
+											<span className="rounded-lg bg-[#f2f4f6] px-2 py-0.5 text-xs font-extrabold text-[#333d4b]">
 												{c.currency}
 											</span>
 											<Badge tone={stateTone(c.state)}>
-												{stateLabels?.[c.state] ?? c.state}
+												{stateLabel(t, c.state)}
 											</Badge>
 											<span className="text-xs font-medium text-relo-muted">
 												{c.vendor} · {c.orderRef}
@@ -276,7 +293,7 @@ export function ConsumerClaimsLedger({
 										</span>
 									</div>
 									<span className="text-xs font-semibold text-relo-brand">
-										{c.nextStep}
+										{nextStepText(t, c)}
 									</span>
 								</div>
 
@@ -309,7 +326,7 @@ export function ConsumerClaimsLedger({
 											</th>
 										))}
 										<th className="px-4 py-3 text-right text-xs font-extrabold text-relo-muted">
-											상세
+											{t.claims.colOpen}
 										</th>
 									</tr>
 								))}
@@ -330,7 +347,7 @@ export function ConsumerClaimsLedger({
 												to={`/claims/${row.original.id}`}
 												className="inline-flex items-center gap-1 rounded-lg bg-relo-brand-soft px-2.5 py-1 text-xs font-bold text-relo-brand hover:bg-relo-brand hover:text-white"
 											>
-												<span>열기</span>
+												<span>{t.claims.open}</span>
 												<ChevronRight className="h-3.5 w-3.5" />
 											</AppLink>
 										</td>

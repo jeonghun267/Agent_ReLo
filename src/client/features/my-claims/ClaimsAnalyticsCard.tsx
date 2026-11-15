@@ -1,27 +1,17 @@
 /**
  * @module client/features/my-claims/ClaimsAnalyticsCard
  * @layer View (Currency-Isolated Passbook Summary Card)
- * @purpose Displays per-currency refund progress using a unified Toss Blue + Cool Slate
- *          color system so switching between KRW, EUR, USD, and JPY stays visually cohesive.
+ * @purpose Shows, for one currency at a time, how much of the requested refunds has actually
+ *          come back: one large amount, one progress bar, and the three figures behind it.
+ *          Each figure appears once (no second chart of the same numbers).
  */
 
-import {
-	BarElement,
-	CategoryScale,
-	Chart as ChartJS,
-	Legend,
-	LinearScale,
-	Tooltip,
-} from "chart.js";
 import { motion } from "motion/react";
 import { useMemo, useState } from "react";
-import { Bar } from "react-chartjs-2";
 import { Card, MoneyDisplay } from "@/client/components/ui/Primitives";
 import { useI18n } from "@/client/i18n";
-import { minorToMajor } from "@/client/lib/format";
+import { fill } from "@/client/lib/format";
 import type { ClaimView, CurrencyCode } from "@/client/types";
-
-ChartJS.register(CategoryScale, LinearScale, BarElement, Tooltip, Legend);
 
 interface CurrencyBucket {
 	currency: CurrencyCode;
@@ -66,9 +56,6 @@ export function ClaimsAnalyticsCard({ claims }: { claims: ClaimView[] }) {
 	if (!activeBucket) return null;
 
 	const cur = activeBucket.currency;
-	const claimedMajor = minorToMajor(activeBucket.claimedMinor, cur);
-	const cashMajor = minorToMajor(activeBucket.cashMinor, cur);
-	const remainingMajor = minorToMajor(activeBucket.remainingMinor, cur);
 	const recoveryPct =
 		activeBucket.claimedMinor > 0
 			? Math.min(
@@ -83,26 +70,33 @@ export function ClaimsAnalyticsCard({ claims }: { claims: ClaimView[] }) {
 		activeBucket.claimedMinor > 0 && activeBucket.remainingMinor === 0;
 
 	return (
-		<Card className="p-6 sm:p-8">
-			{/* Top Eyebrow & Unified Currency Switcher */}
+		<Card className="space-y-5 p-6 sm:p-8">
+			{/* What this card is about, and the currency switcher */}
 			<div className="flex flex-wrap items-center justify-between gap-3">
 				<p className="text-sm font-semibold text-relo-muted">
-					{allRecovered
-						? `${cur} 기준 총 ${activeBucket.count}건 모두 입금 확인되었어요`
-						: `${cur} 기준 총 ${activeBucket.count}건의 환불 진행 상황을 확인하고 있어요`}
+					{fill(
+						allRecovered ? t.claims.summaryAllDone : t.claims.summaryProgress,
+						{ cur, n: activeBucket.count },
+					)}
 				</p>
 
 				{buckets.length > 1 ? (
-					<div className="inline-flex rounded-full bg-[#f2f4f6] p-1">
+					// biome-ignore lint/a11y/useSemanticElements: a pill row of toggle buttons, not a form fieldset
+					<div
+						role="group"
+						aria-label={t.claims.currencyLabel}
+						className="inline-flex rounded-full bg-[#f2f4f6] p-1"
+					>
 						{buckets.map((b) => {
 							const active = b.currency === cur;
 							return (
 								<button
 									key={b.currency}
 									type="button"
+									aria-pressed={active}
 									data-testid={`currency-tab-${b.currency}`}
 									onClick={() => setSelectedCurrency(b.currency)}
-									className={`relative inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition ${
+									className={`relative inline-flex cursor-pointer items-center gap-1.5 rounded-full px-3.5 py-1.5 text-xs font-semibold transition max-sm:min-h-10 ${
 										active
 											? "bg-white font-bold text-relo-ink shadow-2xs"
 											: "text-relo-muted hover:text-relo-ink"
@@ -122,110 +116,66 @@ export function ClaimsAnalyticsCard({ claims }: { claims: ClaimView[] }) {
 				) : null}
 			</div>
 
-			<div className="mt-4 grid gap-8 lg:grid-cols-12 lg:items-center">
-				{/* Left Passbook Headline Balance — Unified Toss Blue Accent */}
-				<div className="space-y-5 lg:col-span-7">
-					<div className="flex flex-wrap items-baseline gap-3">
-						<MoneyDisplay
-							minor={
-								activeBucket.cashMinor > 0
-									? activeBucket.cashMinor
-									: activeBucket.claimedMinor
-							}
-							currency={cur}
-							className="text-4xl text-relo-ink sm:text-[44px]"
-						/>
-						{/* Plain text next to the amount (no colored pill): blue once money has come in, gray while waiting */}
-						<span
-							className={`text-sm font-bold ${
-								allRecovered || activeBucket.cashMinor > 0
-									? "text-relo-brand"
-									: "text-relo-muted"
-							}`}
-						>
-							{allRecovered
-								? "전액 입금 완료"
-								: activeBucket.cashMinor > 0
-									? `${recoveryPct}% 입금 확인`
-									: "입금 대기 중"}
-						</span>
-					</div>
+			{/* The headline amount: what has come back, or what was asked for while nothing has */}
+			<div className="flex flex-wrap items-baseline gap-3">
+				<MoneyDisplay
+					minor={
+						activeBucket.cashMinor > 0
+							? activeBucket.cashMinor
+							: activeBucket.claimedMinor
+					}
+					currency={cur}
+					className="text-4xl text-relo-ink sm:text-[44px]"
+				/>
+				{/* Plain text next to the amount (no colored pill): blue once money has come in, gray while waiting */}
+				<span
+					className={`text-sm font-bold ${
+						allRecovered || activeBucket.cashMinor > 0
+							? "text-relo-brand"
+							: "text-relo-muted"
+					}`}
+				>
+					{allRecovered
+						? t.claims.allRecovered
+						: activeBucket.cashMinor > 0
+							? fill(t.claims.pctRecovered, { pct: recoveryPct })
+							: t.claims.waiting}
+				</span>
+			</div>
 
-					{/* Unified Toss Blue Gauge Track */}
-					<div className="h-2.5 w-full overflow-hidden rounded-full bg-[#eef2f6]">
-						<motion.div
-							initial={{ width: 0 }}
-							animate={{ width: `${Math.max(8, recoveryPct)}%` }}
-							transition={{ duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
-							className="h-full rounded-full bg-relo-brand"
-						/>
-					</div>
+			<div className="h-2.5 w-full overflow-hidden rounded-full bg-[#eef2f6]">
+				<motion.div
+					initial={{ width: 0 }}
+					animate={{ width: `${Math.max(8, recoveryPct)}%` }}
+					transition={{ duration: 0.45, ease: [0.22, 0.61, 0.36, 1] }}
+					className="h-full rounded-full bg-relo-brand"
+				/>
+			</div>
 
-					{/* Cohesive Summary Row (Ink + Toss Blue + Neutral Body, Zero Clashing Green) */}
-					<div className="flex flex-wrap items-center gap-x-6 gap-y-2 border-t border-relo-line pt-4 text-sm">
-						<div className="flex items-baseline gap-2">
-							<span className="text-relo-muted">{t.pages.sumClaimed}</span>
-							<MoneyDisplay
-								minor={activeBucket.claimedMinor}
-								currency={cur}
-								className="text-base text-relo-ink"
-							/>
-						</div>
-						<div className="flex items-baseline gap-2">
-							<span className="text-relo-muted">{t.pages.sumRecovered}</span>
-							<MoneyDisplay
-								minor={activeBucket.cashMinor}
-								currency={cur}
-								className="text-base text-relo-brand"
-							/>
-						</div>
-						<div className="flex items-baseline gap-2">
-							<span className="text-relo-muted">{t.pages.sumRemaining}</span>
-							<MoneyDisplay
-								minor={activeBucket.remainingMinor}
-								currency={cur}
-								className="text-base text-relo-body"
-							/>
-						</div>
-					</div>
+			{/* The three figures behind the bar, each shown once */}
+			<div className="flex flex-wrap items-center gap-x-8 gap-y-2 border-t border-relo-line pt-4 text-sm">
+				<div className="flex items-baseline gap-2">
+					<span className="text-relo-muted">{t.pages.sumClaimed}</span>
+					<MoneyDisplay
+						minor={activeBucket.claimedMinor}
+						currency={cur}
+						className="text-base text-relo-ink"
+					/>
 				</div>
-
-				{/* Right Minimalist Horizontal Bar (Monochromatic Slate + Toss Blue) */}
-				<div className="h-32 rounded-2xl bg-[#f8fafc] p-4 lg:col-span-5">
-					<Bar
-						aria-label={`${cur} ${t.pages.sumClaimed}, ${t.pages.sumRecovered}, ${t.pages.sumRemaining}`}
-						data={{
-							labels: [
-								t.pages.sumClaimed,
-								t.pages.sumRecovered,
-								t.pages.sumRemaining,
-							],
-							datasets: [
-								{
-									label: cur,
-									data: [claimedMajor, cashMajor, remainingMajor],
-									backgroundColor: ["#cbd5e1", "#1b64da", "#93c5fd"],
-									borderRadius: 8,
-									barThickness: 14,
-								},
-							],
-						}}
-						options={{
-							indexAxis: "y",
-							responsive: true,
-							maintainAspectRatio: false,
-							plugins: { legend: { display: false } },
-							scales: {
-								x: {
-									beginAtZero: true,
-									display: false,
-								},
-								y: {
-									grid: { display: false },
-									border: { display: false },
-								},
-							},
-						}}
+				<div className="flex items-baseline gap-2">
+					<span className="text-relo-muted">{t.pages.sumRecovered}</span>
+					<MoneyDisplay
+						minor={activeBucket.cashMinor}
+						currency={cur}
+						className="text-base text-relo-brand"
+					/>
+				</div>
+				<div className="flex items-baseline gap-2">
+					<span className="text-relo-muted">{t.pages.sumRemaining}</span>
+					<MoneyDisplay
+						minor={activeBucket.remainingMinor}
+						currency={cur}
+						className="text-base text-relo-body"
 					/>
 				</div>
 			</div>

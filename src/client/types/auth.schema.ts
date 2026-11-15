@@ -1,61 +1,45 @@
 /**
  * @module client/types/auth.schema
  * @layer Model (Validation Schemas — Authentication)
- * @purpose Zod v4 schemas for consumer login, 10-second signup, password recovery, and account deletion.
+ * @purpose Zod v4 schemas for consumer login, signup, password recovery, and account deletion.
+ *          Each rule names its message by key; the screen shows the sentence for that key in
+ *          the reader's language (auth.fieldErrors / shared.fieldErrors, through fieldError()).
  */
 
 import { z } from "zod";
 
+const email = z.string().trim().min(1, "emailRequired").email("emailInvalid");
+
 export const loginSchema = z.object({
-	email: z
-		.string()
-		.trim()
-		.min(1, "이메일 주소를 입력해 주세요.")
-		.email("올바른 이메일 형식을 확인해 주세요."),
+	email,
 	password: z
 		.string()
-		.min(1, "비밀번호를 입력해 주세요.")
-		.max(200, "비밀번호는 200자 이하로 입력해 주세요."),
+		.min(1, "loginPasswordRequired")
+		.max(200, "passwordTooLong"),
 });
 
 export type LoginFormValues = z.infer<typeof loginSchema>;
 
 export const signupSchema = z.object({
-	name: z.string().trim().max(50, "닉네임은 50자 이하로 입력해 주세요."),
-	email: z
-		.string()
-		.trim()
-		.min(1, "이메일 주소를 입력해 주세요.")
-		.email("올바른 이메일 형식을 확인해 주세요."),
-	password: z
-		.string()
-		.min(10, "안전한 보호를 위해 비밀번호는 10자 이상 입력해 주세요.")
-		.max(200, "비밀번호는 200자 이하로 입력해 주세요."),
+	name: z.string().trim().max(50, "nameTooLong"),
+	email,
+	password: z.string().min(10, "passwordTooShort").max(200, "passwordTooLong"),
 });
 
 export type SignupFormValues = z.infer<typeof signupSchema>;
 
-export const forgotPasswordSchema = z.object({
-	email: z
-		.string()
-		.trim()
-		.min(1, "가입한 이메일 주소를 입력해 주세요.")
-		.email("올바른 이메일 형식을 확인해 주세요."),
-});
+export const forgotPasswordSchema = z.object({ email });
 
 export type ForgotPasswordFormValues = z.infer<typeof forgotPasswordSchema>;
 
 export const resetPasswordSchema = z.object({
-	password: z
-		.string()
-		.min(10, "새 비밀번호는 10자 이상 200자 이하로 입력해 주세요.")
-		.max(200, "비밀번호는 200자 이하로 입력해 주세요."),
+	password: z.string().min(10, "passwordTooShort").max(200, "passwordTooLong"),
 });
 
 export type ResetPasswordFormValues = z.infer<typeof resetPasswordSchema>;
 
 export const deleteAccountSchema = z.object({
-	password: z.string().min(1, "본인 확인을 위해 비밀번호를 입력해 주세요."),
+	password: z.string().min(1, "passwordRequired"),
 });
 
 export type DeleteAccountFormValues = z.infer<typeof deleteAccountSchema>;

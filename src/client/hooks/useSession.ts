@@ -16,6 +16,7 @@ import {
 	onUnauthorized,
 	setCsrfToken,
 } from "@/client/lib/api-client";
+import { getPasskey } from "@/client/lib/passkey";
 import type {
 	LoginFormValues,
 	SessionResponse,
@@ -72,6 +73,22 @@ export function useLoginMutation() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (input: LoginFormValues) => authApi.login(input),
+		onSuccess: (session) => {
+			setCsrfToken(session.csrf);
+			queryClient.setQueryData(queryKeys.session, session);
+			queryClient.invalidateQueries({ queryKey: ["claims"] });
+		},
+	});
+}
+
+/** Signs in with a passkey this device holds: ask for a challenge, let the device answer, send it. */
+export function usePasskeyLoginMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: async () => {
+			const options = await authApi.passkeyLoginOptions();
+			return authApi.passkeyLogin(await getPasskey(options));
+		},
 		onSuccess: (session) => {
 			setCsrfToken(session.csrf);
 			queryClient.setQueryData(queryKeys.session, session);

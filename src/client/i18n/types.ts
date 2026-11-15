@@ -24,7 +24,7 @@ export const LOCALE_OPTIONS: ReadonlyArray<LocaleOption> = [
 	{ code: "ja", shortLabel: "JA", nativeName: "日本語", bcp47: "ja-JP" },
 ] as const;
 
-type DeepStringShape<T> = T extends string
+export type DeepStringShape<T> = T extends string
 	? string
 	: T extends ReadonlyArray<infer U>
 		? ReadonlyArray<DeepStringShape<U>>

@@ -25,6 +25,7 @@ import {
 	useSession,
 } from "@/client/hooks/useSession";
 import { LanguageSwitcher, useI18n } from "@/client/i18n";
+import { errorText } from "@/client/lib/claim-words";
 import { AppLink, useRouter } from "@/client/lib/router";
 import { cn } from "@/lib/utils";
 
@@ -75,7 +76,7 @@ function ReloBrandMark() {
 
 export function AppShell({ children }: { children: ReactNode }) {
 	const { pathname, navigate } = useRouter();
-	const { t } = useI18n();
+	const { t, locale } = useI18n();
 	const { data: session } = useSession();
 	const { data: config } = useAppConfig();
 	const resendMutation = useResendVerificationMutation();
@@ -121,15 +122,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 		try {
 			const res = await resendMutation.mutateAsync();
 			showToast(
-				res.sent
-					? "인증 링크를 이메일로 다시 보내드렸어요."
-					: "이미 이메일 인증이 완료된 계정이에요.",
+				res.sent ? t.shared.shell.verifySent : t.shared.shell.verifyAlready,
 			);
 		} catch (error) {
-			showToast(
-				error instanceof Error ? error.message : "인증 메일 발송에 실패했어요.",
-				"error",
-			);
+			showToast(errorText(error, t.shared.shell.verifyFail, locale), "error");
 		}
 	};
 
@@ -233,14 +229,19 @@ export function AppShell({ children }: { children: ReactNode }) {
 							</Button>
 						)}
 
-						<Button
-							variant="primary"
-							size="sm"
-							onClick={() => navigate("/wizard")}
-							className="hidden rounded-full px-4 text-sm lg:inline-flex"
-						>
-							<span>{t.nav.applyCta}</span>
-						</Button>
+						{/* The request form and the refund list carry their own "start a refund" button */}
+						{pathname !== "/wizard" &&
+						pathname !== "/claims" &&
+						pathname !== "/auth" ? (
+							<Button
+								variant="primary"
+								size="sm"
+								onClick={() => navigate("/wizard")}
+								className="hidden rounded-full px-4 text-sm lg:inline-flex"
+							>
+								<span>{t.nav.applyCta}</span>
+							</Button>
+						) : null}
 					</div>
 				</div>
 			</header>
@@ -255,7 +256,7 @@ export function AppShell({ children }: { children: ReactNode }) {
 
 			{/* Mobile Bottom Navigation */}
 			<nav
-				aria-label="모바일 하단 메뉴"
+				aria-label={t.shared.shell.mobileNav}
 				className="pb-safe fixed inset-x-0 bottom-0 z-40 border-t border-relo-line bg-white/95 backdrop-blur-xl md:hidden"
 			>
 				<div className="mx-auto grid max-w-md grid-cols-4 px-2 pt-1.5">

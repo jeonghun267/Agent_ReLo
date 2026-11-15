@@ -98,6 +98,31 @@ export function formatKoreanDate(isoOrDate: string | null | undefined): string {
 	}).format(parsed);
 }
 
+/** A date written the way the reader's language writes it (bcp47 such as "en-US"). */
+export function formatLocalDate(
+	isoOrDate: string | null | undefined,
+	bcp47: string,
+): string {
+	if (!isoOrDate) return "-";
+	const parsed = new Date(isoOrDate);
+	if (Number.isNaN(parsed.getTime())) return isoOrDate;
+	return new Intl.DateTimeFormat(bcp47, {
+		year: "numeric",
+		month: "short",
+		day: "numeric",
+	}).format(parsed);
+}
+
+/** Puts values into a sentence: fill("{n} files", { n: 3 }) gives "3 files". */
+export function fill(
+	template: string,
+	values: Record<string, string | number>,
+): string {
+	return template.replace(/\{(\w+)\}/g, (whole, key: string) =>
+		key in values ? String(values[key]) : whole,
+	);
+}
+
 export function formatFileSize(bytes: number): string {
 	if (bytes < 1024) return `${bytes} B`;
 	if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;

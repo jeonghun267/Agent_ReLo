@@ -4,6 +4,14 @@
  * @purpose English (EN) consumer copy written in clear, everyday language.
  */
 
+import { authEn } from "@/client/i18n/screens/auth";
+import { claimsEn } from "@/client/i18n/screens/claims";
+import { detailEn } from "@/client/i18n/screens/detail";
+import { settingsEn } from "@/client/i18n/screens/settings";
+import { sharedEn } from "@/client/i18n/screens/shared";
+import { signinEn } from "@/client/i18n/screens/signin";
+import { uploadEn } from "@/client/i18n/screens/upload";
+import { wizardEn } from "@/client/i18n/screens/wizard";
 import type { TranslationDictionary } from "@/client/i18n/types";
 
 export const enMessages: TranslationDictionary = {
@@ -122,7 +130,7 @@ export const enMessages: TranslationDictionary = {
 				screenHeader: "Smart Receipt Reader",
 				screenStatus: "Auto-Filled",
 				screenSubTitle: "Detected Order Details",
-				popLeftTitle: "Order ID filled in 3 sec",
+				popLeftTitle: "Order ID filled in for you",
 				popLeftSub: "#114-8920411 · $184.00",
 				popRightTitle: "Home address trimmed out",
 				popRightSub: "Keeps only the damaged spot",
@@ -209,7 +217,7 @@ export const enMessages: TranslationDictionary = {
 				stepNo: "Step 1",
 				title: "Read Receipt",
 				subtitle: "Photo or PDF auto-fill",
-				badge: "3-Sec Fill",
+				badge: "Auto-fill",
 				guide:
 					"Upload an order screenshot or PDF receipt and we automatically fill in the store name, order number, and price.",
 				previewTitle: "Sample Auto-Filled Order Details",
@@ -394,4 +402,12 @@ export const enMessages: TranslationDictionary = {
 		authTitle: "Keep Your Refund Records Safe",
 		settingsTitle: "Account & Privacy Settings",
 	},
+	shared: sharedEn,
+	claims: claimsEn,
+	detail: detailEn,
+	wizard: wizardEn,
+	settings: settingsEn,
+	upload: uploadEn,
+	auth: authEn,
+	signin: signinEn,
 };

@@ -7,6 +7,7 @@
  */
 
 import { motion } from "motion/react";
+import { useI18n } from "@/client/i18n";
 import { cn } from "@/lib/utils";
 
 export type OrbVariant = "default" | "processing" | "verified" | "still";
@@ -36,6 +37,7 @@ export function ReloOrbEmblem({
 }: ReloOrbEmblemProps) {
 	const isProcessing = variant === "processing";
 	const isVerified = variant === "verified";
+	const { t } = useI18n();
 
 	return (
 		<div className={cn("flex flex-col items-center", className)}>
@@ -72,10 +74,10 @@ export function ReloOrbEmblem({
 					xmlns="http://www.w3.org/2000/svg"
 					viewBox="0 0 160 160"
 					role="img"
-					aria-label="ReLo 글로벌 직구 환불 심볼"
+					aria-label={t.shared.emblemLabel}
 					className="relative h-full w-full overflow-visible"
 				>
-					<title>ReLo 글로벌 직구 환불 심볼</title>
+					<title>{t.shared.emblemLabel}</title>
 					<defs>
 						<radialGradient id="reloOrbCoreUnified" cx="35%" cy="28%" r="70%">
 							<stop
