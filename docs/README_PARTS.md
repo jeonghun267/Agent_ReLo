@@ -143,7 +143,8 @@ Agent_ReLo/
 | `lib/format.ts` · `passkey.ts` · `preparation.ts` | 날짜 · 금액 모양, 패스키 호출, AI가 읽는 동안의 안내를 잠깐 유지하는 타이머 |
 | `i18n/` | `ko` `en` `ja` `zh` + 화면별 사전 `screens/`(공통 · 내 환불 · 상세 · 신청 · 설정 · 올리기 · 계정 · 로그인 방식) |
 | `types/` | 서버와 맞춘 타입, 입력 검사 규칙(`claim.schema.ts`, `auth.schema.ts`) |
-| `styles/index.css` | 색 · 글꼴 토큰, 글꼴 불러오기 |
+| `styles/index.css` | 색 · 글꼴 토큰 |
+| `styles/pretendard.css` · `assets/fonts/pretendard/` | 글자 묶음 92개로 나눈 글꼴과 그 목록, 사용 허가서(`LICENSE.txt`). 목록은 손으로 고치지 않음 |
 
 ### 4. 서버 `src/server/`
 
