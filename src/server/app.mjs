@@ -4,24 +4,25 @@ import {createRepositories} from './repositories/index.mjs';
 import {createServices} from './services/index.mjs';
 import {createAiProvider} from './ai/provider.mjs';
 import {createMailProvider} from './mail/provider.mjs';
+import {createGoogleProvider} from './auth/google.provider.mjs';
 import {createRouter} from './http/router.mjs';
 import {registerRoutes} from './routes/index.mjs';
 import {createRateLimiter} from './http/rate-limit.mjs';
 import {readBody, readJson, readCookie, readVersion, readIdempotencyKey, clientAddress, SESSION_COOKIE} from './http/request.mjs';
-import {sendJson, sendFile, sendError} from './http/response.mjs';
-import {securityHeaders, allowedHosts, expectedOrigin, enforceHost, enforceOrigin, enforceCsrf, sessionCookie} from './http/security.mjs';
+import {sendJson, sendFile, sendRedirect, sendError} from './http/response.mjs';
+import {securityHeaders, allowedHosts, expectedOrigin, enforceHost, enforceOrigin, enforceCsrf, sessionCookie, flowCookie} from './http/security.mjs';
 import {serveStatic} from './http/static.mjs';
 import {AppError} from './domain/errors.mjs';
 import {newId} from './domain/primitives.mjs';
 import {seedDemo} from './dev/seed.mjs';
 
 // The one place where everything is wired together. Tests call createApp with
-// a test config and, optionally, a fake AI provider and a mail outbox.
-export function createApp(config, {aiProvider = createAiProvider(config.ai), mailProvider, logger = console} = {}) {
+// a test config and, optionally, a fake AI provider, a mail outbox and a stand-in for Google.
+export function createApp(config, {aiProvider = createAiProvider(config.ai), mailProvider, googleProvider = createGoogleProvider(config.google), logger = console} = {}) {
   const db = openDatabase(config.dataDir);
   const repos = createRepositories(db);
   const mail = mailProvider ?? createMailProvider(config.mail, {logger});
-  const services = createServices({db, repos, config, aiProvider, mailProvider: mail, logger});
+  const services = createServices({db, repos, config, aiProvider, mailProvider: mail, googleProvider, logger});
   const limits = {
     login: createRateLimiter({limit: 8, windowMs: 5 * 60 * 1000}),
     signup: createRateLimiter({limit: 10, windowMs: 60 * 60 * 1000}),
@@ -31,6 +32,8 @@ export function createApp(config, {aiProvider = createAiProvider(config.ai), mai
     resendVerification: createRateLimiter({limit: 3, windowMs: 60 * 60 * 1000}),
     // Opening one-time links (verify, reset).
     links: createRateLimiter({limit: 20, windowMs: 15 * 60 * 1000}),
+    // Sign in with Google and passkey attempts, per client.
+    signIn: createRateLimiter({limit: 30, windowMs: 15 * 60 * 1000}),
   };
   const router = createRouter();
   registerRoutes(router, {services, config, limits});
@@ -76,7 +79,8 @@ export function createApp(config, {aiProvider = createAiProvider(config.ai), mai
 
       const result = await route.handler(ctx);
       const responseHeaders = {...headers, ...ctx.responseHeaders, ...result.headers};
-      if (result.file) sendFile(res, result.file, responseHeaders);
+      if (result.redirect) sendRedirect(res, result.redirect, responseHeaders);
+      else if (result.file) sendFile(res, result.file, responseHeaders);
       else sendJson(res, result.status ?? 200, result.body, responseHeaders);
     } catch (error) {
       sendError(res, error, headers, requestId, logger);
@@ -85,11 +89,19 @@ export function createApp(config, {aiProvider = createAiProvider(config.ai), mai
 
   // Per-request helpers handed to route handlers.
   function createContext(req, res, url, params, headers) {
+    // One Set-Cookie line per cookie name; setting a name again replaces its line.
+    const cookies = new Map();
+    const setCookie = (name, line) => {
+      cookies.set(name, line);
+      ctx.responseHeaders['Set-Cookie'] = cookies.size === 1 ? line : [...cookies.values()];
+    };
     const ctx = {
       req,
       params,
       query: url.searchParams,
       ip: clientAddress(req),
+      // The address the browser must be on: checked for passkeys, used for Google's return address.
+      origin: expectedOrigin(config, req.headers.host),
       version: readVersion(req),
       idempotencyKey: readIdempotencyKey(req),
       sessionToken: readCookie(req, SESSION_COOKIE),
@@ -100,10 +112,15 @@ export function createApp(config, {aiProvider = createAiProvider(config.ai), mai
       json: () => readJson(req),
       raw: limit => readBody(req, limit),
       setSession(session) {
-        ctx.responseHeaders['Set-Cookie'] = sessionCookie(SESSION_COOKIE, session.token, {maxAgeSeconds: session.maxAgeSeconds, secure: config.isProduction});
+        setCookie(SESSION_COOKIE, sessionCookie(SESSION_COOKIE, session.token, {maxAgeSeconds: session.maxAgeSeconds, secure: config.isProduction}));
       },
       clearSession() {
-        ctx.responseHeaders['Set-Cookie'] = sessionCookie(SESSION_COOKIE, '', {maxAgeSeconds: 0, secure: config.isProduction});
+        setCookie(SESSION_COOKIE, sessionCookie(SESSION_COOKIE, '', {maxAgeSeconds: 0, secure: config.isProduction}));
+      },
+      readCookie: name => readCookie(req, name),
+      // maxAgeSeconds 0 removes the cookie.
+      setFlowCookie(name, value, {maxAgeSeconds, path}) {
+        setCookie(name, flowCookie(name, value, {maxAgeSeconds, path, secure: config.isProduction}));
       },
     };
     return ctx;

@@ -9,6 +9,8 @@ import {createAuditRepository} from './audit.repo.mjs';
 import {createIdempotencyRepository} from './idempotency.repo.mjs';
 import {createAiUsageRepository} from './ai-usage.repo.mjs';
 import {createAccountRepository} from './account.repo.mjs';
+import {createIdentityRepository} from './identity.repo.mjs';
+import {createPasskeyRepository} from './passkey.repo.mjs';
 
 export function createRepositories(db) {
   return {
@@ -23,5 +25,7 @@ export function createRepositories(db) {
     idempotency: createIdempotencyRepository(db),
     aiUsage: createAiUsageRepository(db),
     account: createAccountRepository(db),
+    identities: createIdentityRepository(db),
+    passkeys: createPasskeyRepository(db),
   };
 }

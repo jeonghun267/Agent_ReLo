@@ -52,6 +52,12 @@ export function enforceCsrf(req, csrf) {
   reject(!same, '로그인 상태를 다시 확인하세요.', 'csrf_denied', 403);
 }
 
+// A short-lived cookie for a flow that leaves the site and comes back (sign in with
+// Google). Lax, not Strict: the browser must send it when Google redirects back here.
+export function flowCookie(name, value, {maxAgeSeconds, secure, path}) {
+  return `${name}=${value}; HttpOnly; SameSite=Lax; Path=${path}; Max-Age=${maxAgeSeconds}${secure ? '; Secure' : ''}`;
+}
+
 export function sessionCookie(name, token, {maxAgeSeconds, secure}) {
   return `${name}=${token}; HttpOnly; SameSite=Strict; Path=/; Max-Age=${maxAgeSeconds}${secure ? '; Secure' : ''}`;
 }

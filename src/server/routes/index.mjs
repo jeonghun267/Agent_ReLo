@@ -5,6 +5,8 @@ import {registerFileRoutes} from './files.routes.mjs';
 import {registerInquiryRoutes} from './inquiry.routes.mjs';
 import {registerAiRoutes} from './ai.routes.mjs';
 import {registerAccountRoutes} from './account.routes.mjs';
+import {registerGoogleRoutes} from './google.routes.mjs';
+import {registerPasskeyRoutes} from './passkey.routes.mjs';
 
 export function registerRoutes(router, deps) {
   registerMetaRoutes(router, deps);
@@ -14,4 +16,6 @@ export function registerRoutes(router, deps) {
   registerInquiryRoutes(router, deps);
   registerAiRoutes(router, deps);
   registerAccountRoutes(router, deps);
+  registerGoogleRoutes(router, deps);
+  registerPasskeyRoutes(router, deps);
 }
