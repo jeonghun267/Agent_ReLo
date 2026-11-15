@@ -24,6 +24,8 @@
 
 > 웹 서비스(React 19 + Node.js)는 루트의 [`README.md`](../README.md)에서 설명합니다. 앱은 같은 백엔드(`:4180`)를 쓰고, 서버가 없으면 내장 데모 데이터로 동작합니다.
 
+> 더 자세한 정리(앱 부분): [기술](../docs/README_TECH.md#앱) · [기능](../docs/README_FEATURES.md#앱) · [파트별](../docs/README_PARTS.md#앱-flutter_app)
+
 ---
 
 ## 화면

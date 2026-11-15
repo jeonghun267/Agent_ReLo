@@ -14,7 +14,27 @@
 
 </div>
 
-https://github.com/user-attachments/assets/7fa6bbec-fa54-4515-8a2b-56c7ef74aa91
+<div align="center">
+
+### 웹
+
+<img src="./docs/relo_web_demo.gif" width="880" alt="첫 화면에서 가입한 뒤 환불 신청부터 입금 확인, 마무리까지 ReLo 웹을 쓰는 모습">
+
+**첫 화면 → 가입 → 영수증으로 신청 → 쇼핑몰에 보낼 메시지 → 답장 요약 → 입금 기록 → 환불 마무리**
+
+약 80초(1.4배속) · [원래 속도 영상 보기 (WebM, 109초)](./docs/relo_web_demo.webm)
+
+### 앱
+
+<img src="./flutter_app/docs/relo_app_demo.gif" width="320" alt="로그인부터 환불이 끝날 때까지 ReLo 앱을 쓰는 모습">
+
+**로그인 → 영수증으로 신청 → 판매자에게 메시지 → 답장 요약 → 입금 기록 → 환불 완료**
+
+약 70초(1.25배속) · [원래 속도 영상 보기 (WebM, 85초)](./flutter_app/docs/relo_app_demo.webm) · [앱 README](./flutter_app/README.md)
+
+</div>
+
+> 두 영상 모두 화면과 흐름은 실제 그대로이고, AI 답만 실제 Gemini가 아닙니다. 웹은 시험 서버의 가짜 AI가 정해진 답을 돌려주며 영수증 · 입금 캡처도 예시 파일입니다. 앱은 서버 없이 앱에 들어 있는 체험 계정과 데모 데이터로 찍었습니다. 웹 영상의 회색 점은 누르는 곳을 보여 주려고 녹화할 때만 올린 것입니다.
 
 ---
 
@@ -27,6 +47,16 @@ ReLo는 **접수 → 판매처 문의 작성 → 진행 상황 추적 → 회수
 - **오정훈 담당**: 서비스 설계, Node.js 백엔드(계층형 구조·SQLite·인증·메일), React 19 프론트엔드, Gemini 연동
 - **진행 상황**: 웹은 핵심 기능까지 구현했고, 모바일 앱은 `flutter_app/` 폴더에서 별도 관리됩니다.
 - **앱 전용 README**: Flutter 앱 실행 방법 및 아키텍처는 **[`flutter_app/README.md`](./flutter_app/README.md)** 문서를 참고하세요.
+
+### 더 자세한 정리
+
+지금까지 만든 것을 세 가지 눈으로 나눠 적었습니다. 각 문서는 다시 **앱 / 웹**으로 나뉩니다.
+
+| 문서 | 내용 |
+|---|---|
+| [기술](./docs/README_TECH.md#웹) | 무엇으로 만들었나: 화면 · 서버 · 데이터 · 보안 · 로그인 방식 · AI · 메일 · 검사 |
+| [기능](./docs/README_FEATURES.md#웹) | 무엇을 할 수 있나: 화면과 흐름별 기능, 일부러 하지 않는 것, 아직 안 된 것 |
+| [파트별](./docs/README_PARTS.md#웹) | 코드가 어디에 있나: 폴더별 맡은 일, 주소(API) 묶음, 고칠 때 볼 곳 |
 
 ## 주요 기능
 
