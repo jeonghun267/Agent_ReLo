@@ -7,15 +7,8 @@
 
 @import "tailwindcss";
 @import "@xyflow/react/dist/style.css";
-
-@font-face {
-	font-family: "Pretendard Variable";
-	src: url("../assets/fonts/PretendardVariable-1.3.9.woff2")
-		format("woff2-variations");
-	font-weight: 45 920;
-	font-style: normal;
-	font-display: swap;
-}
+/* The font comes in 92 small files by character group, so a page downloads only what it shows. */
+@import "./pretendard.css";
 
 @theme {
 	--font-sans:
