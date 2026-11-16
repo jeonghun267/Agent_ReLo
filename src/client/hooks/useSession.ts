@@ -17,6 +17,7 @@ import {
 	setCsrfToken,
 } from "@/client/lib/api-client";
 import { getPasskey } from "@/client/lib/passkey";
+import { clearAllWizardDrafts } from "@/client/lib/wizard-draft";
 import type {
 	LoginFormValues,
 	SessionResponse,
@@ -114,6 +115,8 @@ export function useLogoutMutation() {
 	return useMutation({
 		mutationFn: () => authApi.logout(),
 		onSettled: () => {
+			// Nothing a person was writing stays behind in a shared browser.
+			clearAllWizardDrafts();
 			setCsrfToken("");
 			queryClient.setQueryData(queryKeys.session, null);
 			queryClient.removeQueries({ queryKey: ["claims"] });
@@ -170,6 +173,7 @@ export function useDeleteAccountMutation() {
 	return useMutation({
 		mutationFn: (password: string) => accountApi.deleteAccount(password),
 		onSuccess: () => {
+			clearAllWizardDrafts();
 			setCsrfToken("");
 			queryClient.setQueryData(queryKeys.session, null);
 			queryClient.removeQueries({ queryKey: ["claims"] });

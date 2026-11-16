@@ -98,6 +98,16 @@ export function formatKoreanDate(isoOrDate: string | null | undefined): string {
 	}).format(parsed);
 }
 
+/**
+ * Today's date where the reader is, as YYYY-MM-DD. Not the UTC date: in Korea that is still
+ * yesterday until 9 in the morning, which made "today" impossible to pick.
+ */
+export function todayLocalIso(now: Date = new Date()): string {
+	const month = String(now.getMonth() + 1).padStart(2, "0");
+	const day = String(now.getDate()).padStart(2, "0");
+	return `${now.getFullYear()}-${month}-${day}`;
+}
+
 /** A date written the way the reader's language writes it (bcp47 such as "en-US"). */
 export function formatLocalDate(
 	isoOrDate: string | null | undefined,
