@@ -4,10 +4,12 @@ import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/i18n/relo_i18n.dart';
+import '../../core/network/api_client.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/input_rules.dart';
 import '../../core/utils/money_format.dart';
+import '../../shared/models/claim_words.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
 import '../../core/attachments/evidence_rules.dart';
@@ -492,20 +494,31 @@ class _WizardScreenState extends State<WizardScreen> {
       _formError = null;
       _notice = null;
     });
-    final created = await store.createClaimFromWizard(
-      vendor: _vendorCtrl.text.trim(),
-      orderRef: _orderRefCtrl.text.trim(),
-      orderedOn: _orderedOnCtrl.text.trim(),
-      title: _titleCtrl.text.trim(),
-      orderedQty: int.tryParse(_orderedQtyCtrl.text) ?? 1,
-      claimQty: int.tryParse(_claimQtyCtrl.text) ?? 1,
-      currency: _currency,
-      claimedAmount: _amountCtrl.text.trim(),
-      kind: _kind,
-      issue: _issueCtrl.text.trim(),
-      issueEnglish: _issueEnCtrl.text.trim(),
-      stagedFiles: _stagedFiles,
-    );
+    final ClaimView created;
+    try {
+      created = await store.createClaimFromWizard(
+        vendor: _vendorCtrl.text.trim(),
+        orderRef: _orderRefCtrl.text.trim(),
+        orderedOn: _orderedOnCtrl.text.trim(),
+        title: _titleCtrl.text.trim(),
+        orderedQty: int.tryParse(_orderedQtyCtrl.text) ?? 1,
+        claimQty: int.tryParse(_claimQtyCtrl.text) ?? 1,
+        currency: _currency,
+        claimedAmount: _amountCtrl.text.trim(),
+        kind: _kind,
+        issue: _issueCtrl.text.trim(),
+        issueEnglish: _issueEnCtrl.text.trim(),
+        stagedFiles: _stagedFiles,
+      );
+    } on ApiError catch (e) {
+      // 서버가 신청을 받지 않았다. 된 것처럼 넘어가지 않고 까닭을 보여 준다.
+      if (!mounted) return;
+      setState(() {
+        _isSubmitting = false;
+        _formError = store.locale == ReloLocale.ko ? e.message : _s.cwFailed;
+      });
+      return;
+    }
     if (!mounted) return;
     setState(() {
       _isSubmitting = false;

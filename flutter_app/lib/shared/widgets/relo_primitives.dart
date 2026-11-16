@@ -770,6 +770,41 @@ class ReloTextAction extends StatelessWidget {
   }
 }
 
+/// 회색 글자 버튼. 되돌리기 · 그만두기처럼 자주 누르지 않는 일에 쓴다 (강조색을 쓰지 않는다).
+class ReloMutedAction extends StatelessWidget {
+  final String label;
+  final VoidCallback? onTap;
+  const ReloMutedAction({super.key, required this.label, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final palette = ReloPalette.of(context);
+    return Semantics(
+      button: true,
+      enabled: onTap != null,
+      label: label,
+      excludeSemantics: true,
+      child: InkWell(
+        onTap: onTap,
+        borderRadius: BorderRadius.circular(8),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+          child: Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: palette.muted,
+              decoration: TextDecoration.underline,
+              decorationColor: palette.muted,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 /// 하나만 고르는 칩 (쇼핑몰 · 통화 · 해결 방법 · 답장 종류). 홈의 고르는 말과 같은 테두리 알약이고,
 /// 고른 것은 밝은 테두리와 굵은 글자로 알린다 (파랗게 칠하지 않는다).
 class ReloChoiceChip extends StatelessWidget {

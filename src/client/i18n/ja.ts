@@ -7,6 +7,7 @@
 import { authJa } from "@/client/i18n/screens/auth";
 import { claimsJa } from "@/client/i18n/screens/claims";
 import { detailJa } from "@/client/i18n/screens/detail";
+import { kindsJa } from "@/client/i18n/screens/kinds";
 import { settingsJa } from "@/client/i18n/screens/settings";
 import { sharedJa } from "@/client/i18n/screens/shared";
 import { signinJa } from "@/client/i18n/screens/signin";
@@ -405,6 +406,7 @@ export const jaMessages: TranslationDictionary = {
 	shared: sharedJa,
 	claims: claimsJa,
 	detail: detailJa,
+	kinds: kindsJa,
 	wizard: wizardJa,
 	settings: settingsJa,
 	upload: uploadJa,

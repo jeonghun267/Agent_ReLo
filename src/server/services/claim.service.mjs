@@ -3,8 +3,8 @@ import {reject, notFound, forField} from '../domain/errors.mjs';
 import {newId, nowIso} from '../domain/primitives.mjs';
 import {cleanText} from '../domain/validation.mjs';
 import {
-  parseClaimInput, totals, requestedQuantity, factualFingerprint, nextStepCode, NEXT_STEP_TEXT,
-  nextStateForTransition, CLOSED_STATES,
+  parseClaimInput, totals, requestedQuantity, factualFingerprint, nextStepCode, nextStepText,
+  nextStateForTransition, stateAfterFactsChange, hasReceived, CLOSED_STATES,
 } from '../domain/claim.mjs';
 import {withIdempotency} from './idempotency.mjs';
 
@@ -55,7 +55,7 @@ export function createClaimService(ctx) {
       summary: totals(row.payload, ledger),
     };
     view.nextStepCode = nextStepCode(view);
-    view.nextStep = NEXT_STEP_TEXT[view.nextStepCode];
+    view.nextStep = nextStepText(view.kind, view.nextStepCode);
     return view;
   }
 
@@ -100,15 +100,17 @@ export function createClaimService(ctx) {
 
   function update(ownerId, claimId, version, input) {
     const data = parseClaimInput(input);
-    return mutate(ownerId, claimId, version, '사건 정보 수정', payload => {
+    return mutate(ownerId, claimId, version, '사건 정보 수정', (payload, row) => {
       const ledger = repos.ledger.listForClaim(ownerId, claimId);
       const summary = totals(payload, ledger);
       forField(data.agreed === null ? 'claimedAmount' : 'agreedAmount', () =>
         reject(summary.cash > (data.agreed ?? data.claimed), '이미 받은 금액보다 낮게 합의액·청구액을 바꿀 수 없습니다.'));
       reject(summary.goods > requestedQuantity(data), '이미 받은 교환 수량보다 적게 바꿀 수 없습니다.');
-      forField('kind', () => reject(ledger.length > 0 && payload.kind !== data.kind, '회수 기록이 있는 건은 처리 종류를 바꿀 수 없습니다.'));
+      // A refund can turn into an exchange (or back) until something that still counts has come in.
+      forField('kind', () => reject(hasReceived(summary) && payload.kind !== data.kind, '받은 기록이 있는 건은 처리 종류를 바꿀 수 없습니다. 기록을 먼저 되돌려 주세요.'));
       forField('currency', () => reject(ledger.length > 0 && payload.currency !== data.currency, '회수 기록이 있는 건은 통화를 바꿀 수 없습니다.'));
       Object.assign(payload, data);
+      return {state: stateAfterFactsChange(row.state, payload, totals(payload, ledger))};
     }, {factsChanged: true});
   }
 

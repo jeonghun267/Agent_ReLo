@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {AppError} from '../../src/server/domain/errors.mjs';
 import {parseMoney, toDecimal} from '../../src/server/domain/money.mjs';
-import {parseClaimInput, totals, isRecovered, nextStateForTransition, stateAfterReceipt} from '../../src/server/domain/claim.mjs';
+import {parseClaimInput, totals, isRecovered, nextStateForTransition, stateAfterReceipt, stateAfterReply, nextStepCode, nextStepText} from '../../src/server/domain/claim.mjs';
 import {parseReceipt} from '../../src/server/domain/receipt.mjs';
 import {templateDraft} from '../../src/server/domain/draft-template.mjs';
 import {parsePastDate} from '../../src/server/domain/validation.mjs';
@@ -76,6 +76,33 @@ test('totals: reversals undo entries and recovery depends on claim kind', () => 
   assert.equal(isRecovered(repair, totals(repair, repaired)), true);
   assert.equal(isRecovered(repair, totals(repair, [...repaired, {id: 'x', kind: 'reversal', amount: 0, quantity: 0, reverses: 'r'}])), false);
   assert.equal(stateAfterReceipt('disputed', refund, totals(refund, ledger.slice(0, 1))), 'disputed');
+  assert.equal(totals(exchange, []).remaining, 0, 'an exchange is not owed in money');
+});
+
+test('replies and next steps: a notice never hides what was received, and only a refund has a promised amount', () => {
+  assert.equal(stateAfterReply('refund_notice', 'negotiating'), 'awaiting');
+  assert.equal(stateAfterReply('refund_notice', 'partial'), 'partial');
+  assert.equal(stateAfterReply('refund_notice', 'recovered'), 'recovered');
+  assert.equal(stateAfterReply('denied', 'recovered'), 'disputed');
+  assert.equal(stateAfterReply('other', 'awaiting'), 'awaiting');
+
+  const view = (kind, patch = {}) => ({
+    kind, state: 'review', deleted: false, agreed: null, files: [{}], drafts: [{}],
+    summary: {cash: 0, goods: 0, repair: false, remaining: 0, requestedQty: 2}, ...patch,
+  });
+  assert.equal(nextStepCode(view('refund')), 'needAgreed');
+  assert.equal(nextStepCode(view('exchange')), 'needProof');
+  assert.equal(nextStepCode(view('repair')), 'needProof');
+  assert.equal(nextStepCode(view('exchange', {state: 'partial', summary: {cash: 0, goods: 1, repair: false, remaining: 0, requestedQty: 2}})), 'remaining');
+  // Waiting ends once the shop has promised something.
+  assert.equal(nextStepCode(view('refund', {state: 'awaiting'})), 'awaiting');
+  assert.equal(nextStepCode(view('refund', {state: 'awaiting', agreed: 3990})), 'needProof');
+  assert.equal(nextStepCode(view('exchange', {state: 'awaiting'})), 'awaiting');
+  assert.equal(nextStepCode(view('exchange', {state: 'awaiting', replies: [{kind: 'agreement'}]})), 'needProof');
+  assert.match(nextStepText('exchange', 'needProof'), /교환품/);
+  assert.match(nextStepText('repair', 'recovered'), /수리/);
+  assert.equal(nextStepText('refund', 'needProof'), nextStepText('unknown', 'needProof'));
+  assert.equal(nextStepText('repair', 'needFiles'), nextStepText('refund', 'needFiles'));
 });
 
 test('receipts: cash needs an agreement, a reference or explicit checks, and stays within the remainder', () => {

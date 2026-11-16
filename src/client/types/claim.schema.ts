@@ -46,20 +46,35 @@ export const claimWizardSchema = z.object({
 
 export type ClaimWizardFormValues = z.infer<typeof claimWizardSchema>;
 
-export const receiptFormSchema = z.object({
-	kind: z.enum(["cash", "goods", "repair", "reversal"]),
-	proofId: z.string().min(1, "proofRequired"),
-	receivedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "receivedOnInvalid"),
-	amount: z.string().trim().optional().or(z.literal("")),
-	quantity: z.number().int().optional(),
-	transactionRef: z.string().trim().max(100).optional().or(z.literal("")),
-	reverses: z.string().optional().or(z.literal("")),
-	note: z.string().trim().max(2000).optional().or(z.literal("")),
-	confirmed: z.boolean().refine((v) => v === true, {
-		message: "confirmRequired",
-	}),
-	missingReferenceConfirmed: z.boolean().optional(),
-	duplicateReviewed: z.boolean().optional(),
-});
+export const receiptFormSchema = z
+	.object({
+		kind: z.enum(["cash", "goods", "repair", "reversal"]),
+		proofId: z.string().min(1, "proofRequired"),
+		receivedOn: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "receivedOnInvalid"),
+		amount: z.string().trim().optional().or(z.literal("")),
+		quantity: z.number().int().optional(),
+		transactionRef: z.string().trim().max(100).optional().or(z.literal("")),
+		reverses: z.string().optional().or(z.literal("")),
+		note: z.string().trim().max(2000).optional().or(z.literal("")),
+		confirmed: z.boolean().refine((v) => v === true, {
+			message: "confirmRequired",
+		}),
+		missingReferenceConfirmed: z.boolean().optional(),
+		duplicateReviewed: z.boolean().optional(),
+	})
+	.superRefine((value, ctx) => {
+		const fail = (field: string, message: string) =>
+			ctx.addIssue({ code: "custom", path: [field], message });
+		if (value.kind === "goods" && !((value.quantity ?? 0) >= 1))
+			fail("quantity", "quantityInvalid");
+		if (value.kind !== "cash") return;
+		if (!/^\d+(\.\d{1,2})?$/.test(value.amount ?? ""))
+			fail("amount", "amountInvalid");
+		// A statement line with no number: say where it was checked, and that it is not a repeat.
+		if (value.transactionRef) return;
+		if ((value.note ?? "").length < 10) fail("note", "noteTooShort");
+		if (!value.missingReferenceConfirmed)
+			fail("missingReferenceConfirmed", "noRefConfirmRequired");
+	});
 
 export type ReceiptFormValues = z.infer<typeof receiptFormSchema>;

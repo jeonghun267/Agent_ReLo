@@ -35,7 +35,7 @@ export const sharedKo = {
 		trashed: "휴지통에 있어요. 복원하면 이어서 진행할 수 있어요.",
 		waived: "포기로 기록했어요. 필요하면 다시 진행할 수 있어요.",
 		disputed:
-			"쇼핑몰과 의견이 달라요. 근거를 더 올리고 다음 조건을 정리해 보세요.",
+			"쇼핑몰에서 해결이 안 됐어요. 쇼핑몰 분쟁 신청, 결제한 곳 이의 제기, 소비자원 상담 순서로 해 볼 수 있어요.",
 		completed: "마무리된 건이에요. 입금 기록을 확인할 수 있어요.",
 		recovered: "입금을 확인했어요. 내용을 살펴보고 마무리해 주세요.",
 		remaining: "남은 금액과 쇼핑몰이 정한 기한을 확인해 주세요.",
@@ -61,7 +61,7 @@ export const sharedKo = {
 		fileAdded: "영수증 · 사진 올림",
 		fileRemoved: "영수증 · 사진 삭제",
 		receiptRecorded: "입금 확인 기록",
-		receiptCorrected: "입금 기록 정정",
+		receiptCorrected: "입금 기록 되돌림",
 		replyRecorded: "쇼핑몰 답장 기록",
 	},
 	replyKinds: {
@@ -90,12 +90,16 @@ export const sharedKo = {
 		claimQtyNumber: "문제가 생긴 수량을 숫자로 적어 주세요.",
 		qtyMin: "1개 이상 적어 주세요.",
 		claimQtyOver: "문제가 생긴 수량은 전체 주문 수량보다 많을 수 없어요.",
-		amountInvalid: "돌려받을 금액을 숫자로 적어 주세요. (예: 49.99 또는 65000)",
+		amountInvalid: "금액을 숫자로 적어 주세요. (예: 49.99 또는 65000)",
 		issueTooShort: "어떤 문제가 있었는지 5자 이상 적어 주세요.",
 		issueTooLong: "설명은 3,000자 이내로 적어 주세요.",
-		proofRequired: "입금을 보여 주는 파일을 골라 주세요.",
+		proofRequired: "확인 자료로 쓸 파일을 골라 주세요.",
 		receivedOnInvalid: "실제로 받은 날짜를 골라 주세요.",
-		confirmRequired: "내 카드 · 통장 내역을 직접 확인했다고 체크해 주세요.",
+		confirmRequired: "직접 확인했다고 체크해 주세요.",
+		noteTooShort: "어디에서 확인했는지 10자 이상 적어 주세요.",
+		noRefConfirmRequired: "번호가 없는 내역이 맞는지 확인하고 체크해 주세요.",
+		reasonTooShort: "되돌리는 이유를 3자 이상 적어 주세요.",
+		quantityInvalid: "받은 수량을 1개 이상, 남은 수량 이하로 적어 주세요.",
 		passwordRequired: "본인 확인을 위해 비밀번호를 적어 주세요.",
 	},
 } as const;
@@ -127,7 +131,7 @@ export const sharedEn: Shape = {
 		trashed: "This is in the trash. Restore it to carry on.",
 		waived: "Marked as given up. You can start it again if you need to.",
 		disputed:
-			"You and the shop disagree. Add more proof and settle the next terms.",
+			"This could not be settled with the shop. You can try a marketplace dispute, then a payment dispute, then the consumer agency.",
 		completed: "This one is finished. You can look over the deposit record.",
 		recovered: "The money has come in. Look it over and finish up.",
 		remaining: "Check what is still owed and the shop's deadline.",
@@ -153,7 +157,7 @@ export const sharedEn: Shape = {
 		fileAdded: "Receipt or photo added",
 		fileRemoved: "Receipt or photo removed",
 		receiptRecorded: "Deposit recorded",
-		receiptCorrected: "Deposit record corrected",
+		receiptCorrected: "Deposit record undone",
 		replyRecorded: "Shop reply recorded",
 	},
 	replyKinds: {
@@ -185,10 +189,13 @@ export const sharedEn: Shape = {
 		amountInvalid: "Enter the amount as a number. (e.g. 49.99 or 65000)",
 		issueTooShort: "Describe the problem in at least 5 characters.",
 		issueTooLong: "Keep the description within 3,000 characters.",
-		proofRequired: "Pick the file that shows the deposit.",
+		proofRequired: "Pick the file to use as proof.",
 		receivedOnInvalid: "Pick the date you actually received it.",
-		confirmRequired:
-			"Tick the box to say you checked your own card or bank record.",
+		confirmRequired: "Tick the box to say you checked it yourself.",
+		noteTooShort: "Say where you checked it, in 10 characters or more.",
+		noRefConfirmRequired: "Tick the box to confirm this entry has no number.",
+		reasonTooShort: "Give a reason of 3 characters or more.",
+		quantityInvalid: "Enter a quantity from 1 up to what is still to come.",
 		passwordRequired: "Enter your password to confirm it is you.",
 	},
 };
@@ -218,7 +225,7 @@ export const sharedJa: Shape = {
 		trashed: "ごみ箱にあります。元に戻すと続きから進められます。",
 		waived: "取りやめとして記録しました。必要ならもう一度進められます。",
 		disputed:
-			"ショップと意見が分かれています。根拠を追加して、次の条件を整理しましょう。",
+			"ショップでは解決できませんでした。ショップへの紛争申し立て、支払い先への異議、消費者院への相談の順に試せます。",
 		completed: "完了した件です。入金の記録を確認できます。",
 		recovered: "入金を確認しました。内容を見直して完了にしてください。",
 		remaining: "残りの金額とショップの期限を確認してください。",
@@ -245,7 +252,7 @@ export const sharedJa: Shape = {
 		fileAdded: "領収書・写真を追加",
 		fileRemoved: "領収書・写真を削除",
 		receiptRecorded: "入金確認を記録",
-		receiptCorrected: "入金記録を訂正",
+		receiptCorrected: "入金記録を取り消し",
 		replyRecorded: "ショップの返信を記録",
 	},
 	replyKinds: {
@@ -276,10 +283,15 @@ export const sharedJa: Shape = {
 		amountInvalid: "金額を数字で入力してください。（例：49.99 または 65000）",
 		issueTooShort: "どんな問題があったか5文字以上で書いてください。",
 		issueTooLong: "説明は3,000文字以内で書いてください。",
-		proofRequired: "入金がわかるファイルを選んでください。",
+		proofRequired: "確認の資料にするファイルを選んでください。",
 		receivedOnInvalid: "実際に受け取った日付を選んでください。",
-		confirmRequired:
-			"自分のカード・口座の明細を確認したことにチェックを入れてください。",
+		confirmRequired: "自分で確認したことにチェックを入れてください。",
+		noteTooShort: "どこで確認したかを10文字以上で書いてください。",
+		noRefConfirmRequired:
+			"番号のない明細であることを確認して、チェックを入れてください。",
+		reasonTooShort: "取り消す理由を3文字以上で書いてください。",
+		quantityInvalid:
+			"受け取った数量を、1以上・残りの数量以下で入力してください。",
 		passwordRequired: "本人確認のためパスワードを入力してください。",
 	},
 };
@@ -308,7 +320,8 @@ export const sharedZh: Shape = {
 	nextSteps: {
 		trashed: "已在回收站。恢复后可以继续。",
 		waived: "已记录为放弃。需要的话可以重新开始。",
-		disputed: "你和商城意见不一致。请补充凭证，整理下一步的条件。",
+		disputed:
+			"在商城没能解决。可以依次尝试向商城提出纠纷、向付款方提出异议、向消费者院咨询。",
 		completed: "这一单已结束。可以查看到账记录。",
 		recovered: "钱已到账。请核对内容后结束。",
 		remaining: "请确认剩余金额和商城给的期限。",
@@ -333,7 +346,7 @@ export const sharedZh: Shape = {
 		fileAdded: "已添加小票或照片",
 		fileRemoved: "已删除小票或照片",
 		receiptRecorded: "已记录到账",
-		receiptCorrected: "已更正到账记录",
+		receiptCorrected: "已撤销到账记录",
 		replyRecorded: "已记录商城回复",
 	},
 	replyKinds: {
@@ -364,9 +377,13 @@ export const sharedZh: Shape = {
 		amountInvalid: "请用数字填写金额。（如 49.99 或 65000）",
 		issueTooShort: "请用至少5个字说明出了什么问题。",
 		issueTooLong: "说明请控制在3,000字以内。",
-		proofRequired: "请选择能证明到账的文件。",
+		proofRequired: "请选择用作凭证的文件。",
 		receivedOnInvalid: "请选择实际收到的日期。",
-		confirmRequired: "请勾选，表示你已亲自核对自己的银行卡或账户明细。",
+		confirmRequired: "请勾选，表示你已亲自核对。",
+		noteTooShort: "请用至少10个字写明在哪里核对的。",
+		noRefConfirmRequired: "请确认这笔明细没有编号，并勾选。",
+		reasonTooShort: "请用至少3个字写明撤销的原因。",
+		quantityInvalid: "收到的数量请填写1到剩余数量之间的数字。",
 		passwordRequired: "请输入密码以确认是本人。",
 	},
 };

@@ -67,7 +67,8 @@ Agent_ReLo/
 |---|---|
 | `home/` | 홈 = 대화 화면 (`home_screen.dart`) |
 | `wizard/` | 5단계 신청과 완료 화면 (`wizard_screen.dart`) |
-| `claims/` | 내 환불 목록(`my_claims_screen.dart`), 상세(`claim_detail_screen.dart`), 마감일 적기(`deadline_sheet.dart`) |
+| `claims/` | 내 환불 목록(`my_claims_screen.dart`), 상세(`claim_detail_screen.dart`), 받은 것 기록 · 기록 되돌리기(`receipt_section.dart`), 분쟁 해결 안내 · 답 없는 쇼핑몰 · 다시 열기(`dispute_guide.dart`), 마감일 적기(`deadline_sheet.dart`) |
+| `shared/models/` | 서버와 같은 규칙(`claim_rules.dart`: 받은 것 합계, 다 받았는지, 다음 할 일, 이의 제기 마감), 환불 · 교환 · 수리의 말(`claim_words.dart`) |
 | `assistant/` | 아래에서 올라오는 도우미 대화 창 (`assistant_sheet.dart`) |
 | `auth/` | 로그인 · 회원가입 (`auth_screen.dart`) |
 | `settings/` | 계정 · 화면 · 알림 · 백업 · 약관 열기 · 탈퇴 (`settings_screen.dart`) |
@@ -123,9 +124,9 @@ Agent_ReLo/
 |---|---|---|
 | `landing/` | 첫 화면 | `LandingPage.tsx`(구성), `HeroProductShowcase.tsx`(실제 화면 보여 주기), `GlobalRefundGlobe.tsx` + `globeCanvasRenderer.ts`(지구본), `TossPhoneScenes.tsx`(스마트폰 이야기), `WhyReloSection.tsx`(비교 표), `LandingFlowPlayground.tsx`(5단계 흐름), `RefundSimulatorSection.tsx`(예상 환불 계산기) |
 | `auth/` | 로그인 · 가입 · 비밀번호 찾기 · 이메일 인증 | `AuthPage.tsx`, `AuthRecoveryPanels.tsx`, `ExtraSignIn.tsx`(구글 · 패스키 버튼) |
-| `claim-wizard/` | 5단계 신청 | `WizardPage.tsx`, `WizardStepsContent.tsx`, `WizardInvoiceScanCard.tsx`(영수증 자동 읽기), `WizardStatusScreens.tsx`(완료 · 안내) |
+| `claim-wizard/` | 5단계 신청 | `WizardPage.tsx`, `WizardStepsContent.tsx`, `WizardInvoiceScanCard.tsx`(영수증 자동 읽기), `WizardStatusScreens.tsx`(완료 · 안내), `useWizardDraft.ts`(적던 내용 불러오기 · 보관) |
 | `my-claims/` | 내 환불 | `MyClaimsPage.tsx`, `ConsumerClaimsLedger.tsx`(목록 · 검색 · 정렬), `ClaimsAnalyticsCard.tsx`(통화별 요약) |
-| `claim-detail/` | 환불 상세 | `ClaimDetailPage.tsx`, `ClaimLifecycleFlow.tsx`(단계 표시), `ForeignMessageStudio.tsx`(메시지), `SellerReplyAnalyzer.tsx`(답장), `EvidenceAndSettlementTab.tsx`(사진 · 입금), `ClaimFilesVaultCard.tsx`(보관함) |
+| `claim-detail/` | 환불 상세 | `ClaimDetailPage.tsx`, `ClaimLifecycleFlow.tsx`(단계 표시), `ForeignMessageStudio.tsx`(메시지), `SellerReplyAnalyzer.tsx`(답장), `EvidenceAndSettlementTab.tsx`(사진 · 입금), `ReceiptForm.tsx`(받은 것 기록), `ReceiptLedgerList.tsx`(받은 기록 · 되돌리기), `ClaimFilesVaultCard.tsx`(보관함), `ClaimProgressSummary.tsx`(맨 위 요약: 돈 · 받은 수량 · 수리 결과), `ClaimStateNotice.tsx`(답 없는 쇼핑몰 · 다시 열기), `DisputeGuideCard.tsx`(분쟁 해결 안내) |
 | `settings/` | 설정 | `SettingsPage.tsx`, `PasskeyCard.tsx` |
 
 ### 3. 화면의 공통 부품과 기반
@@ -140,6 +141,10 @@ Agent_ReLo/
 | `lib/api-client.ts` | 서버 호출 한 곳. CSRF · 버전 · 재시도 키를 붙임 |
 | `lib/router.tsx` | 주소 ↔ 화면 |
 | `lib/claim-words.ts` | 단계 이름, "다음에 할 일", 오류 문구를 고른 언어로 |
+| `lib/wizard-draft.ts` | 적던 신청을 이 브라우저에 계정별로 보관 (글자만, 일주일, 로그아웃하면 모두 지움) |
+| `lib/dispute.ts` | 분쟁 때의 마감일 계산(주문일 + 120일 · 180일)과 붙여 넣을 요약 글 만들기 |
+| `lib/claim-progress.ts` | 얼마나 받았는지(환불은 돈, 교환은 수량, 수리는 확인 여부), 다 받았는지, 닫힌 건인지, 되돌린 기록 |
+| `i18n/screens/kinds.ts` | 교환 · 수리가 돈 대신 쓰는 말, 번호 없는 입금 · 기록 되돌리기 · 답 없는 쇼핑몰의 말 (4개 언어) |
 | `lib/format.ts` · `passkey.ts` · `preparation.ts` | 날짜 · 금액 모양, 패스키 호출, AI가 읽는 동안의 안내를 잠깐 유지하는 타이머 |
 | `i18n/` | `ko` `en` `ja` `zh` + 화면별 사전 `screens/`(공통 · 내 환불 · 상세 · 신청 · 설정 · 올리기 · 계정 · 로그인 방식) |
 | `types/` | 서버와 맞춘 타입, 입력 검사 규칙(`claim.schema.ts`, `auth.schema.ts`) |

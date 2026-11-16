@@ -1,8 +1,9 @@
 /**
  * @module client/features/claim-detail/ClaimDetailPage
  * @layer ViewModel & Page Container (Individual Refund Case Workspace)
- * @purpose Displays a single refund case's Toss-style passbook summary, status flow,
- *          foreign message writer, seller reply summary, and deposit verification tabs.
+ * @purpose Displays a single refund, exchange or repair: what has come back so far, the
+ *          status flow, the way out when it is stuck, and the tabs for the message to the
+ *          shop, the shop's reply, files and the "it actually came in" record, and history.
  */
 
 import {
@@ -22,10 +23,12 @@ import {
 	Badge,
 	Button,
 	Card,
-	MoneyDisplay,
 	useToast,
 } from "@/client/components/ui/Primitives";
 import { ClaimLifecycleFlow } from "@/client/features/claim-detail/ClaimLifecycleFlow";
+import { ClaimProgressSummary } from "@/client/features/claim-detail/ClaimProgressSummary";
+import { ClaimStateNotice } from "@/client/features/claim-detail/ClaimStateNotice";
+import { DisputeGuideCard } from "@/client/features/claim-detail/DisputeGuideCard";
 import { EvidenceAndSettlementTab } from "@/client/features/claim-detail/EvidenceAndSettlementTab";
 import { ForeignMessageStudio } from "@/client/features/claim-detail/ForeignMessageStudio";
 import { SellerReplyAnalyzer } from "@/client/features/claim-detail/SellerReplyAnalyzer";
@@ -40,7 +43,7 @@ import { useI18n } from "@/client/i18n";
 import {
 	errorText,
 	historyLabel,
-	nextStepText,
+	kindWords,
 	stateLabel,
 } from "@/client/lib/claim-words";
 import { fill, formatLocalDate } from "@/client/lib/format";
@@ -100,10 +103,12 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 		);
 	}
 
-	const recoveryPct =
-		claim.claimed > 0
-			? Math.min(100, Math.round((claim.summary.cash / claim.claimed) * 100))
-			: 0;
+	// An exchange or a repair names two of the tabs after what arrives, not after money.
+	const ownTabs = kindWords(t, claim.kind)?.tabs;
+	const tabLabel = (id: DetailTabId) =>
+		(ownTabs && (id === "reply" || id === "settlement")
+			? ownTabs[id]
+			: undefined) ?? t.detail.tabs[id];
 
 	const handleCloseClaim = async () => {
 		try {
@@ -184,10 +189,11 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 								{claim.currency}
 							</span>
 							<Badge tone={claim.state === "disputed" ? "danger" : "neutral"}>
-								{stateLabel(t, claim.state)}
+								{stateLabel(t, claim.state, claim.kind)}
 							</Badge>
 							<span className="text-xs font-medium text-relo-muted">
-								{claim.vendor} · {t.shared.orderNo} {claim.orderRef}
+								{t.shared.kinds[claim.kind]} · {claim.vendor} ·{" "}
+								{t.shared.orderNo} {claim.orderRef}
 							</span>
 						</div>
 						<h1 className="text-2xl font-bold tracking-[-0.035em] text-relo-ink sm:text-[28px]">
@@ -209,78 +215,18 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 					) : null}
 				</div>
 
-				{/* Unified Toss Blue Passbook Gauge */}
-				<div className="rounded-2xl bg-relo-canvas p-5">
-					<div className="flex flex-wrap items-baseline justify-between gap-2">
-						<div>
-							<p className="text-xs font-medium text-relo-muted">
-								{t.pages.sumRecovered}
-							</p>
-							<div className="mt-1 flex items-baseline gap-2">
-								<MoneyDisplay
-									minor={claim.summary.cash}
-									currency={claim.currency}
-									className="text-3xl text-relo-ink sm:text-4xl"
-								/>
-								<span className="text-sm font-medium text-relo-muted">
-									/{" "}
-									<MoneyDisplay
-										minor={claim.claimed}
-										currency={claim.currency}
-										className="text-sm text-relo-muted"
-									/>
-								</span>
-							</div>
-						</div>
+				<ClaimProgressSummary claim={claim} />
 
-						<span className="text-xs font-semibold text-relo-brand">
-							{t.shared.nextStepLabel}: {nextStepText(t, claim)}
-						</span>
-					</div>
-
-					<div className="mt-4 h-2 w-full overflow-hidden rounded-full bg-[#e5e8eb]">
-						<div
-							style={{ width: `${Math.max(6, recoveryPct)}%` }}
-							className="h-full rounded-full bg-relo-brand transition-all"
-						/>
-					</div>
-
-					<div className="mt-4 flex flex-wrap items-center gap-x-6 gap-y-1.5 border-t border-relo-line pt-3.5 text-xs sm:text-sm">
-						<span className="text-relo-muted">
-							{t.pages.sumClaimed}{" "}
-							<MoneyDisplay
-								minor={claim.claimed}
-								currency={claim.currency}
-								className="ml-1 text-relo-ink"
-							/>
-						</span>
-						<span className="text-relo-muted">
-							{t.detail.agreedLabel}{" "}
-							{claim.agreed !== null ? (
-								<MoneyDisplay
-									minor={claim.agreed}
-									currency={claim.currency}
-									className="ml-1 text-relo-ink"
-								/>
-							) : (
-								<strong className="ml-1 font-semibold text-relo-body">
-									{t.detail.agreedPending}
-								</strong>
-							)}
-						</span>
-						<span className="text-relo-muted">
-							{t.pages.sumRemaining}{" "}
-							<MoneyDisplay
-								minor={claim.summary.remaining}
-								currency={claim.currency}
-								className="ml-1 text-relo-brand"
-							/>
-						</span>
-					</div>
-				</div>
-
-				<ClaimLifecycleFlow state={claim.state} />
+				<ClaimLifecycleFlow state={claim.state} kind={claim.kind} />
 			</Card>
+
+			{/* The shop said no (or the person stopped): what can be done next. */}
+			{!claim.deleted &&
+			(claim.state === "disputed" || claim.state === "waived") ? (
+				<DisputeGuideCard claim={claim} />
+			) : null}
+
+			<ClaimStateNotice claim={claim} />
 
 			<div className="overflow-x-auto border-b border-relo-line">
 				<div
@@ -308,7 +254,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 									className={`h-4 w-4 ${active ? "text-relo-brand" : "text-relo-muted"}`}
 									aria-hidden="true"
 								/>
-								<span>{t.detail.tabs[tab.id]}</span>
+								<span>{tabLabel(tab.id)}</span>
 								{active ? (
 									<motion.span
 										layoutId="claim-detail-underline"
@@ -338,7 +284,7 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 								className="flex items-center justify-between rounded-2xl bg-relo-sunken px-4 py-3 text-xs"
 							>
 								<span className="font-semibold text-relo-ink">
-									{historyLabel(t, ev.action)}
+									{historyLabel(t, ev.action, claim.kind)}
 								</span>
 								<span className="text-relo-muted tabular-nums">
 									{formatLocalDate(ev.createdAt, localeOption.bcp47)}

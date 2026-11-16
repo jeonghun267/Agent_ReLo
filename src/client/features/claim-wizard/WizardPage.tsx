@@ -3,6 +3,7 @@
  * @layer ViewModel & Page Container (5-Step Consumer Refund Wizard)
  * @purpose Coordinates react-hook-form validation, receipt auto-fill, translation,
  *          and multi-file attachment submission across the 5-step consumer wizard.
+ *          What is being written is kept in this browser and brought back after a reload.
  */
 
 import confetti from "canvas-confetti";
@@ -12,6 +13,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
 import type { StagedEvidenceItem } from "@/client/components/media/UppyEvidenceUploader";
 import { Button, Card, useToast } from "@/client/components/ui/Primitives";
+import { useWizardDraft } from "@/client/features/claim-wizard/useWizardDraft";
 import {
 	WizardGuestGate,
 	WizardSuccessScreen,
@@ -30,6 +32,7 @@ import {
 import { useI18n } from "@/client/i18n";
 import { filesApi } from "@/client/lib/api-client";
 import { errorText } from "@/client/lib/claim-words";
+import { fill, todayLocalIso } from "@/client/lib/format";
 import { useCalmPreparation } from "@/client/lib/preparation";
 import { useRouter } from "@/client/lib/router";
 import { zodV4Resolver } from "@/client/lib/zod-resolver";
@@ -41,10 +44,6 @@ import {
 	type CurrencyCode,
 	claimWizardSchema,
 } from "@/client/types";
-
-function todayIsoDate(): string {
-	return new Date().toISOString().slice(0, 10);
-}
 
 export function WizardPage() {
 	const { search, navigate } = useRouter();
@@ -70,6 +69,10 @@ export function WizardPage() {
 		const rawCurr = params.get("currency") as CurrencyCode | null;
 		const rawKind = params.get("kind") as ClaimKind | null;
 		return {
+			// Opened with details already chosen (a shop picked on the first screen).
+			hasPrefill: ["vendor", "currency", "amount", "kind", "issue"].some(
+				(key) => params.has(key),
+			),
 			vendor: params.get("vendor") ?? "",
 			currency:
 				rawCurr &&
@@ -93,7 +96,7 @@ export function WizardPage() {
 			vendor: queryDefaults.vendor,
 			vendorUrl: "",
 			orderRef: "",
-			orderedOn: todayIsoDate(),
+			orderedOn: todayLocalIso(),
 			title: "",
 			sku: "",
 			orderedQty: 1,
@@ -108,6 +111,7 @@ export function WizardPage() {
 	});
 
 	useEffect(() => {
+		if (!queryDefaults.hasPrefill) return;
 		if (queryDefaults.vendor) form.setValue("vendor", queryDefaults.vendor);
 		if (queryDefaults.currency)
 			form.setValue("currency", queryDefaults.currency);
@@ -118,6 +122,29 @@ export function WizardPage() {
 	}, [queryDefaults, form]);
 
 	const values = form.watch();
+
+	const attachedNames = [
+		...extraScannedFiles.map((file) => file.name),
+		...stagedFiles.map((item) => item.file.name),
+	];
+	const draft = useWizardDraft({
+		userId: session?.user?.id,
+		form,
+		values,
+		step,
+		setStep,
+		fileNames: attachedNames,
+		startFresh: queryDefaults.hasPrefill,
+	});
+
+	const handleStartOver = () => {
+		draft.forget();
+		form.reset();
+		setStep(1);
+		setStagedFiles([]);
+		setExtraScannedFiles([]);
+		showToast(w.toastDraftCleared);
+	};
 
 	const handleQuickDemoLogin = async () => {
 		if (!config?.demoAccount) {
@@ -240,6 +267,8 @@ export function WizardPage() {
 				],
 			});
 
+			// The request now exists on the server; a reload must not offer to send it again.
+			draft.finish();
 			let latestClaim = initialClaim;
 			const allFilesToUpload: File[] = [
 				...extraScannedFiles,
@@ -292,6 +321,13 @@ export function WizardPage() {
 	}
 
 	const currentStepMeta = w.steps[step - 1] ?? w.steps[0];
+	const mustReattach =
+		!!draft.restored &&
+		draft.restored.fileCount > 0 &&
+		attachedNames.length === 0;
+	const showDraftNotice =
+		!!draft.restored &&
+		(step === draft.restored.step || (step === 4 && mustReattach));
 
 	return (
 		<div className="bg-relo-canvas py-8 sm:py-14">
@@ -308,6 +344,26 @@ export function WizardPage() {
 						</div>
 
 						<div className="p-6 sm:p-9">
+							{showDraftNotice && draft.restored ? (
+								<div
+									role="status"
+									className="mb-6 flex flex-wrap items-center justify-between gap-x-3 rounded-xl bg-relo-sunken px-3.5 py-1 text-xs text-relo-muted"
+								>
+									<span className="py-1.5">
+										{w.draftRestored}
+										{mustReattach
+											? ` ${fill(w.draftFiles, { n: draft.restored.fileCount })}`
+											: ""}
+									</span>
+									<button
+										type="button"
+										onClick={handleStartOver}
+										className="inline-flex min-h-11 shrink-0 cursor-pointer items-center font-semibold text-relo-brand hover:underline"
+									>
+										{w.draftStartOver}
+									</button>
+								</div>
+							) : null}
 							<div className="mb-7 space-y-2">
 								<div className="flex items-center justify-between text-xs font-semibold text-relo-muted">
 									<span className="text-relo-brand">
@@ -332,7 +388,7 @@ export function WizardPage() {
 									<WizardStepsContent
 										step={step}
 										form={form}
-										todayIso={todayIsoDate()}
+										todayIso={todayLocalIso()}
 										isTranslating={isPreparing || translateMutation.isPending}
 										stagedFilesCount={stagedFiles.length}
 										extraScannedCount={extraScannedFiles.length}

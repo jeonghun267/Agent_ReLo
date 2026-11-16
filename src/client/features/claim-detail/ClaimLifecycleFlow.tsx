@@ -1,14 +1,15 @@
 /**
  * @module client/features/claim-detail/ClaimLifecycleFlow
  * @layer View (Single-Case Progress Steps)
- * @purpose Shows where one refund stands among its six stages, in the reader's language:
- *          a row of numbered steps joined by a line on wide screens, and the same six
- *          steps two per row on narrow ones. Plain text at a readable size on both.
+ * @purpose Shows where one refund, exchange or repair stands among its six stages, in the
+ *          reader's language: a row of numbered steps joined by a line on wide screens, and
+ *          the same six steps two per row on narrow ones. Plain text at a readable size on both.
  */
 
 import { Check } from "lucide-react";
 import { useI18n } from "@/client/i18n";
-import type { ClaimState } from "@/client/types";
+import { kindWords } from "@/client/lib/claim-words";
+import type { ClaimKind, ClaimState } from "@/client/types";
 
 const ORDERED_STAGES = [
 	"preparing",
@@ -46,9 +47,17 @@ const BOX_STYLES: Record<StageStatus, string> = {
 	upcoming: "border-relo-line bg-white/85 text-relo-muted",
 };
 
-export function ClaimLifecycleFlow({ state }: { state: ClaimState }) {
+export function ClaimLifecycleFlow({
+	state,
+	kind,
+}: {
+	state: ClaimState;
+	kind: ClaimKind;
+}) {
 	const { t } = useI18n();
 	const rank = stageRank(state);
+	// An exchange or a repair names the last steps after what arrives, not after money.
+	const own = kindWords(t, kind)?.stages;
 
 	// The six stages with where this refund stands. Both layouts below draw from this.
 	const stages = ORDERED_STAGES.map((id, idx) => {
@@ -58,17 +67,17 @@ export function ClaimLifecycleFlow({ state }: { state: ClaimState }) {
 			status = state === "disputed" || state === "waived" ? "alert" : "current";
 		}
 		const words = t.detail.stages[id];
-		return {
-			id,
-			status,
-			label:
-				idx === 3 && state === "partial"
-					? t.detail.stagePartial
-					: idx === 3 && state === "disputed"
-						? t.detail.stageDisputed
-						: words.label,
-			sub: words.sub,
-		};
+		let label: string = words.label;
+		let sub: string = words.sub;
+		if (own && id === "negotiating") sub = own.negotiatingSub;
+		if (own && id === "recovered") {
+			label = own.recoveredLabel;
+			sub = own.recoveredSub;
+		}
+		if (idx === 3 && state === "partial")
+			label = own?.partial ?? t.detail.stagePartial;
+		if (idx === 3 && state === "disputed") label = t.detail.stageDisputed;
+		return { id, status, label, sub };
 	});
 
 	return (

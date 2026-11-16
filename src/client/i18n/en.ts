@@ -7,6 +7,7 @@
 import { authEn } from "@/client/i18n/screens/auth";
 import { claimsEn } from "@/client/i18n/screens/claims";
 import { detailEn } from "@/client/i18n/screens/detail";
+import { kindsEn } from "@/client/i18n/screens/kinds";
 import { settingsEn } from "@/client/i18n/screens/settings";
 import { sharedEn } from "@/client/i18n/screens/shared";
 import { signinEn } from "@/client/i18n/screens/signin";
@@ -405,6 +406,7 @@ export const enMessages: TranslationDictionary = {
 	shared: sharedEn,
 	claims: claimsEn,
 	detail: detailEn,
+	kinds: kindsEn,
 	wizard: wizardEn,
 	settings: settingsEn,
 	upload: uploadEn,

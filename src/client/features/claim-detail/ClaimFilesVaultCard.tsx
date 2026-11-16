@@ -84,6 +84,14 @@ export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 		}
 	};
 
+	const handleRemove = async (fileId: string) => {
+		try {
+			await removeFileMutation.mutateAsync({ fileId, version: claim.version });
+		} catch (error) {
+			showToast(errorText(error, v.toastDeleteFail, locale), "error");
+		}
+	};
+
 	return (
 		<Card className="space-y-4">
 			<div>
@@ -140,12 +148,7 @@ export function ClaimFilesVaultCard({ claim }: { claim: ClaimView }) {
 											variant="ghost"
 											size="sm"
 											aria-label={fill(v.deleteAria, { name: file.name })}
-											onClick={() =>
-												void removeFileMutation.mutateAsync({
-													fileId: file.id,
-													version: claim.version,
-												})
-											}
+											onClick={() => void handleRemove(file.id)}
 										>
 											<Trash2
 												className="h-4 w-4 text-relo-danger"

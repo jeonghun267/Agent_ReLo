@@ -25,7 +25,12 @@ import {
 import { useId, useMemo, useState } from "react";
 import { Badge, Card, MoneyDisplay } from "@/client/components/ui/Primitives";
 import { useI18n } from "@/client/i18n";
-import { nextStepText, stateLabel } from "@/client/lib/claim-words";
+import { receivedPercent } from "@/client/lib/claim-progress";
+import {
+	nextStepText,
+	receivedText,
+	stateLabel,
+} from "@/client/lib/claim-words";
 import { fill, formatLocalDate } from "@/client/lib/format";
 import { AppLink } from "@/client/lib/router";
 import type { ClaimState, ClaimView } from "@/client/types";
@@ -90,7 +95,11 @@ export function ConsumerClaimsLedger({ claims }: { claims: ClaimView[] }) {
 					sortFn: "alphanumeric",
 					cell: (info) => {
 						const st = info.getValue();
-						return <Badge tone={stateTone(st)}>{stateLabel(t, st)}</Badge>;
+						return (
+							<Badge tone={stateTone(st)}>
+								{stateLabel(t, st, info.row.original.kind)}
+							</Badge>
+						);
 					},
 				}),
 				columnHelper.accessor("claimed", {
@@ -113,6 +122,15 @@ export function ConsumerClaimsLedger({ claims }: { claims: ClaimView[] }) {
 					sortFn: "basic",
 					cell: (info) => {
 						const row = info.row.original;
+						// An exchange or a repair has no money coming back: say what arrived instead.
+						const arrived = receivedText(t, row);
+						if (arrived !== null) {
+							return (
+								<span className="text-sm font-semibold text-relo-brand tabular-nums">
+									{arrived}
+								</span>
+							);
+						}
 						return (
 							<MoneyDisplay
 								minor={row.summary.cash}
@@ -240,10 +258,8 @@ export function ConsumerClaimsLedger({ claims }: { claims: ClaimView[] }) {
 				<div className="grid gap-3">
 					{rows.map((row) => {
 						const c = row.original;
-						const pct =
-							c.claimed > 0
-								? Math.min(100, Math.round((c.summary.cash / c.claimed) * 100))
-								: 0;
+						const pct = receivedPercent(c);
+						const arrived = receivedText(t, c);
 						return (
 							<AppLink
 								key={c.id}
@@ -257,9 +273,10 @@ export function ConsumerClaimsLedger({ claims }: { claims: ClaimView[] }) {
 												{c.currency}
 											</span>
 											<Badge tone={stateTone(c.state)}>
-												{stateLabel(t, c.state)}
+												{stateLabel(t, c.state, c.kind)}
 											</Badge>
 											<span className="text-xs font-medium text-relo-muted">
+												{arrived !== null ? `${t.shared.kinds[c.kind]} · ` : ""}
 												{c.vendor} · {c.orderRef}
 											</span>
 										</div>
@@ -274,24 +291,35 @@ export function ConsumerClaimsLedger({ claims }: { claims: ClaimView[] }) {
 								</div>
 
 								<div className="mt-4 flex flex-wrap items-baseline justify-between gap-2 text-xs sm:text-sm">
-									<div className="flex items-baseline gap-4">
+									{arrived !== null ? (
 										<span className="text-relo-muted">
-											{t.pages.sumClaimed}{" "}
-											<MoneyDisplay
-												minor={c.claimed}
-												currency={c.currency}
-												className="ml-0.5 text-relo-ink"
-											/>
+											{c.kind === "exchange"
+												? t.kinds.progress.goodsLabel
+												: t.kinds.progress.repairLabel}{" "}
+											<strong className="ml-0.5 font-semibold text-relo-ink tabular-nums">
+												{arrived}
+											</strong>
 										</span>
-										<span className="text-relo-muted">
-											{t.pages.sumRecovered}{" "}
-											<MoneyDisplay
-												minor={c.summary.cash}
-												currency={c.currency}
-												className="ml-0.5 text-relo-brand"
-											/>
-										</span>
-									</div>
+									) : (
+										<div className="flex items-baseline gap-4">
+											<span className="text-relo-muted">
+												{t.pages.sumClaimed}{" "}
+												<MoneyDisplay
+													minor={c.claimed}
+													currency={c.currency}
+													className="ml-0.5 text-relo-ink"
+												/>
+											</span>
+											<span className="text-relo-muted">
+												{t.pages.sumRecovered}{" "}
+												<MoneyDisplay
+													minor={c.summary.cash}
+													currency={c.currency}
+													className="ml-0.5 text-relo-brand"
+												/>
+											</span>
+										</div>
+									)}
 									<span className="text-xs font-semibold text-relo-brand">
 										{nextStepText(t, c)}
 									</span>

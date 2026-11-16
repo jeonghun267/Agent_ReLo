@@ -7,6 +7,7 @@
 import { authZh } from "@/client/i18n/screens/auth";
 import { claimsZh } from "@/client/i18n/screens/claims";
 import { detailZh } from "@/client/i18n/screens/detail";
+import { kindsZh } from "@/client/i18n/screens/kinds";
 import { settingsZh } from "@/client/i18n/screens/settings";
 import { sharedZh } from "@/client/i18n/screens/shared";
 import { signinZh } from "@/client/i18n/screens/signin";
@@ -392,6 +393,7 @@ export const zhMessages: TranslationDictionary = {
 	shared: sharedZh,
 	claims: claimsZh,
 	detail: detailZh,
+	kinds: kindsZh,
 	wizard: wizardZh,
 	settings: settingsZh,
 	upload: uploadZh,

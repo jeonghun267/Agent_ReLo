@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../core/i18n/relo_i18n.dart';
+import '../../core/network/api_client.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
@@ -80,18 +81,39 @@ class _DeadlineSheetState extends State<_DeadlineSheet> {
     });
     if (_dateError != null || _quoteError != null) return;
     setState(() => _saving = true);
-    await ReloScope.of(context).setClaimDeadline(
-      claimId: widget.claim.id,
-      deadline: date,
-      quote: quote,
-    );
+    final store = ReloScope.of(context);
+    try {
+      await store.setClaimDeadline(
+        claimId: widget.claim.id,
+        deadline: date,
+        quote: quote,
+      );
+    } on ApiError catch (e) {
+      _refused(store.refusalText(e));
+      return;
+    }
     if (mounted) Navigator.pop(context, true);
   }
 
   Future<void> _clear() async {
     setState(() => _saving = true);
-    await ReloScope.of(context).setClaimDeadline(claimId: widget.claim.id);
+    final store = ReloScope.of(context);
+    try {
+      await store.setClaimDeadline(claimId: widget.claim.id);
+    } on ApiError catch (e) {
+      _refused(store.refusalText(e));
+      return;
+    }
     if (mounted) Navigator.pop(context, false);
+  }
+
+  /// 서버가 받지 않았으면 닫지 않고, 까닭을 칸 아래에 보여 준다
+  void _refused(String message) {
+    if (!mounted) return;
+    setState(() {
+      _saving = false;
+      _quoteError = message;
+    });
   }
 
   @override

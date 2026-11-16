@@ -1081,10 +1081,10 @@ class ReloStrings {
         '显示已签收，但我实际没有收到包裹。',
       );
   String get wKindRefund => _t(
-        '전액 환불',
-        'Full refund',
-        '全額返金',
-        '全额退款',
+        '반품 · 환불',
+        'Return and refund',
+        '返品・返金',
+        '退货退款',
       );
   String get wKindExchange => _t(
         '새 상품 교환',
@@ -1093,10 +1093,10 @@ class ReloStrings {
         '换新',
       );
   String get wKindRepair => _t(
-        '부분 환불 · 수리',
-        'Partial refund · repair',
-        '一部返金・修理',
-        '部分退款 · 维修',
+        '무상 수리 · 부품',
+        'Free repair or parts',
+        '無償修理・部品',
+        '免费维修或配件',
       );
   String get wSampleAmazon => _t(
         'Amazon US 영수증',
@@ -2231,10 +2231,10 @@ class ReloStrings {
         '$vendor · 订单号 $ref\n退款申请和凭证已保存到你的保管箱。',
       );
   String wAmount(String cur) => _t(
-        '돌려받을 금액 ($cur)',
-        'Amount to get back ($cur)',
-        '返金してほしい金額（$cur）',
-        '希望退回的金额（$cur）',
+        '문제가 생긴 상품 금액 ($cur)',
+        'Price of the item with the problem ($cur)',
+        '問題のあった商品の金額（$cur）',
+        '出问题商品的金额（$cur）',
       );
   /// [masked]는 붙인 파일이 모두 주소를 가린 것일 때만 true (직접 고른 사진은 앱이 가려 주지 않는다)
   String wSumFilesValue(int n, {bool masked = true}) => masked
