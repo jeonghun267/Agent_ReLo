@@ -13,6 +13,8 @@ import '../../core/storage/reminder_prefs.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
+import '../models/claim_rules.dart';
+import '../models/claim_words.dart';
 import '../models/domain_models.dart';
 
 /// @module shared/state/relo_store
@@ -304,7 +306,7 @@ class ReloStore extends ChangeNotifier {
           cash: 0,
           goods: 0,
           repair: false,
-          remaining: 9850,
+          remaining: 0,
           requestedQty: 1,
         ),
         nextStep: '쇼핑몰에서 온 답장을 붙여넣고 쉬운 한국어 요약을 확인하세요.',
@@ -709,14 +711,15 @@ class ReloStore extends ChangeNotifier {
       final state = config.states[focus.state] ?? focus.state;
       final dday = DDay.label(focus.deadline);
       final when = dday == null ? '' : ' ($dday)';
+      final todo = strings.cwNextStep(focus.kind, nextStepCode(focus));
       final lead = claimId == null && open.length > 1
           ? t('진행 중인 환불이 ${open.length}건이에요. 가장 급한 건부터 볼게요.\n',
               'You have ${open.length} open claims. Here is the most urgent one.\n')
           : '';
       return answer(
         lead +
-            t('${focus.vendor} 건은 지금 "$state" 단계예요$when. ${focus.nextStep}',
-                '${focus.vendor}: currently "$state"$when. ${focus.nextStep}'),
+            t('${focus.vendor} 건은 지금 "$state" 단계예요$when. $todo',
+                '${focus.vendor}: currently "$state"$when. $todo'),
         action: 'open_claim',
         id: focus.id,
       );
@@ -1192,7 +1195,9 @@ class ReloStore extends ChangeNotifier {
       await refreshClaims();
       notifyListeners();
       return created;
-    } catch (_) {
+    } catch (e) {
+      // 서버가 신청을 받지 않았으면, 기기 안에만 만들어 두고 된 것처럼 보이지 않게 한다
+      if (_refused(e)) rethrow;
       final minor = MoneyFormat.decimalStringToMinor(claimedAmount, currency);
       final newId = 'clm_${DateTime.now().millisecondsSinceEpoch}';
       final nowIso = DateTime.now().toIso8601String();
@@ -1273,7 +1278,7 @@ class ReloStore extends ChangeNotifier {
           cash: 0,
           goods: 0,
           repair: false,
-          remaining: minor,
+          remaining: kind == 'refund' ? minor : 0,
           requestedQty: claimQty,
         ),
         nextStep: '외국어 요청서를 자동 생성해 쇼핑몰 고객센터에 보내세요.',
@@ -1356,7 +1361,9 @@ class ReloStore extends ChangeNotifier {
       );
       await refreshClaims();
       return;
-    } catch (_) {}
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
 
     final nowIso = DateTime.now().toIso8601String();
     final newDraft = ClaimDraft(
@@ -1445,6 +1452,40 @@ class ReloStore extends ChangeNotifier {
     );
   }
 
+  /// 서버가 이 건을 알고 "안 된다"고 답했는지. 이럴 때는 기기 안에서 된 것처럼 바꾸지 않고
+  /// 화면이 서버의 말을 그대로 보여 준다. 서버에 붙지 못했거나(체험 모드), 로그인 전이거나,
+  /// 서버에 없는 보기용 건(404)이면 전처럼 기기 안에서만 바꾼다.
+  bool _refused(Object e) =>
+      e is ApiError &&
+      e.explained &&
+      e.status != 401 &&
+      !(e.status == 404 && e.field == null);
+
+  /// 거절한 까닭을 화면에 보일 말로. 서버는 한국어로만 말하므로, 다른 언어에서는 화면의 문장을 쓴다.
+  String refusalText(ApiError e) =>
+      locale == ReloLocale.ko && e.message.isNotEmpty
+          ? e.message
+          : strings.cwFailed;
+
+  /// 기기 안에서만 바꿀 때, 서버라면 거절했을 일을 같은 말로 거절한다
+  Never _refuseLocally(String message, {String? field}) => throw ApiError(
+        message,
+        code: 'validation',
+        status: 422,
+        field: field,
+        explained: true,
+      );
+
+  String _todayLocal() => DateTime.now().toIso8601String().substring(0, 10);
+
+  ClaimAuditEvent _event(String action, String nowIso) => ClaimAuditEvent(
+        id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
+        action: action,
+        createdAt: nowIso,
+      );
+
+  /// 쇼핑몰 답장을 저장하고, 환불 건이면 약속한 금액도 함께 적는다.
+  /// 금액을 비워 두면 약속 금액은 건드리지 않는다 (아직 약속이 없을 때).
   Future<void> saveReplyAndAgreedAmount({
     required String claimId,
     required String rawReply,
@@ -1456,13 +1497,11 @@ class ReloStore extends ChangeNotifier {
     final target = findClaim(claimId);
     if (target == null) return;
 
-    final agreedMinor = agreedAmountStr.trim().isEmpty
-        ? target.claimed
-        : MoneyFormat.decimalStringToMinor(agreedAmountStr, target.currency);
-    final agreedDecStr = MoneyFormat.minorToDecimalString(
-      agreedMinor,
-      target.currency,
-    );
+    final setsAgreed =
+        target.kind == 'refund' && agreedAmountStr.trim().isNotEmpty;
+    final agreedMinor = setsAgreed
+        ? MoneyFormat.decimalStringToMinor(agreedAmountStr, target.currency)
+        : target.agreed;
 
     try {
       final replyRes = await api.requestJson(
@@ -1477,24 +1516,34 @@ class ReloStore extends ChangeNotifier {
           'aiAssisted': true,
         },
       );
-      var currentVersion = target.version + 1;
-      if (replyRes['claim'] is Map<String, dynamic>) {
-        final afterReply = ClaimView.fromJson(
-          replyRes['claim'] as Map<String, dynamic>,
-        );
-        currentVersion = afterReply.version;
+      try {
+        if (setsAgreed && agreedMinor != target.agreed) {
+          final afterReply = replyRes['claim'] is Map<String, dynamic>
+              ? ClaimView.fromJson(replyRes['claim'] as Map<String, dynamic>)
+              : target;
+          await api.requestJson(
+            '/api/claims/${Uri.encodeComponent(claimId)}',
+            method: 'PATCH',
+            version: replyRes['claim'] is Map<String, dynamic>
+                ? afterReply.version
+                : target.version + 1,
+            data: _buildClaimMutationPayload(
+              afterReply,
+              agreedAmountStr: MoneyFormat.minorToDecimalString(
+                agreedMinor!,
+                target.currency,
+              ),
+            ),
+          );
+        }
+      } finally {
+        // 답장은 이미 저장됐다. 금액 저장이 거절돼도 저장된 데까지는 화면에 보여 준다.
+        await refreshClaims();
       }
-
-      // 백엔드 SQLite에 합의액(agreedAmount) 동기화 (PATCH /api/claims/:id)
-      await api.requestJson(
-        '/api/claims/${Uri.encodeComponent(claimId)}',
-        method: 'PATCH',
-        version: currentVersion,
-        data: _buildClaimMutationPayload(target, agreedAmountStr: agreedDecStr),
-      );
-      await refreshClaims();
       return;
-    } catch (_) {}
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
 
     final nowIso = DateTime.now().toIso8601String();
     final reply = ClaimReply(
@@ -1506,77 +1555,68 @@ class ReloStore extends ChangeNotifier {
       aiAssisted: true,
       recordedAt: nowIso,
     );
+    final summary = claimTotals(target, agreed: agreedMinor);
+    var state = stateAfterReply(replyKind, target.state);
+    // 쇼핑몰이 답했으니 기다림은 끝났다 ("환불 처리했다"는 안내만은 입금을 기다린다)
+    if (replyKind != 'refund_notice' &&
+        const {'preparing', 'review', 'awaiting'}.contains(state)) {
+      state = 'negotiating';
+    }
+    state = stateAfterFactsChange(state, target.kind, agreedMinor, summary);
 
     _replaceClaim(
-      ClaimView(
-        id: target.id,
-        title: target.title,
-        vendor: target.vendor,
-        vendorUrl: target.vendorUrl,
-        orderRef: target.orderRef,
-        orderedOn: target.orderedOn,
-        kind: target.kind,
-        currency: target.currency,
-        items: target.items,
-        claimed: target.claimed,
+      target.copyWith(
         agreed: agreedMinor,
-        issue: target.issue,
-        issueEnglish: target.issueEnglish,
-        deadline: target.deadline,
-        deadlineQuote: target.deadlineQuote,
-        deadlineZone: target.deadlineZone,
-        state: 'negotiating',
+        state: state,
         version: target.version + 1,
-        deleted: target.deleted,
-        createdAt: target.createdAt,
         updatedAt: nowIso,
-        files: target.files,
-        ledger: target.ledger,
-        drafts: target.drafts,
         replies: [reply, ...target.replies],
         events: [
-          ClaimAuditEvent(
-            id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
-            action:
-                '쇼핑몰 답장 요약 저장 및 약속 금액(${MoneyFormat.formatMinor(agreedMinor, target.currency)}) 확정',
-            createdAt: nowIso,
+          _event(
+            setsAgreed
+                ? '쇼핑몰 답장 저장 및 약속 금액(${MoneyFormat.formatMinor(agreedMinor!, target.currency)}) 기록'
+                : '쇼핑몰 답장 저장',
+            nowIso,
           ),
           ...target.events,
         ],
-        summary: ClaimSummaryTotals(
-          cash: target.summary.cash,
-          goods: target.summary.goods,
-          repair: target.summary.repair,
-          remaining: (agreedMinor - target.summary.cash).clamp(0, 999999999),
-          requestedQty: target.summary.requestedQty,
-        ),
-        nextStep: '내 카드·통장에 실제로 취소/입금된 금액을 확인하고 입금 완료를 기록하세요.',
+        summary: summary,
       ),
     );
   }
 
-  Future<void> recordRealDeposit({
+  /// 실제로 받은 것을 기록한다 (`POST /api/claims/:id/receipts`).
+  /// 환불은 들어온 돈([amountStr]), 교환은 받은 수량([quantity]), 수리는 결과만 적는다.
+  /// 입금 번호([transactionRef])가 없으면 어디에서 확인했는지([note], 10자 이상)와
+  /// 사용자의 확인([noRefConfirmed])이 있어야 한다. 서버가 거절하면 [ApiError]를 던진다.
+  Future<void> recordReceipt({
     required String claimId,
-    required String amountStr,
-    required String transactionRef,
     required String receivedOn,
+    String amountStr = '',
+    String transactionRef = '',
+    String note = '',
+    bool noRefConfirmed = false,
+    int quantity = 1,
     String? proofId,
   }) async {
     final target = findClaim(claimId);
     if (target == null) return;
 
-    final depositMinor = MoneyFormat.decimalStringToMinor(
-      amountStr,
-      target.currency,
-    );
-    final normalizedRef = transactionRef.trim().isEmpty
-        ? 'CARD-REFUND-${DateTime.now().millisecondsSinceEpoch.toString().substring(7)}'
-        : transactionRef.trim();
+    final isRefund = target.kind == 'refund';
+    final receiptKind = switch (target.kind) {
+      'exchange' => 'goods',
+      'repair' => 'repair',
+      _ => 'cash',
+    };
+    final ref = transactionRef.trim();
+    final depositMinor = isRefund
+        ? MoneyFormat.decimalStringToMinor(amountStr, target.currency)
+        : 0;
 
     try {
       var activeClaim = target;
-      // 백엔드 parseReceipt 규칙: 환불(refund) 건은 agreed 금액이 먼저 설정되어 있어야 입금 기록 가능
-      if (activeClaim.agreed == null) {
+      // 서버는 약속 금액이 있어야 입금을 받는다. 아직 없으면 신청한 금액을 약속 금액으로 적는다.
+      if (isRefund && activeClaim.agreed == null) {
         final patchRes = await api.requestJson(
           '/api/claims/${Uri.encodeComponent(claimId)}',
           method: 'PATCH',
@@ -1602,96 +1642,177 @@ class ReloStore extends ChangeNotifier {
         version: activeClaim.version,
         idempotencyKey: ReloApiClient.newIdempotencyKey(),
         data: {
-          'kind': 'cash',
-          'proofId':
-              proofId ??
+          'kind': receiptKind,
+          'proofId': proofId ??
               (activeClaim.files.isNotEmpty ? activeClaim.files.first.id : ''),
           'receivedOn': receivedOn,
-          'amount': amountStr,
-          'quantity': 1,
-          'transactionRef': normalizedRef,
-          'note': '실제 카드 취소 및 계좌 입금 내역 대조 완료',
-          'missingReferenceConfirmed': true,
-          'duplicateReviewed': true,
+          if (isRefund) 'amount': amountStr,
+          if (receiptKind == 'goods') 'quantity': quantity,
+          if (ref.isNotEmpty) 'transactionRef': ref,
+          if (note.trim().isNotEmpty) 'note': note.trim(),
+          // 번호가 없는 입금은 사용자가 직접 확인했다고 한 것만 그렇게 보낸다
+          if (isRefund && ref.isEmpty) ...{
+            'missingReferenceConfirmed': noRefConfirmed,
+            'duplicateReviewed': noRefConfirmed,
+          },
           'confirmed': true,
         },
       );
       await refreshClaims();
       return;
-    } catch (_) {}
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
+
+    // ── 기기 안에서만 (체험 모드 · 보기용 건). 서버와 같은 규칙으로 센다. ──
+    final agreed = target.agreed ?? (isRefund ? target.claimed : null);
+    if (isRefund) {
+      if (depositMinor < 1 || depositMinor > agreed! - target.summary.cash) {
+        _refuseLocally('입금액은 아직 받지 못한 약속 금액 이내로 적어 주세요.', field: 'amount');
+      }
+      if (ref.isEmpty && (!noRefConfirmed || note.trim().length < 10)) {
+        _refuseLocally(
+          '입금 번호가 없으면 확인 체크와 메모(10자 이상)가 필요해요.',
+          field: 'transactionRef',
+        );
+      }
+      if (ref.isNotEmpty &&
+          claims.any((c) => c.ledger.any((e) =>
+              e.kind == 'cash' &&
+              e.transactionRef.toUpperCase() == ref.toUpperCase()))) {
+        _refuseLocally(
+          '이미 기록한 거래예요. 같은 입금을 두 번 셀 수 없어요.',
+          field: 'transactionRef',
+        );
+      }
+    }
+    final left = target.summary.requestedQty - target.summary.goods;
+    if (receiptKind == 'goods' && (quantity < 1 || quantity > left)) {
+      _refuseLocally('받은 교환품 수량은 1~$left개로 적어 주세요.', field: 'quantity');
+    }
+    if (receiptKind == 'repair' && target.summary.repair) {
+      _refuseLocally('수리 결과는 이미 기록했어요.');
+    }
 
     final nowIso = DateTime.now().toIso8601String();
-    final newEntry = LedgerEntry(
+    final entry = LedgerEntry(
       id: 'ldg_${DateTime.now().millisecondsSinceEpoch}',
       claimId: claimId,
-      kind: 'cash',
+      kind: receiptKind,
       amount: depositMinor,
-      quantity: 1,
-      note: '실제 카드 취소 · 계좌 입금 확인 완료',
-      proofId: proofId,
-      transactionRef: transactionRef.isEmpty
-          ? 'CARD-REFUND-${DateTime.now().millisecondsSinceEpoch.toString().substring(8)}'
-          : transactionRef,
+      quantity: receiptKind == 'goods' ? quantity : 0,
+      note: note.trim(),
+      proofId: proofId ??
+          (target.files.isNotEmpty ? target.files.first.id : null),
+      transactionRef: ref,
       receivedOn: receivedOn,
       createdAt: nowIso,
     );
-
-    final nextCash = target.summary.cash + depositMinor;
-    final targetTotal = target.agreed ?? target.claimed;
-    final nextRemaining = (targetTotal - nextCash).clamp(0, 999999999);
-    final nextState = nextRemaining == 0 ? 'recovered' : 'partial';
+    final ledger = [entry, ...target.ledger];
+    final summary = claimTotals(target, ledger: ledger, agreed: agreed);
+    final what = switch (receiptKind) {
+      'goods' => '교환품 $quantity개 받음',
+      'repair' => '수리 결과 확인',
+      _ => '입금(${MoneyFormat.formatMinor(depositMinor, target.currency)}) 확인',
+    };
 
     _replaceClaim(
-      ClaimView(
-        id: target.id,
-        title: target.title,
-        vendor: target.vendor,
-        vendorUrl: target.vendorUrl,
-        orderRef: target.orderRef,
-        orderedOn: target.orderedOn,
-        kind: target.kind,
-        currency: target.currency,
-        items: target.items,
-        claimed: target.claimed,
-        agreed: target.agreed ?? target.claimed,
-        issue: target.issue,
-        issueEnglish: target.issueEnglish,
-        deadline: target.deadline,
-        deadlineQuote: target.deadlineQuote,
-        deadlineZone: target.deadlineZone,
-        state: nextState,
+      target.copyWith(
+        agreed: agreed,
+        state: stateAfterReceipt(target.state, target.kind, agreed, summary),
         version: target.version + 1,
-        deleted: target.deleted,
-        createdAt: target.createdAt,
         updatedAt: nowIso,
-        files: target.files,
-        ledger: [newEntry, ...target.ledger],
-        drafts: target.drafts,
-        replies: target.replies,
-        events: [
-          ClaimAuditEvent(
-            id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
-            action:
-                '실제 카드 취소·입금(${MoneyFormat.formatMinor(depositMinor, target.currency)}) 확인 기록 완료',
-            createdAt: nowIso,
-          ),
-          ...target.events,
-        ],
-        summary: ClaimSummaryTotals(
-          cash: nextCash,
-          goods: target.summary.goods,
-          repair: target.summary.repair,
-          remaining: nextRemaining,
-          requestedQty: target.summary.requestedQty,
-        ),
-        nextStep: nextState == 'recovered'
-            ? '모든 환불 금액이 실제 입금되었어요! [환불 절차 마무리하기]를 눌러 완료하세요.'
-            : '남은 차액 입금을 확인해 주세요.',
+        ledger: ledger,
+        events: [_event('$what 기록', nowIso), ...target.events],
+        summary: summary,
       ),
     );
   }
 
-  Future<void> completeClaim(String claimId) async {
+  /// 잘못 적은 기록을 되돌린다. 기록은 지워지지 않고 "되돌린 기록"으로 남아 더는 세지 않는다.
+  Future<void> undoReceipt({
+    required String claimId,
+    required String entryId,
+    required String reason,
+  }) async {
+    final target = findClaim(claimId);
+    if (target == null) return;
+    LedgerEntry? original;
+    for (final e in target.ledger) {
+      if (e.id == entryId && e.kind != 'reversal') original = e;
+    }
+    if (original == null) return;
+
+    try {
+      await api.requestJson(
+        '/api/claims/${Uri.encodeComponent(claimId)}/receipts',
+        method: 'POST',
+        version: target.version,
+        idempotencyKey: ReloApiClient.newIdempotencyKey(),
+        data: {
+          'kind': 'reversal',
+          'reverses': entryId,
+          'proofId': original.proofId ??
+              (target.files.isNotEmpty ? target.files.first.id : ''),
+          'receivedOn': _todayLocal(),
+          'note': reason.trim(),
+          'confirmed': true,
+        },
+      );
+      await refreshClaims();
+      return;
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
+
+    if (isClaimLocked(target)) {
+      _refuseLocally('마무리했거나 멈춘 건이에요. 먼저 다시 열어 주세요.');
+    }
+    if (target.ledger.any((e) => e.reverses == entryId)) {
+      _refuseLocally('이미 되돌린 기록이에요.');
+    }
+    final nowIso = DateTime.now().toIso8601String();
+    final ledger = [
+      LedgerEntry(
+        id: 'ldg_${DateTime.now().millisecondsSinceEpoch}',
+        claimId: claimId,
+        kind: 'reversal',
+        amount: original.amount,
+        quantity: original.quantity,
+        note: reason.trim(),
+        proofId: original.proofId,
+        reverses: entryId,
+        transactionRef: '',
+        receivedOn: _todayLocal(),
+        createdAt: nowIso,
+      ),
+      ...target.ledger,
+    ];
+    final summary = claimTotals(target, ledger: ledger);
+    _replaceClaim(
+      target.copyWith(
+        state: stateAfterReceipt(
+          target.state,
+          target.kind,
+          target.agreed,
+          summary,
+        ),
+        version: target.version + 1,
+        updatedAt: nowIso,
+        ledger: ledger,
+        events: [_event('기록 되돌림 (${reason.trim()})', nowIso), ...target.events],
+        summary: summary,
+      ),
+    );
+  }
+
+  /// 상태를 직접 바꾼다 (`POST /api/claims/:id/transition`).
+  /// [action]: disputed(다른 해결 방법으로) · waived(더 진행하지 않기) · reopen(다시 진행) · close(마무리)
+  Future<void> transitionClaim(
+    String claimId,
+    String action,
+    String reason,
+  ) async {
     final target = findClaim(claimId);
     if (target == null) return;
     try {
@@ -1699,50 +1820,73 @@ class ReloStore extends ChangeNotifier {
         '/api/claims/${Uri.encodeComponent(claimId)}/transition',
         method: 'POST',
         version: target.version,
-        data: {'action': 'close', 'reason': '소비자 실제 입금 확인 후 마무리 완료'},
+        data: {'action': action, 'reason': reason},
       );
       await refreshClaims();
       return;
-    } catch (_) {}
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
 
+    final next = stateAfterTransition(action, target);
+    if (next == null) {
+      _refuseLocally(action == 'close'
+          ? '약속한 금액이나 교환 · 수리 결과를 실제로 확인한 뒤에 마무리할 수 있어요.'
+          : '지금 상태에서는 바꿀 수 없어요.');
+    }
+    final nowIso = DateTime.now().toIso8601String();
+    final what = switch (action) {
+      'disputed' => '다른 해결 방법으로 바꿈',
+      'waived' => '더 진행하지 않기로 함',
+      'reopen' => '다시 진행',
+      _ => '마무리',
+    };
+    _replaceClaim(
+      target.copyWith(
+        state: next,
+        version: target.version + 1,
+        updatedAt: nowIso,
+        events: [_event(what, nowIso), ...target.events],
+      ),
+    );
+  }
+
+  /// 받기로 한 것을 다 받은 건을 마무리한다
+  Future<void> completeClaim(String claimId) =>
+      transitionClaim(claimId, 'close', '소비자가 받은 것을 직접 확인하고 마무리함');
+
+  /// 쇼핑몰과 정한 해결 방법을 바꾼다 (환불 ↔ 교환 ↔ 수리).
+  /// 이미 받은 기록이 있으면 바꿀 수 없다 (먼저 기록을 되돌린다).
+  Future<void> changeClaimKind(String claimId, String kind) async {
+    final target = findClaim(claimId);
+    if (target == null || target.kind == kind) return;
+    try {
+      await api.requestJson(
+        '/api/claims/${Uri.encodeComponent(claimId)}',
+        method: 'PATCH',
+        version: target.version,
+        data: _buildClaimMutationPayload(target, kind: kind),
+      );
+      await refreshClaims();
+      return;
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
+
+    if (isClaimLocked(target)) {
+      _refuseLocally('마무리했거나 멈춘 건이에요. 먼저 다시 열어 주세요.');
+    }
+    if (hasReceived(target.summary)) {
+      _refuseLocally('받은 기록이 있는 건은 해결 방법을 바꿀 수 없어요. 기록을 먼저 되돌려 주세요.', field: 'kind');
+    }
     final nowIso = DateTime.now().toIso8601String();
     _replaceClaim(
-      ClaimView(
-        id: target.id,
-        title: target.title,
-        vendor: target.vendor,
-        vendorUrl: target.vendorUrl,
-        orderRef: target.orderRef,
-        orderedOn: target.orderedOn,
-        kind: target.kind,
-        currency: target.currency,
-        items: target.items,
-        claimed: target.claimed,
-        agreed: target.agreed,
-        issue: target.issue,
-        issueEnglish: target.issueEnglish,
-        deadline: target.deadline,
-        deadlineQuote: target.deadlineQuote,
-        deadlineZone: target.deadlineZone,
-        state: 'completed',
+      target.copyWith(
+        kind: kind,
         version: target.version + 1,
-        deleted: target.deleted,
-        createdAt: target.createdAt,
         updatedAt: nowIso,
-        files: target.files,
-        ledger: target.ledger,
-        drafts: target.drafts,
-        replies: target.replies,
-        events: [
-          ClaimAuditEvent(
-            id: 'evt_${DateTime.now().millisecondsSinceEpoch}',
-            action: '환불 절차 최종 마무리 완료',
-            createdAt: nowIso,
-          ),
-          ...target.events,
-        ],
-        summary: target.summary,
-        nextStep: '모든 환불 절차가 성공적으로 마무리되었습니다.',
+        events: [_event('해결 방법 바꿈', nowIso), ...target.events],
+        summary: claimTotals(target, kind: kind),
       ),
     );
   }
@@ -1769,7 +1913,9 @@ class ReloStore extends ChangeNotifier {
       }
       await refreshClaims();
       return;
-    } catch (_) {}
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
 
     _replaceClaim(
       ClaimView(
@@ -1826,7 +1972,9 @@ class ReloStore extends ChangeNotifier {
       );
       await refreshClaims();
       return;
-    } catch (_) {}
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
 
     final nowIso = DateTime.now().toIso8601String();
     _replaceClaim(
@@ -1873,6 +2021,7 @@ class ReloStore extends ChangeNotifier {
   Map<String, dynamic> _buildClaimMutationPayload(
     ClaimView claim, {
     String? agreedAmountStr,
+    String? kind,
   }) {
     final claimedStr = MoneyFormat.minorToDecimalString(
       claim.claimed,
@@ -1889,7 +2038,7 @@ class ReloStore extends ChangeNotifier {
       'vendorUrl': claim.vendorUrl,
       'orderRef': claim.orderRef,
       'orderedOn': claim.orderedOn,
-      'kind': claim.kind,
+      'kind': kind ?? claim.kind,
       'currency': claim.currency,
       'claimedAmount': claimedStr,
       'agreedAmount': resolvedAgreedStr,
@@ -1940,7 +2089,9 @@ class ReloStore extends ChangeNotifier {
       );
       await refreshClaims();
       return;
-    } catch (_) {}
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
 
     final nowIso = DateTime.now().toIso8601String();
     final newFile = ClaimFile(
@@ -2010,7 +2161,9 @@ class ReloStore extends ChangeNotifier {
       );
       await refreshClaims();
       return;
-    } catch (_) {}
+    } catch (e) {
+      if (_refused(e)) rethrow;
+    }
 
     final nowIso = DateTime.now().toIso8601String();
     _replaceClaim(

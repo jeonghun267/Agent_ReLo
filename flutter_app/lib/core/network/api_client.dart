@@ -13,11 +13,15 @@ class ApiError implements Exception {
   final int status;
   final String? field;
 
+  /// ReLo 서버가 까닭을 적어 거절한 답인지. 서버에 붙지 못했거나 다른 것이 대신 답했으면 false.
+  final bool explained;
+
   const ApiError(
     this.message, {
     this.code = 'error',
     this.status = 0,
     this.field,
+    this.explained = false,
   });
 
   @override
@@ -153,6 +157,7 @@ class ReloApiClient {
         code: (decoded['error'] ?? 'error').toString(),
         status: res.statusCode,
         field: decoded['field']?.toString(),
+        explained: decoded['error'] is String,
       );
     }
 

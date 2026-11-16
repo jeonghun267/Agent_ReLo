@@ -4,6 +4,8 @@ import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
+import '../models/claim_rules.dart';
+import '../models/claim_words.dart';
 import '../models/domain_models.dart';
 import '../state/relo_store.dart';
 import 'relo_primitives.dart';
@@ -22,13 +24,18 @@ bool isClaimDone(ClaimView c) =>
 String shortClaimTitle(String title) => title.split(' ').take(3).join(' ');
 
 /// 지금 할 일을 사람 말로 (지금 언어로). 기록에 있는 사실만 말한다.
+/// 교환 · 수리는 "입금" 대신 받은 것을 말한다.
 String claimStatusText(ClaimView c, ReloStrings s) {
   return switch (c.state) {
     'preparing' || 'review' => s.csSend,
-    'awaiting' => s.csWaiting,
-    'negotiating' => c.agreed != null ? s.csCheckOffer : s.csNegotiating,
-    'recovered' || 'completed' => s.csReceived,
-    _ => c.nextStep,
+    // 쇼핑몰이 약속했으면 기다림은 끝났다
+    'awaiting' => hasPromise(c) ? s.csCheckOffer : s.csWaiting,
+    'negotiating' => hasPromise(c) ? s.csCheckOffer : s.csNegotiating,
+    'partial' => s.cwPartial(c.kind),
+    'recovered' || 'completed' => s.cwReceived(c.kind),
+    'disputed' => s.cwDisputed,
+    'waived' => s.cwWaived,
+    _ => s.csNegotiating,
   };
 }
 
@@ -52,6 +59,8 @@ class ClaimMoney {
     final receivedBy = <String, int>{};
     var dueCount = 0;
     for (final c in active) {
+      // 돈으로 돌려받는 것은 환불뿐이다. 교환 · 수리는 받을 돈에 넣지 않는다.
+      if (c.kind != 'refund') continue;
       counts[c.currency] = (counts[c.currency] ?? 0) + 1;
       if (c.summary.cash > 0) {
         receivedBy[c.currency] = (receivedBy[c.currency] ?? 0) + c.summary.cash;
@@ -137,6 +146,8 @@ class ClaimRow extends StatelessWidget {
         claimStatusText(claim, store.strings);
     final done = isClaimDone(claim);
     final hasDeadline = !done && DDay.label(claim.deadline) != null;
+    // 교환 · 수리는 돈 대신 받은 것을 적는다: "1개 / 3개", "아직 확인 전"
+    final arrived = store.strings.cwArrived(claim);
 
     final content = Row(
       children: [
@@ -187,10 +198,13 @@ class ClaimRow extends StatelessWidget {
             children: [
               Text(
                 // 끝난 건은 실제로 들어온 돈, 진행 중인 건은 받기로 한 돈
-                MoneyFormat.formatMinor(
-                  done ? claim.summary.cash : (claim.agreed ?? claim.claimed),
-                  claim.currency,
-                ),
+                arrived ??
+                    MoneyFormat.formatMinor(
+                      done
+                          ? claim.summary.cash
+                          : (claim.agreed ?? claim.claimed),
+                      claim.currency,
+                    ),
                 style: TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,

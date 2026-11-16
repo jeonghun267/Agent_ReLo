@@ -2,10 +2,13 @@ import 'package:confetti/confetti.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/i18n/relo_i18n.dart';
+import '../../core/network/api_client.dart';
 import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/input_rules.dart';
 import '../../core/utils/money_format.dart';
+import '../../shared/models/claim_rules.dart';
+import '../../shared/models/claim_words.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
 import '../../shared/widgets/claim_row.dart';
@@ -13,13 +16,17 @@ import '../../shared/widgets/evidence_source_sheet.dart';
 import '../../shared/widgets/relo_primitives.dart';
 import '../assistant/assistant_sheet.dart';
 import 'deadline_sheet.dart';
+import 'dispute_guide.dart';
+import 'receipt_section.dart';
 import '../../shared/widgets/relo_icons.dart';
 
 /// @module features/claims/claim_detail_screen
 /// @layer Feature Module — Individual Claim Workspace
 /// @purpose 환불 건 하나를 끝까지 따라가는 화면 (DESIGN.md 7절 "상세").
 ///          위에서 아래로: 무엇을 · 받기로 한 돈 / 받은 돈 · 지금 단계와 할 일 →
+///          막혔을 때의 길(분쟁 해결 안내 · 다른 해결 방법 보기 · 다시 열기) →
 ///          글자 탭 넷(메시지 · 답장 · 입금 · 기록) → 아래 고정 "이 건 물어보기".
+///          교환은 돈 대신 받은 수량, 수리는 수리 결과로 보여 준다.
 ///          홈·내 환불과 같이 상자 없이 바탕 위에 바로 놓고, 화면을 열면 지금 단계에 맞는 탭이 켜져 있다.
 class ClaimDetailScreen extends StatefulWidget {
   final String claimId;
@@ -38,7 +45,9 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   /// 지금 언어의 문구
   ReloStrings get _s => ReloScope.of(context).strings;
 
-  List<String> get _tabs => [_s.dTabMessage, _s.dTabReply, _s.dTabDeposit, _s.dTabHistory];
+  /// 세 번째 탭은 받는 것의 이름을 딴다: 환불은 입금, 교환은 교환품, 수리는 수리
+  List<String> _tabsFor(ClaimView c) =>
+      [_s.dTabMessage, _s.dTabReply, _s.cwTabReceive(c.kind), _s.dTabHistory];
 
   int _activeTab = 0;
   bool _tabTaken = false;
@@ -57,16 +66,11 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   bool _analyzingReply = false;
   bool _savingReply = false;
 
-  final _depositAmountCtrl = TextEditingController();
-  final _txRefCtrl = TextEditingController(text: 'VISA-CANCEL-8841');
-  final _receivedOnCtrl = TextEditingController(
-    text: DateTime.now().toIso8601String().substring(0, 10),
-  );
-  bool _recordingDeposit = false;
+  bool _finishing = false;
   bool _addingFile = false;
   bool _showDepositConfetti = false;
 
-  /// 칸마다의 오류 (칸 아래 빨간 글자). 키: draft, reply, agreed, deposit, receivedOn
+  /// 칸마다의 오류 (칸 아래 빨간 글자). 키: draft, reply, agreed
   final Map<String, String> _fieldErrors = {};
   late final ConfettiController _confetti =
       ConfettiController(duration: ReloMotion.celebrate);
@@ -93,19 +97,10 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       if (_draftCtrl.text.isEmpty && claim.drafts.isNotEmpty) {
         _draftCtrl.text = claim.drafts.first.body;
       }
-      if (_agreedAmountCtrl.text.isEmpty) {
-        final targetMinor = claim.agreed ?? claim.claimed;
+      // 약속 금액은 이미 적어 둔 것이 있을 때만 채운다 (아직 약속이 없으면 비워 둔다)
+      if (_agreedAmountCtrl.text.isEmpty && claim.agreed != null) {
         _agreedAmountCtrl.text = MoneyFormat.minorToDecimalString(
-          targetMinor,
-          claim.currency,
-        );
-      }
-      if (_depositAmountCtrl.text.isEmpty) {
-        final remMinor = claim.summary.remaining > 0
-            ? claim.summary.remaining
-            : (claim.agreed ?? claim.claimed);
-        _depositAmountCtrl.text = MoneyFormat.minorToDecimalString(
-          remMinor,
+          claim.agreed!,
           claim.currency,
         );
       }
@@ -118,27 +113,26 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     _submissionNoteCtrl.dispose();
     _replyCtrl.dispose();
     _agreedAmountCtrl.dispose();
-    _depositAmountCtrl.dispose();
     _confetti.dispose();
-    _txRefCtrl.dispose();
-    _receivedOnCtrl.dispose();
     super.dispose();
   }
 
-  /// 지금 단계에서 먼저 볼 탭: 메시지 보낼 차례 → 메시지, 답장 기다리는 중 → 답장, 그 뒤 → 입금
-  int _tabForState(ClaimView claim) => switch (claim.state) {
-        'preparing' || 'review' => 0,
-        'awaiting' => 1,
-        'negotiating' => claim.agreed == null ? 1 : 2,
-        _ => 2,
-      };
+  /// 지금 단계에서 먼저 볼 탭: 메시지 보낼 차례 → 메시지, 답장 기다리는 중 · 약속 금액 적을 차례 → 답장,
+  /// 그 뒤 → 받은 것 기록
+  int _tabForState(ClaimView claim) {
+    if (claim.state == 'preparing' || claim.state == 'review') return 0;
+    return switch (nextStepCode(claim)) {
+      'awaiting' || 'needAgreed' => 1,
+      _ => 2,
+    };
+  }
 
   /// 여섯 단계 중 몇 번째인지 (0부터)
   int _stepIndex(String state) => switch (state) {
         'preparing' => 0,
         'review' => 1,
         'awaiting' => 2,
-        'negotiating' => 3,
+        'negotiating' || 'disputed' || 'waived' => 3,
         'partial' || 'recovered' => 4,
         'completed' => 5,
         _ => 0,
@@ -152,21 +146,16 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     if (_fieldErrors.containsKey(key)) setState(() => _fieldErrors.remove(key));
   }
 
-  /// 돈이 들어온 것을 확인한 날은 달력에서 고른다 (오늘까지만 고를 수 있다)
-  Future<void> _pickReceivedOn() async {
-    final now = DateTime.now();
-    final current = DateTime.tryParse(_receivedOnCtrl.text) ?? now;
-    final picked = await showDatePicker(
-      context: context,
-      initialDate: current.isAfter(now) ? now : current,
-      firstDate: DateTime(now.year - 3),
-      lastDate: now,
-    );
-    if (picked == null || !mounted) return;
-    setState(() {
-      _receivedOnCtrl.text = picked.toIso8601String().substring(0, 10);
-      _fieldErrors.remove('receivedOn');
-    });
+  /// 저장을 맡기고, 서버가 거절하면 그 까닭을 알린다. 됐으면 true.
+  /// (전에는 서버가 거절해도 기기 안에서만 된 것처럼 바꿨다.)
+  Future<bool> _attempt(ReloStore store, Future<void> Function() work) async {
+    try {
+      await work();
+      return true;
+    } on ApiError catch (e) {
+      if (mounted) _toast(store.refusalText(e));
+      return false;
+    }
   }
 
   Future<void> _handleGenerateDraft(ReloStore store, ClaimView claim) async {
@@ -186,14 +175,17 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       return;
     }
     setState(() => _submittingDraft = true);
-    await store.saveAndSubmitDraft(
-      claim.id,
-      _draftCtrl.text.trim(),
-      _submissionNoteCtrl.text.trim(),
+    final ok = await _attempt(
+      store,
+      () => store.saveAndSubmitDraft(
+        claim.id,
+        _draftCtrl.text.trim(),
+        _submissionNoteCtrl.text.trim(),
+      ),
     );
     if (!mounted) return;
     setState(() => _submittingDraft = false);
-    _toast(_s.dToastSent);
+    if (ok) _toast(_s.dToastSent);
   }
 
   Future<void> _handleAnalyzeReply(ReloStore store, ClaimView claim) async {
@@ -230,46 +222,39 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       return;
     }
     setState(() => _savingReply = true);
-    await store.saveReplyAndAgreedAmount(
-      claimId: claim.id,
-      rawReply: _replyCtrl.text.trim(),
-      replyKind: _replyKind,
-      summaryKo: _summaryKo.isEmpty ? '판매자 환불 조건 답장 기록' : _summaryKo,
-      translationKo:
-          _translationKo.isEmpty ? _replyCtrl.text.trim() : _translationKo,
-      agreedAmountStr: _agreedAmountCtrl.text.trim(),
+    final ok = await _attempt(
+      store,
+      () => store.saveReplyAndAgreedAmount(
+        claimId: claim.id,
+        rawReply: _replyCtrl.text.trim(),
+        replyKind: _replyKind,
+        summaryKo: _summaryKo.isEmpty ? '쇼핑몰 답장 기록' : _summaryKo,
+        translationKo:
+            _translationKo.isEmpty ? _replyCtrl.text.trim() : _translationKo,
+        agreedAmountStr: _agreedAmountCtrl.text.trim(),
+      ),
     );
     if (!mounted) return;
     setState(() => _savingReply = false);
-    _toast(_s.dToastReplySaved);
+    if (ok) _toast(_s.dToastReplySaved);
   }
 
-  Future<void> _handleRecordDeposit(ReloStore store, ClaimView claim) async {
-    final errors = <String, String>{};
-    if (InputRules.amount(_depositAmountCtrl.text) == null) {
-      errors['deposit'] = _s.cmErrAmount;
-    }
-    if (!InputRules.isoDate(_receivedOnCtrl.text)) {
-      errors['receivedOn'] = _s.dErrDate;
-    }
-    if (errors.isNotEmpty) {
-      setState(() => _fieldErrors.addAll(errors));
-      return;
-    }
-    setState(() => _recordingDeposit = true);
-    await store.recordRealDeposit(
-      claimId: claim.id,
-      amountStr: _depositAmountCtrl.text.trim(),
-      transactionRef: _txRefCtrl.text.trim(),
-      receivedOn: _receivedOnCtrl.text.trim(),
-    );
+  /// 받기로 한 것을 다 받았을 때 맨 위의 "마무리하기"
+  Future<void> _handleFinish(ReloStore store, ClaimView claim) async {
+    setState(() => _finishing = true);
+    final ok = await _attempt(store, () => store.completeClaim(claim.id));
     if (!mounted) return;
-    setState(() {
-      _recordingDeposit = false;
-      _showDepositConfetti = true;
-    });
-    _confetti.play();
-    _toast(_s.dToastDeposit);
+    setState(() => _finishing = false);
+    if (ok) _toast(_s.dToastDone);
+  }
+
+  /// 쇼핑몰과 정한 해결 방법을 바꾼다 (환불 ↔ 교환 ↔ 수리)
+  Future<void> _handleChangeKind(
+      ReloStore store, ClaimView claim, String kind) async {
+    if (kind == claim.kind) return;
+    final ok =
+        await _attempt(store, () => store.changeClaimKind(claim.id, kind));
+    if (ok && mounted) _toast(_s.cwToastMethod);
   }
 
   /// 판매자가 정한 기한을 적는다 (마감 알림이 이 날짜를 본다)
@@ -285,28 +270,31 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     final picked = await pickEvidenceWithSheet(context);
     if (picked == null || !mounted) return;
     setState(() => _addingFile = true);
-    await store.uploadClaimFile(
-      claimId: claim.id,
-      fileName: picked.name,
-      mime: picked.mime,
-      bytes: picked.bytes,
+    final ok = await _attempt(
+      store,
+      () => store.uploadClaimFile(
+        claimId: claim.id,
+        fileName: picked.name,
+        mime: picked.mime,
+        bytes: picked.bytes,
+      ),
     );
     if (!mounted) return;
     setState(() => _addingFile = false);
-    _toast(_s.dToastFileAdded);
+    if (ok) _toast(_s.dToastFileAdded);
   }
 
   Future<void> _handleMore(
       ReloStore store, ClaimView claim, String choice) async {
     if (choice == 'done') {
-      await store.completeClaim(claim.id);
-      if (!mounted) return;
-      _toast(_s.dToastDone);
+      await _handleFinish(store, claim);
     } else {
       final wasDeleted = claim.deleted;
-      await store.toggleTrashClaim(claim.id);
-      if (!mounted) return;
-      _toast(wasDeleted ? _s.dToastRestored : _s.dToastTrashed);
+      final ok =
+          await _attempt(store, () => store.toggleTrashClaim(claim.id));
+      if (ok && mounted) {
+        _toast(wasDeleted ? _s.dToastRestored : _s.dToastTrashed);
+      }
     }
   }
 
@@ -384,7 +372,21 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                   children: [
                     _buildTopBar(store, claim, palette),
                     _buildHeader(store, claim, palette),
-                    _buildTabs(palette),
+                    // 쇼핑몰에서 해결이 안 됐거나 그만둔 건: 다음에 할 수 있는 일
+                    if (!claim.deleted &&
+                        (claim.state == 'disputed' || claim.state == 'waived'))
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 28, 20, 0),
+                        child: DisputeGuide(claim: claim),
+                      ),
+                    // 답이 없는 쇼핑몰 · 마무리한 건을 다시 열기
+                    if (canEscalateClaim(claim) ||
+                        (claim.state == 'completed' && !claim.deleted))
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        child: ClaimStateNote(claim: claim),
+                      ),
+                    _buildTabs(claim, palette),
                     Padding(
                       padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
                       child: switch (_activeTab) {
@@ -453,7 +455,8 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             ),
             onSelected: (choice) => _handleMore(store, claim, choice),
             itemBuilder: (_) => [
-              if (claim.state != 'completed') item('done', _s.dMenuDone),
+              // 받기로 한 것을 다 받았을 때만 끝낼 수 있다 (서버도 그때만 받는다)
+              if (canFinishClaim(claim)) item('done', _s.dMenuDone),
               item('trash', claim.deleted ? _s.dMenuRestore : _s.dMenuTrash),
             ],
           ),
@@ -468,7 +471,17 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     final cash = claim.summary.cash;
     final base = claim.claimed <= 0 ? target : claim.claimed;
     double ratio(int minor) => base <= 0 ? 0.0 : minor / base;
-    final showBar = claim.agreed != null || cash > 0;
+    final isRefund = claim.kind == 'refund';
+    final goods = claim.summary.goods;
+    final asked = claim.summary.requestedQty;
+    final showBar = isRefund
+        ? claim.agreed != null || cash > 0
+        : claim.kind == 'exchange' && goods > 0;
+    final divider = VerticalDivider(
+      width: 33,
+      thickness: 1,
+      color: palette.line.withValues(alpha: 0.5),
+    );
     final hasDeadline = claim.deadline != null && claim.deadline!.isNotEmpty;
 
     final stepIndex = _stepIndex(claim.state);
@@ -482,7 +495,8 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
-            _s.dOrderLine(claim.vendor, claim.orderRef),
+            // 교환 · 수리는 무엇을 요청한 건인지부터 적는다
+            '${isRefund ? '' : '${_s.cwKind(claim.kind)} · '}${_s.dOrderLine(claim.vendor, claim.orderRef)}',
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: TextStyle(fontSize: 13, color: palette.subtle),
@@ -500,25 +514,55 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           ),
           const SizedBox(height: 20),
 
-          // 받기로 한 돈 / 받은 돈 (내 환불 목록과 같은 두 칸)
+          // 받기로 한 것 / 받은 것 (내 환불 목록과 같은 두 칸).
+          // 환불은 돈, 교환은 수량, 수리는 확인했는지를 적는다.
           IntrinsicHeight(
             child: Row(
               children: [
-                _MoneyCell(
-                  label: claim.agreed != null ? _s.dAgreedMoney : _s.dClaimedMoney,
-                  amount: MoneyFormat.formatMinor(target, claim.currency),
-                  strong: true,
-                ),
-                VerticalDivider(
-                  width: 33,
-                  thickness: 1,
-                  color: palette.line.withValues(alpha: 0.5),
-                ),
-                _MoneyCell(
-                  label: _s.homeMoneyReceived,
-                  amount: MoneyFormat.formatMinor(cash, claim.currency),
-                  strong: cash > 0,
-                ),
+                if (claim.kind == 'exchange') ...[
+                  _MoneyCell(
+                    label: _s.cwRequestedQty,
+                    amount: _s.cwCount(asked),
+                    strong: true,
+                  ),
+                  divider,
+                  _MoneyCell(
+                    label: _s.cwReceivedQty,
+                    amount: _s.cwCount(goods),
+                    strong: goods > 0,
+                  ),
+                ] else if (claim.kind == 'repair') ...[
+                  _MoneyCell(
+                    label: _s.cwRepairResult,
+                    amount: claim.summary.repair
+                        ? _s.cwRepairDone
+                        : _s.cwRepairPending,
+                    strong: true,
+                  ),
+                  divider,
+                  _MoneyCell(
+                    label: _s.cwItemPrice,
+                    amount: MoneyFormat.formatMinor(
+                      claim.claimed,
+                      claim.currency,
+                    ),
+                    strong: false,
+                  ),
+                ] else ...[
+                  _MoneyCell(
+                    label: claim.agreed != null
+                        ? _s.dAgreedMoney
+                        : _s.dClaimedMoney,
+                    amount: MoneyFormat.formatMinor(target, claim.currency),
+                    strong: true,
+                  ),
+                  divider,
+                  _MoneyCell(
+                    label: _s.homeMoneyReceived,
+                    amount: MoneyFormat.formatMinor(cash, claim.currency),
+                    strong: cash > 0,
+                  ),
+                ],
               ],
             ),
           ),
@@ -527,8 +571,10 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
             Semantics(
               label: _s.dProgressLabel,
               child: ReloProgressBar(
-                promised: ratio(claim.agreed ?? 0),
-                cash: ratio(cash),
+                promised: isRefund ? ratio(claim.agreed ?? 0) : 1,
+                cash: isRefund
+                    ? ratio(cash)
+                    : (asked <= 0 ? 0.0 : goods / asked),
                 height: 6,
                 trackColor: palette.raised,
               ),
@@ -598,19 +644,28 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           ),
           const SizedBox(height: 6),
           Text(
-            // 서버가 주는 문장은 한국어다. 다른 언어에서는 단계에 맞는 문장을 쓴다.
-            store.locale == ReloLocale.ko
-                ? claim.nextStep
-                : _s.dNextStep(claim.state),
+            // 지금 할 일 한 줄. 건의 종류(환불 · 교환 · 수리)와 받은 것에 맞춰 앱이 고른다.
+            _s.cwNextStep(claim.kind, nextStepCode(claim)),
             style: TextStyle(fontSize: 14, color: palette.muted, height: 1.45),
           ),
+          // 받기로 한 것을 다 받았으면, 살펴보고 여기서 끝낸다
+          if (canFinishClaim(claim)) ...[
+            const SizedBox(height: 16),
+            ReloButton(
+              text: _s.cwFinish,
+              busy: _finishing,
+              onPressed:
+                  _finishing ? null : () => _handleFinish(store, claim),
+            ),
+          ],
         ],
       ),
     );
   }
 
   // ── 글자 탭 넷 ───────────────────────────────────────────────────────
-  Widget _buildTabs(ReloPalette palette) {
+  Widget _buildTabs(ClaimView claim, ReloPalette palette) {
+    final tabs = _tabsFor(claim);
     return Padding(
       padding: const EdgeInsets.fromLTRB(20, 22, 20, 0),
       child: DecoratedBox(
@@ -624,9 +679,9 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              for (var i = 0; i < _tabs.length; i++)
+              for (var i = 0; i < tabs.length; i++)
                 ReloTextTab(
-                  label: _tabs[i],
+                  label: tabs[i],
                   selected: _activeTab == i,
                   onTap: () => setState(() => _activeTab = i),
                 ),
@@ -828,22 +883,51 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
           children: [
             for (final entry in store.config.replyKinds.entries)
               ReloChoiceChip(
-                label: _s.replyKind(entry.key, entry.value),
+                label: _s.cwReplyKind(claim.kind, entry.key),
                 selected: _replyKind == entry.key,
                 onTap: () => setState(() => _replyKind = entry.key),
               ),
           ],
         ),
         const SizedBox(height: 16),
-        ReloTextField(
-          label: _s.dAgreedField(claim.currency),
-          controller: _agreedAmountCtrl,
-          keyboardType: const TextInputType.numberWithOptions(decimal: true),
-          fillColor: palette.raised,
-          inputFormatters: [MoneyInputFormatter.of(claim.currency)],
-          errorText: _fieldErrors['agreed'],
-          onChanged: (_) => _clearFieldError('agreed'),
+        // 요청한 것과 다르게 정해졌을 때 (교환을 요청했는데 환불해 주기로 한 경우처럼)
+        Text(
+          _s.cwMethodLabel,
+          style: TextStyle(
+            fontSize: 13,
+            fontWeight: FontWeight.w600,
+            color: palette.muted,
+          ),
         ),
+        const SizedBox(height: 8),
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            for (final kind in const ['refund', 'exchange', 'repair'])
+              ReloChoiceChip(
+                label: _s.cwKind(kind),
+                selected: claim.kind == kind,
+                onTap: () => _handleChangeKind(store, claim, kind),
+              ),
+          ],
+        ),
+        if (hasReceived(claim.summary)) ...[
+          const SizedBox(height: 6),
+          _caption(_s.cwMethodLocked),
+        ],
+        if (claim.kind == 'refund') ...[
+          const SizedBox(height: 16),
+          ReloTextField(
+            label: _s.dAgreedField(claim.currency),
+            controller: _agreedAmountCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            fillColor: palette.raised,
+            inputFormatters: [MoneyInputFormatter.of(claim.currency)],
+            errorText: _fieldErrors['agreed'],
+            onChanged: (_) => _clearFieldError('agreed'),
+          ),
+        ],
         const SizedBox(height: 16),
         ReloButton(
           text: _savingReply ? _s.cmSaving : _s.cmSave,
@@ -864,120 +948,26 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       children: [
         if (_showDepositConfetti) ...[
           ConfettiBurstBanner(
-            title: _s.dBannerTitle,
-            subtitle: _s.dBannerSub,
+            title: _s.cwBannerTitle(claim.kind),
+            subtitle: _s.cwRecorded(claim.kind),
           ),
           const SizedBox(height: 20),
         ],
-        _sectionHead(_s.dDepositTitle),
-        const SizedBox(height: 12),
-        Row(
-          // 한쪽에만 오류 글자가 나와도 칸 높이가 어긋나지 않게 위에 맞춘다
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Expanded(
-              child: ReloTextField(
-                label: _s.dDepositField(claim.currency),
-                controller: _depositAmountCtrl,
-                keyboardType: const TextInputType.numberWithOptions(
-                  decimal: true,
-                ),
-                fillColor: palette.raised,
-                inputFormatters: [MoneyInputFormatter.of(claim.currency)],
-                errorText: _fieldErrors['deposit'],
-                onChanged: (_) => _clearFieldError('deposit'),
-              ),
-            ),
-            const SizedBox(width: 10),
-            Expanded(
-              child: ReloTextField(
-                label: _s.dDateField,
-                controller: _receivedOnCtrl,
-                fillColor: palette.raised,
-                // 글자로 치지 않고 달력에서 고른다
-                readOnly: true,
-                onTap: _pickReceivedOn,
-                trailingIcon: ReloIcons.calendar,
-                errorText: _fieldErrors['receivedOn'],
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        ReloTextField(
-          label: _s.dRefField,
-          controller: _txRefCtrl,
-          fillColor: palette.raised,
-        ),
-        const SizedBox(height: 8),
-        _caption(_s.dCardCaption),
-        const SizedBox(height: 16),
-        ReloButton(
-          text: _recordingDeposit ? _s.dRecording : _s.dRecord,
-          busy: _recordingDeposit,
-          onPressed: _recordingDeposit
-              ? null
-              : () => _handleRecordDeposit(store, claim),
-        ),
-        if (claim.ledger.isNotEmpty) ...[
-          const SizedBox(height: 28),
-          Text(
-            _s.dLedgerCount(claim.ledger.length),
-            style: TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: palette.subtle,
-            ),
+        ReceiptSection(
+          // 받을 것이 바뀌면(기록 · 되돌리기 · 약속 금액 · 해결 방법) 칸을 새로 채운다
+          key: ValueKey(
+            '${claim.kind}:${claim.agreed}:${claim.summary.cash}:${claim.summary.goods}:${claim.summary.repair}:${claim.state}',
           ),
-          for (final entry in claim.ledger)
-            DecoratedBox(
-              decoration: BoxDecoration(border: Border(bottom: hairline)),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(vertical: 14),
-                child: Row(
-                  children: [
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '${entry.receivedOn} · ${entry.transactionRef}',
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: TextStyle(
-                              fontSize: 14,
-                              fontWeight: FontWeight.w600,
-                              color: palette.ink,
-                            ),
-                          ),
-                          if (entry.note.isNotEmpty) ...[
-                            const SizedBox(height: 2),
-                            Text(
-                              entry.note,
-                              style: TextStyle(
-                                fontSize: 13,
-                                color: palette.subtle,
-                              ),
-                            ),
-                          ],
-                        ],
-                      ),
-                    ),
-                    const SizedBox(width: 12),
-                    Text(
-                      MoneyFormat.formatMinor(entry.amount, claim.currency),
-                      style: TextStyle(
-                        fontSize: 15,
-                        fontWeight: FontWeight.w700,
-                        color: palette.ink,
-                        fontFeatures: const [FontFeature.tabularFigures()],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ),
-        ],
+          claim: claim,
+          onRecorded: () {
+            if (!mounted) return;
+            setState(() => _showDepositConfetti = true);
+            _confetti.play();
+          },
+          onUndone: () {
+            if (mounted) setState(() => _showDepositConfetti = false);
+          },
+        ),
         const SizedBox(height: 32),
         _sectionHead(_s.dFilesCount(claim.files.length)),
         const SizedBox(height: 4),
@@ -1038,9 +1028,12 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                           size: 20,
                           color: palette.subtle,
                         ),
-                        onPressed: () => store.removeClaimFile(
-                          claimId: claim.id,
-                          fileId: file.id,
+                        onPressed: () => _attempt(
+                          store,
+                          () => store.removeClaimFile(
+                            claimId: claim.id,
+                            fileId: file.id,
+                          ),
                         ),
                       ),
                   ],

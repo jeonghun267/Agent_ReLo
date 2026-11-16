@@ -284,6 +284,9 @@ class LedgerEntry {
   final int quantity;
   final String note;
   final String? proofId;
+
+  /// 이 줄이 "기록 되돌리기"라면, 되돌린 기록의 id
+  final String? reverses;
   final String transactionRef;
   final String receivedOn;
   final String createdAt;
@@ -296,6 +299,7 @@ class LedgerEntry {
     required this.quantity,
     required this.note,
     this.proofId,
+    this.reverses,
     required this.transactionRef,
     required this.receivedOn,
     required this.createdAt,
@@ -310,6 +314,7 @@ class LedgerEntry {
       quantity: (json['quantity'] as num?)?.toInt() ?? 1,
       note: (json['note'] ?? '').toString(),
       proofId: json['proofId']?.toString(),
+      reverses: json['reverses']?.toString(),
       transactionRef: (json['transactionRef'] ?? '').toString(),
       receivedOn: (json['receivedOn'] ?? '').toString(),
       createdAt: (json['createdAt'] ?? '').toString(),
@@ -423,6 +428,54 @@ class ClaimView {
     required this.summary,
     required this.nextStep,
   });
+
+  /// 몇 가지만 바꾼 새 건. 약속 금액([agreed])은 새 값으로 바꿀 수만 있고 지울 수는 없다.
+  ClaimView copyWith({
+    String? kind,
+    int? agreed,
+    String? state,
+    int? version,
+    bool? deleted,
+    String? updatedAt,
+    List<ClaimFile>? files,
+    List<LedgerEntry>? ledger,
+    List<ClaimDraft>? drafts,
+    List<ClaimReply>? replies,
+    List<ClaimAuditEvent>? events,
+    ClaimSummaryTotals? summary,
+    String? nextStep,
+  }) {
+    return ClaimView(
+      id: id,
+      title: title,
+      vendor: vendor,
+      vendorUrl: vendorUrl,
+      orderRef: orderRef,
+      orderedOn: orderedOn,
+      kind: kind ?? this.kind,
+      currency: currency,
+      items: items,
+      claimed: claimed,
+      agreed: agreed ?? this.agreed,
+      issue: issue,
+      issueEnglish: issueEnglish,
+      deadline: deadline,
+      deadlineQuote: deadlineQuote,
+      deadlineZone: deadlineZone,
+      state: state ?? this.state,
+      version: version ?? this.version,
+      deleted: deleted ?? this.deleted,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      files: files ?? this.files,
+      ledger: ledger ?? this.ledger,
+      drafts: drafts ?? this.drafts,
+      replies: replies ?? this.replies,
+      events: events ?? this.events,
+      summary: summary ?? this.summary,
+      nextStep: nextStep ?? this.nextStep,
+    );
+  }
 
   factory ClaimView.fromJson(Map<String, dynamic> json) {
     List<T> parseList<T>(
