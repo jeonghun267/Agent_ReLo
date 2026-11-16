@@ -115,9 +115,15 @@ export function totals(claim, ledger) {
     cash,
     goods,
     repair,
-    remaining: Math.max(0, (claim.agreed ?? claim.claimed) - cash),
+    // Money still owed. An exchange or a repair is not owed in money.
+    remaining: claim.kind === 'refund' ? Math.max(0, (claim.agreed ?? claim.claimed) - cash) : 0,
     requestedQty: requestedQuantity(claim),
   };
+}
+
+// True once anything that still counts has come back (a reversed entry no longer counts).
+export function hasReceived(summary) {
+  return summary.cash > 0 || summary.goods > 0 || summary.repair;
 }
 
 export function isRecovered(claim, summary) {
@@ -132,10 +138,18 @@ export function stateAfterReceipt(currentState, claim, summary) {
   return summary.cash || summary.goods ? 'partial' : 'negotiating';
 }
 
+// A "refund issued" notice is a promise, not money. It moves a claim to waiting only while
+// nothing has come back yet; once something was received, what was received decides the state.
 export function stateAfterReply(kind, currentState) {
   if (kind === 'denied') return 'disputed';
-  if (kind === 'refund_notice') return 'awaiting';
+  if (kind === 'refund_notice' && !['partial', 'recovered'].includes(currentState)) return 'awaiting';
   return currentState;
+}
+
+// Editing the facts (a lower promised amount, fewer items) can change whether everything has
+// come back. Only a claim that has already received something is re-judged.
+export function stateAfterFactsChange(currentState, claim, summary) {
+  return hasReceived(summary) ? stateAfterReceipt(currentState, claim, summary) : currentState;
 }
 
 export const TRANSITIONS = Object.freeze(['awaiting', 'negotiating', 'disputed', 'waived', 'reopen', 'close']);
@@ -173,26 +187,33 @@ export function factualFingerprint(claim, files) {
   }));
 }
 
+// The shop has promised something: a refund has its promised amount, an exchange or a repair
+// has a reply that says so. From then on the next thing is to record what actually comes.
+export function hasPromise(view) {
+  return view.kind === 'refund' ? view.agreed !== null : (view.replies ?? []).some(reply => reply.kind === 'agreement');
+}
+
 // The one thing to do next, as a code. The web shows its own sentence for the code in the
-// reader's language; NEXT_STEP_TEXT is the Korean sentence for anything that does not.
+// reader's language; nextStepText is the Korean sentence for anything that does not.
+// Only a refund has a promised amount; an exchange or a repair goes straight to "record what came".
 export function nextStepCode(view) {
   if (view.deleted) return 'trashed';
   if (view.state === 'waived') return 'waived';
   if (view.state === 'disputed') return 'disputed';
   if (view.state === 'completed') return 'completed';
   if (view.state === 'recovered') return 'recovered';
-  if (view.summary.remaining && view.summary.cash) return 'remaining';
-  if (view.state === 'awaiting') return 'awaiting';
+  if (view.kind === 'refund' ? view.summary.remaining && view.summary.cash : view.summary.goods) return 'remaining';
+  if (view.state === 'awaiting' && !hasPromise(view)) return 'awaiting';
   if (!view.files.length) return 'needFiles';
   if (!view.drafts.length) return 'needMessage';
-  if (view.agreed === null) return 'needAgreed';
+  if (view.kind === 'refund' && view.agreed === null) return 'needAgreed';
   return 'needProof';
 }
 
 export const NEXT_STEP_TEXT = Object.freeze({
   trashed: '휴지통에 있어요. 복원하면 이어서 진행할 수 있어요.',
   waived: '포기로 기록했어요. 필요하면 다시 진행할 수 있어요.',
-  disputed: '쇼핑몰과 의견이 달라요. 근거를 더 올리고 다음 조건을 정리해 보세요.',
+  disputed: '쇼핑몰에서 해결이 안 됐어요. 쇼핑몰 분쟁 신청, 결제한 곳 이의 제기, 소비자원 상담 순서로 해 볼 수 있어요.',
   completed: '마무리된 건이에요. 입금 기록을 확인할 수 있어요.',
   recovered: '입금을 확인했어요. 내용을 살펴보고 마무리해 주세요.',
   remaining: '남은 금액과 쇼핑몰이 정한 기한을 확인해 주세요.',
@@ -203,6 +224,27 @@ export const NEXT_STEP_TEXT = Object.freeze({
   needProof: '실제로 들어온 돈을 캡처와 함께 기록해 주세요.',
 });
 
+// Where an exchange or a repair needs its own words (nothing here is about money).
+const NEXT_STEP_TEXT_BY_KIND = Object.freeze({
+  exchange: {
+    completed: '마무리된 건이에요. 교환품을 받은 기록을 확인할 수 있어요.',
+    recovered: '교환품을 모두 받았어요. 내용을 살펴보고 마무리해 주세요.',
+    remaining: '아직 받지 못한 교환품이 있어요. 도착하면 기록해 주세요.',
+    awaiting: '쇼핑몰 답장이 오면 붙여 넣어 주세요.',
+    needProof: '교환품을 받으면 사진과 함께 기록해 주세요.',
+  },
+  repair: {
+    completed: '마무리된 건이에요. 수리 결과 기록을 확인할 수 있어요.',
+    recovered: '수리 결과를 확인했어요. 내용을 살펴보고 마무리해 주세요.',
+    awaiting: '쇼핑몰 답장이 오면 붙여 넣어 주세요.',
+    needProof: '수리된 물건이나 부품을 받으면 사진과 함께 기록해 주세요.',
+  },
+});
+
+export function nextStepText(kind, code) {
+  return NEXT_STEP_TEXT_BY_KIND[kind]?.[code] ?? NEXT_STEP_TEXT[code];
+}
+
 export function nextStep(view) {
-  return NEXT_STEP_TEXT[nextStepCode(view)];
+  return nextStepText(view.kind, nextStepCode(view));
 }

@@ -13,9 +13,10 @@ export function templateDraft(claim) {
     `Hello ${claim.vendor} Support,`,
     '',
     `I am contacting you about order ${claim.orderRef} placed on ${claim.orderedOn}: ${claim.title}.`,
-    `Affected quantity: ${requestedQuantity(claim)}. Amount requested: ${money(claim.claimed)}.`,
+    // Only a refund asks for money; for an exchange or a repair the amount is what the item cost.
+    `Affected quantity: ${requestedQuantity(claim)}. ${claim.kind === 'refund' ? 'Amount requested' : 'Item price'}: ${money(claim.claimed)}.`,
   ];
-  if (claim.agreed !== null) lines.push(`Amount previously agreed: ${money(claim.agreed)}.`);
+  if (claim.kind === 'refund' && claim.agreed !== null) lines.push(`Amount previously agreed: ${money(claim.agreed)}.`);
   lines.push(
     '',
     claim.issueEnglish || `[Describe the problem in English. Original note in Korean: ${claim.issue}]`,
