@@ -46,10 +46,11 @@ export const wizardKo = {
 		CAD: "캐나다 달러",
 		AUD: "호주 달러",
 	},
-	amountLabel: "돌려받을 금액",
+	amountLabel: "문제가 생긴 상품 금액",
 	amountPlaceholderWhole: "예: 65000",
 	amountPlaceholderDecimal: "예: 129.99",
-	amountHint: "통화 기호나 쉼표(,) 없이 숫자만 적어 주세요.",
+	amountHint:
+		"환불이면 돌려받을 금액이에요. 통화 기호나 쉼표(,) 없이 숫자만 적어 주세요.",
 	kindPrompt: "원하는 해결 방법을 골라 주세요",
 	kindDescs: {
 		refund: "결제 금액 돌려받기",
@@ -156,10 +157,11 @@ export const wizardEn: Shape = {
 		CAD: "Canadian dollar",
 		AUD: "Australian dollar",
 	},
-	amountLabel: "Amount to get back",
+	amountLabel: "Price of the item with the problem",
 	amountPlaceholderWhole: "e.g. 65000",
 	amountPlaceholderDecimal: "e.g. 129.99",
-	amountHint: "Digits only, without a currency sign or commas.",
+	amountHint:
+		"For a refund, this is the amount to get back. Digits only, without a currency sign or commas.",
 	kindPrompt: "Choose how you want it fixed",
 	kindDescs: {
 		refund: "Get your money back",
@@ -266,10 +268,11 @@ export const wizardJa: Shape = {
 		CAD: "カナダドル",
 		AUD: "豪ドル",
 	},
-	amountLabel: "返してほしい金額",
+	amountLabel: "問題のあった商品の金額",
 	amountPlaceholderWhole: "例：65000",
 	amountPlaceholderDecimal: "例：129.99",
-	amountHint: "通貨記号やカンマ(,)を付けず、数字だけ入力してください。",
+	amountHint:
+		"返金の場合は、返してほしい金額です。通貨記号やカンマ(,)を付けず、数字だけ入力してください。",
 	kindPrompt: "希望する解決方法を選んでください",
 	kindDescs: {
 		refund: "支払金額を返してもらう",
@@ -376,10 +379,10 @@ export const wizardZh: Shape = {
 		CAD: "加元",
 		AUD: "澳元",
 	},
-	amountLabel: "要退回的金额",
+	amountLabel: "出问题商品的金额",
 	amountPlaceholderWhole: "如：65000",
 	amountPlaceholderDecimal: "如：129.99",
-	amountHint: "只填数字，不要货币符号和逗号。",
+	amountHint: "如果是退款，这就是要退回的金额。只填数字，不要货币符号和逗号。",
 	kindPrompt: "请选择希望的解决方式",
 	kindDescs: {
 		refund: "退回支付金额",

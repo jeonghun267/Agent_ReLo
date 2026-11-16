@@ -8,6 +8,7 @@
 import { authKo } from "@/client/i18n/screens/auth";
 import { claimsKo } from "@/client/i18n/screens/claims";
 import { detailKo } from "@/client/i18n/screens/detail";
+import { kindsKo } from "@/client/i18n/screens/kinds";
 import { settingsKo } from "@/client/i18n/screens/settings";
 import { sharedKo } from "@/client/i18n/screens/shared";
 import { signinKo } from "@/client/i18n/screens/signin";
@@ -402,6 +403,7 @@ export const koMessages = {
 	shared: sharedKo,
 	claims: claimsKo,
 	detail: detailKo,
+	kinds: kindsKo,
 	wizard: wizardKo,
 	settings: settingsKo,
 	upload: uploadKo,

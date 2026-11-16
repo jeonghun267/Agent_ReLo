@@ -3,11 +3,17 @@
  * @layer ViewModel Helper (Refund Wording Lookup)
  * @purpose Turns what the server sends about a refund (a state, a next-step code, a history
  *          entry, a form error key) into the sentence for the reader's language, so every
- *          signed-in screen names the same thing with the same words.
+ *          signed-in screen names the same thing with the same words. An exchange or a
+ *          repair has its own words where a refund would talk about money.
  */
 
 import type { LocaleCode, TranslationDictionary } from "@/client/i18n";
-import type { ClaimState, ClaimView } from "@/client/types";
+import type {
+	ClaimKind,
+	ClaimState,
+	ClaimView,
+	ReplyKind,
+} from "@/client/types";
 
 type HistoryKey = keyof TranslationDictionary["shared"]["history"];
 
@@ -32,29 +38,88 @@ const HISTORY_KEYS: Record<string, HistoryKey> = {
 	"판매처 답변 기록": "replyRecorded",
 };
 
-function lookup(table: object, key: string | undefined): string | undefined {
-	if (!key) return undefined;
+function lookup(
+	table: object | undefined,
+	key: string | undefined,
+): string | undefined {
+	if (!table || !key) return undefined;
 	const value = (table as Record<string, unknown>)[key];
 	return typeof value === "string" ? value : undefined;
+}
+
+/** The words an exchange or a repair uses in place of the refund ones; nothing for a refund. */
+export function kindWords(
+	t: TranslationDictionary,
+	kind: ClaimKind | undefined,
+) {
+	return kind === "exchange" || kind === "repair" ? t.kinds[kind] : null;
 }
 
 export function stateLabel(
 	t: TranslationDictionary,
 	state: ClaimState,
+	kind?: ClaimKind,
 ): string {
-	return lookup(t.shared.states, state) ?? state;
+	return (
+		lookup(kindWords(t, kind)?.states, state) ??
+		lookup(t.shared.states, state) ??
+		state
+	);
 }
 
 /** The next thing to do, in the reader's language; the server's own sentence if the code is new. */
 export function nextStepText(
 	t: TranslationDictionary,
-	claim: Pick<ClaimView, "nextStep" | "nextStepCode">,
+	claim: Pick<ClaimView, "nextStep" | "nextStepCode"> & { kind?: ClaimKind },
 ): string {
-	return lookup(t.shared.nextSteps, claim.nextStepCode) ?? claim.nextStep;
+	return (
+		lookup(kindWords(t, claim.kind)?.nextSteps, claim.nextStepCode) ??
+		lookup(t.shared.nextSteps, claim.nextStepCode) ??
+		claim.nextStep
+	);
 }
 
-export function historyLabel(t: TranslationDictionary, action: string): string {
-	return lookup(t.shared.history, HISTORY_KEYS[action]) ?? action;
+export function historyLabel(
+	t: TranslationDictionary,
+	action: string,
+	kind?: ClaimKind,
+): string {
+	const key = HISTORY_KEYS[action];
+	return (
+		lookup(kindWords(t, kind)?.history, key) ??
+		lookup(t.shared.history, key) ??
+		action
+	);
+}
+
+/** What kind of reply the shop sent, in the words of this claim's kind. */
+export function replyKindLabel(
+	t: TranslationDictionary,
+	reply: ReplyKind,
+	kind?: ClaimKind,
+): string {
+	return (
+		lookup(kindWords(t, kind)?.replyKinds, reply) ?? t.shared.replyKinds[reply]
+	);
+}
+
+/**
+ * What has come back so far, in words, where it is not money: "1개 / 3개" for an exchange,
+ * checked or not yet for a repair. Nothing for a refund, which shows an amount.
+ */
+export function receivedText(
+	t: TranslationDictionary,
+	claim: Pick<ClaimView, "kind" | "summary">,
+): string | null {
+	const p = t.kinds.progress;
+	if (claim.kind === "exchange") {
+		const got = p.count.replace("{n}", String(claim.summary.goods));
+		const total = p.ofTotal.replace("{n}", String(claim.summary.requestedQty));
+		return `${got} ${total}`;
+	}
+	if (claim.kind === "repair")
+		return claim.summary.repair ? p.repairDone : p.repairPending;
+	return null;
 }
 
 /** A form rule names its message by key; an unknown key is shown as it is. */

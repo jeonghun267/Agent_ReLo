@@ -27,7 +27,8 @@ export function ClaimsAnalyticsCard({ claims }: { claims: ClaimView[] }) {
 	const buckets = useMemo<CurrencyBucket[]>(() => {
 		const map = new Map<CurrencyCode, CurrencyBucket>();
 		for (const claim of claims) {
-			if (claim.deleted) continue;
+			// Only a refund is money to get back; an exchange or a repair is not added up here.
+			if (claim.deleted || claim.kind !== "refund") continue;
 			const cur = claim.currency;
 			const prev = map.get(cur) ?? {
 				currency: cur,

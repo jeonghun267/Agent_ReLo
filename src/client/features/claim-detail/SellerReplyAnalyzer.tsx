@@ -1,8 +1,9 @@
 /**
  * @module client/features/claim-detail/SellerReplyAnalyzer
  * @layer View (Foreign Seller Reply Summary & Promised Refund Saver)
- * @purpose Summarizes foreign seller messages into plain 3-line Korean and records
- *          the seller's promised refund amount.
+ * @purpose Summarizes foreign seller messages into plain 3-line Korean, records the
+ *          seller's promised refund amount, and lets the way it is settled change (a refund
+ *          that became an exchange, or the other way) until something has come in.
  */
 
 import { Check, HandCoins, Languages, MessageSquarePlus } from "lucide-react";
@@ -26,14 +27,28 @@ import {
 	useSession,
 } from "@/client/hooks/useSession";
 import { useI18n } from "@/client/i18n";
-import { errorText } from "@/client/lib/claim-words";
+import {
+	claimToInput,
+	hasReceived,
+	isLocked,
+} from "@/client/lib/claim-progress";
+import { errorText, kindWords, replyKindLabel } from "@/client/lib/claim-words";
 import {
 	fill,
 	formatLocalDate,
 	minorToDecimalString,
 } from "@/client/lib/format";
 import { useCalmPreparation } from "@/client/lib/preparation";
-import type { ClaimView, ReplyKind } from "@/client/types";
+import type { ClaimKind, ClaimView, ReplyKind } from "@/client/types";
+
+const KIND_ORDER: ClaimKind[] = ["refund", "exchange", "repair"];
+const REPLY_KIND_ORDER: ReplyKind[] = [
+	"agreement",
+	"refund_notice",
+	"evidence",
+	"denied",
+	"other",
+];
 
 export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 	const replyTextareaId = useId();
@@ -48,6 +63,13 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 	const { showToast } = useToast();
 	const { t, locale, localeOption } = useI18n();
 	const r = t.detail.reply;
+	const method = t.kinds.method;
+	// An exchange or a repair words three of the reply kinds after what is sent, not money.
+	const replyOptions = {
+		...r.kindOptions,
+		...kindWords(t, claim.kind)?.replyOptions,
+	};
+	const methodFixed = hasReceived(claim) || isLocked(claim);
 
 	const [rawReply, setRawReply] = useState("");
 	const [replyKind, setReplyKind] = useState<ReplyKind>("agreement");
@@ -114,29 +136,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 		try {
 			await updateClaimMutation.mutateAsync({
 				version: claim.version,
-				input: {
-					title: claim.title,
-					vendor: claim.vendor,
-					vendorUrl: claim.vendorUrl,
-					orderRef: claim.orderRef,
-					orderedOn: claim.orderedOn,
-					kind: claim.kind,
-					currency: claim.currency,
-					claimedAmount: minorToDecimalString(claim.claimed, claim.currency),
-					agreedAmount: agreedInput.trim(),
-					issue: claim.issue,
-					issueEnglish: claim.issueEnglish,
-					deadline: claim.deadline ?? "",
-					deadlineQuote: claim.deadlineQuote,
-					deadlineZone: claim.deadlineZone,
-					items: claim.items.map((it) => ({
-						name: it.name,
-						sku: it.sku,
-						orderedQty: it.orderedQty,
-						claimQty: it.claimQty,
-						unitPrice: minorToDecimalString(it.unitPrice, claim.currency),
-					})),
-				},
+				input: { ...claimToInput(claim), agreedAmount: agreedInput.trim() },
 			});
 			showToast(r.toastAgreedSaved);
 		} catch (error) {
@@ -144,8 +144,51 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 		}
 	};
 
+	const handleChangeKind = async (kind: ClaimKind) => {
+		if (kind === claim.kind) return;
+		try {
+			await updateClaimMutation.mutateAsync({
+				version: claim.version,
+				input: { ...claimToInput(claim), kind },
+			});
+			showToast(method.toastSaved);
+		} catch (error) {
+			showToast(errorText(error, method.toastFail, locale), "error");
+		}
+	};
+
 	return (
 		<div className="space-y-4">
+			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1">
+				<p className="text-sm font-semibold text-relo-ink">{method.label}</p>
+				{/* biome-ignore lint/a11y/useSemanticElements: a three-way toggle, not a form fieldset */}
+				<div
+					role="group"
+					aria-label={method.label}
+					className="inline-flex rounded-full bg-relo-sunken p-1"
+				>
+					{KIND_ORDER.map((kind) => (
+						<button
+							key={kind}
+							type="button"
+							aria-pressed={claim.kind === kind}
+							disabled={methodFixed || updateClaimMutation.isPending}
+							onClick={() => void handleChangeKind(kind)}
+							className={`rounded-full px-3 py-1.5 text-xs font-semibold transition enabled:cursor-pointer disabled:cursor-not-allowed max-sm:min-h-10 ${
+								claim.kind === kind
+									? "bg-white font-bold text-relo-ink shadow-2xs"
+									: "text-relo-muted enabled:hover:text-relo-ink"
+							}`}
+						>
+							{t.shared.kinds[kind]}
+						</button>
+					))}
+				</div>
+				{hasReceived(claim) ? (
+					<p className="w-full text-xs text-relo-muted">{method.locked}</p>
+				) : null}
+			</div>
+
 			{claim.kind === "refund" ? (
 				<Card className="border-relo-brand-line bg-relo-brand-soft/35 p-5">
 					<div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
@@ -256,13 +299,11 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 									onChange={(e) => setReplyKind(e.target.value as ReplyKind)}
 									className="min-h-11 rounded-xl border border-relo-line-strong bg-white px-3 text-xs font-bold text-relo-ink"
 								>
-									<option value="agreement">{r.kindOptions.agreement}</option>
-									<option value="refund_notice">
-										{r.kindOptions.refund_notice}
-									</option>
-									<option value="evidence">{r.kindOptions.evidence}</option>
-									<option value="denied">{r.kindOptions.denied}</option>
-									<option value="other">{r.kindOptions.other}</option>
+									{REPLY_KIND_ORDER.map((kind) => (
+										<option key={kind} value={kind}>
+											{replyOptions[kind]}
+										</option>
+									))}
 								</select>
 							</div>
 
@@ -294,7 +335,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 							>
 								<div className="flex items-center justify-between">
 									<Badge tone={rep.kind === "denied" ? "danger" : "brand"}>
-										{t.shared.replyKinds[rep.kind]}
+										{replyKindLabel(t, rep.kind, claim.kind)}
 									</Badge>
 									<span className="text-relo-muted">
 										{formatLocalDate(rep.recordedAt, localeOption.bcp47)}
