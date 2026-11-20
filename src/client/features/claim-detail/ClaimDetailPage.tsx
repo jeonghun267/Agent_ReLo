@@ -25,6 +25,7 @@ import {
 	Card,
 	useToast,
 } from "@/client/components/ui/Primitives";
+import { AgentRunPanel } from "@/client/features/claim-detail/AgentRunPanel";
 import { ClaimLifecycleFlow } from "@/client/features/claim-detail/ClaimLifecycleFlow";
 import { ClaimProgressSummary } from "@/client/features/claim-detail/ClaimProgressSummary";
 import { ClaimStateNotice } from "@/client/features/claim-detail/ClaimStateNotice";
@@ -48,6 +49,7 @@ import {
 } from "@/client/lib/claim-words";
 import { fill, formatLocalDate } from "@/client/lib/format";
 import { useRouter } from "@/client/lib/router";
+import type { DraftSuggestionResponse } from "@/client/types";
 
 /** The four things to do on a refund. Their names come from the dictionary (detail.tabs). */
 const DETAIL_TABS = [
@@ -75,6 +77,12 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 	const restoreMutation = useRestoreClaimMutation(claimId);
 
 	const [activeTab, setActiveTab] = useState<DetailTabId>("inquiry");
+	// A draft an agent run wrote, handed to the message box. The counter remounts the box so
+	// it opens with that draft; saving it is still the person's own step there.
+	const [handedDraft, setHandedDraft] = useState<{
+		draft: DraftSuggestionResponse;
+		turn: number;
+	} | null>(null);
 
 	if (isLoading) {
 		return (
@@ -228,6 +236,15 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 
 			<ClaimStateNotice claim={claim} />
 
+			<AgentRunPanel
+				key={claim.id}
+				claim={claim}
+				onUseDraft={(draft) => {
+					setHandedDraft((prev) => ({ draft, turn: (prev?.turn ?? 0) + 1 }));
+					setActiveTab("inquiry");
+				}}
+			/>
+
 			<div className="overflow-x-auto border-b border-relo-line">
 				<div
 					role="tablist"
@@ -267,7 +284,13 @@ export function ClaimDetailPage({ claimId }: { claimId: string }) {
 				</div>
 			</div>
 
-			{activeTab === "inquiry" ? <ForeignMessageStudio claim={claim} /> : null}
+			{activeTab === "inquiry" ? (
+				<ForeignMessageStudio
+					key={handedDraft?.turn ?? 0}
+					claim={claim}
+					incoming={handedDraft?.draft ?? null}
+				/>
+			) : null}
 			{activeTab === "reply" ? <SellerReplyAnalyzer claim={claim} /> : null}
 			{activeTab === "settlement" ? (
 				<EvidenceAndSettlementTab claim={claim} />

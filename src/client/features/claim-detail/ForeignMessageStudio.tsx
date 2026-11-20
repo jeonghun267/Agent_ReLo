@@ -14,6 +14,7 @@ import {
 	Sparkles,
 } from "lucide-react";
 import { useId, useState } from "react";
+import { useAiConsentGate } from "@/client/components/AiConsentDialog";
 import { ReloOrbEmblem } from "@/client/components/ReloOrbEmblem";
 import {
 	Badge,
@@ -26,24 +27,30 @@ import {
 	useSaveDraftMutation,
 	useSubmitDraftMutation,
 } from "@/client/hooks/useClaims";
-import {
-	useAiConsentMutation,
-	useAppConfig,
-	useSession,
-} from "@/client/hooks/useSession";
+import { useAppConfig, useSession } from "@/client/hooks/useSession";
 import { useI18n } from "@/client/i18n";
 import { inquiryApi } from "@/client/lib/api-client";
 import { errorText } from "@/client/lib/claim-words";
 import { fill, formatLocalDate } from "@/client/lib/format";
 import { useCalmPreparation } from "@/client/lib/preparation";
-import type { ClaimView } from "@/client/types";
+import type { ClaimView, DraftSuggestionResponse } from "@/client/types";
 
-export function ForeignMessageStudio({ claim }: { claim: ClaimView }) {
+/**
+ * `incoming` is a draft handed over from an agent run ("put it in the message box"). It only
+ * fills the editor; like any AI draft it is saved when the person presses save.
+ */
+export function ForeignMessageStudio({
+	claim,
+	incoming = null,
+}: {
+	claim: ClaimView;
+	incoming?: DraftSuggestionResponse | null;
+}) {
 	const editorId = useId();
 	const noteId = useId();
-	const { data: session } = useSession();
 	const { data: config } = useAppConfig();
-	const aiConsentMutation = useAiConsentMutation();
+	const { data: session } = useSession();
+	const { ensureConsent, consentDialog } = useAiConsentGate();
 	const aiDraftMutation = useAiDraftMutation(claim.id);
 	const saveDraftMutation = useSaveDraftMutation(claim.id);
 	const submitDraftMutation = useSubmitDraftMutation(claim.id);
@@ -52,16 +59,48 @@ export function ForeignMessageStudio({ claim }: { claim: ClaimView }) {
 	const { t, locale, localeOption } = useI18n();
 	const m = t.detail.message;
 
+	// The message goes out in the consumer's own name, never the service's. Both the AI draft
+	// and the template end with the [이름] placeholder; it is filled here, on this device, with
+	// the name on the account (the name is not sent to the AI). It stays editable.
+	const signAsMe = (text: string) => {
+		const name = session?.user?.name?.trim();
+		return name ? text.replaceAll("[이름]", name) : text;
+	};
+
 	const latestDraft = claim.drafts[0] ?? null;
-	const [body, setBody] = useState(latestDraft?.body ?? "");
-	const [origin, setOrigin] = useState<"ai" | "template" | "manual">(
-		latestDraft?.origin ?? "manual",
+	const [body, setBody] = useState(() =>
+		incoming ? signAsMe(incoming.body) : (latestDraft?.body ?? ""),
 	);
-	const [modelName, setModelName] = useState(latestDraft?.model ?? "");
-	const [summaryKo, setSummaryKo] = useState("");
-	const [missingInfo, setMissingInfo] = useState<string[]>([]);
+	const [origin, setOrigin] = useState<"ai" | "template" | "manual">(
+		incoming ? "ai" : (latestDraft?.origin ?? "manual"),
+	);
+	const [modelName, setModelName] = useState(
+		incoming?.model ?? latestDraft?.model ?? "",
+	);
+	const [summaryKo, setSummaryKo] = useState(incoming?.summaryKo ?? "");
+	const [missingInfo, setMissingInfo] = useState<string[]>(
+		incoming?.missingInfo ?? [],
+	);
 	const [sentConfirmed, setSentConfirmed] = useState(false);
 	const [sentNote, setSentNote] = useState("");
+
+	// The version this box last knew as the saved one. A newer one can appear that this box did
+	// not save itself: the agent saved the message it wrote, after the person allowed it. Then
+	// the box shows that version, but only if nothing unsaved is in it. Text the person is
+	// still working on is never replaced.
+	const [seenDraft, setSeenDraft] = useState(latestDraft);
+	if (latestDraft && latestDraft.id !== seenDraft?.id) {
+		setSeenDraft(latestDraft);
+		const untouched =
+			!body.trim() || body.trim() === (seenDraft?.body ?? "").trim();
+		if (untouched && latestDraft.body.trim() !== body.trim()) {
+			setBody(latestDraft.body);
+			setOrigin(latestDraft.origin);
+			setModelName(latestDraft.model);
+			setSummaryKo("");
+			setMissingInfo([]);
+		}
+	}
 
 	// One blue button at a time: "write it" while the box is empty, "save" once there is
 	// something new to save. The other one stays gray.
@@ -70,13 +109,12 @@ export function ForeignMessageStudio({ claim }: { claim: ClaimView }) {
 		hasText && body.trim() !== (latestDraft?.body ?? "").trim();
 
 	const handleGenerateAiDraft = async () => {
+		// Nothing goes to the AI until the person has read what is sent and agreed.
+		if (!(await ensureConsent())) return;
 		try {
-			if (!session?.user?.aiConsentAt) {
-				await aiConsentMutation.mutateAsync(true);
-			}
 			const res = await runCalmly(() => aiDraftMutation.mutateAsync());
 			if (!res) return;
-			setBody(res.body);
+			setBody(signAsMe(res.body));
 			setOrigin("ai");
 			setModelName(res.model);
 			setSummaryKo(res.summaryKo ?? "");
@@ -90,7 +128,7 @@ export function ForeignMessageStudio({ claim }: { claim: ClaimView }) {
 	const handleLoadTemplate = async () => {
 		try {
 			const tpl = await inquiryApi.getTemplate(claim.id);
-			setBody(tpl.body);
+			setBody(signAsMe(tpl.body));
 			setOrigin("template");
 			setModelName("");
 			setSummaryKo(tpl.notice);
@@ -140,11 +178,13 @@ export function ForeignMessageStudio({ claim }: { claim: ClaimView }) {
 
 	return (
 		<div className="space-y-4">
+			{consentDialog}
 			<Card className="space-y-4">
 				<div className="flex flex-wrap items-center justify-between gap-3">
 					<div>
 						<Badge tone="brand">{m.eyebrow}</Badge>
 						<h3 className="mt-1 text-lg font-bold text-relo-ink">{m.title}</h3>
+						<p className="mt-1 text-xs text-relo-muted">{m.ownNote}</p>
 					</div>
 
 					<div className="flex flex-wrap gap-2">
@@ -208,6 +248,10 @@ export function ForeignMessageStudio({ claim }: { claim: ClaimView }) {
 								placeholder={m.editorPlaceholder}
 								className="w-full rounded-2xl border border-relo-line-strong bg-relo-sunken/40 p-4 text-sm leading-relaxed text-relo-ink focus:border-relo-brand focus:bg-white"
 							/>
+							{/* What the AI wrote always says so, also when a saved AI draft is opened again. */}
+							{origin === "ai" && hasText ? (
+								<p className="text-xs text-relo-muted">{m.aiNote}</p>
+							) : null}
 						</div>
 
 						<div className="flex flex-wrap items-center justify-between gap-2">

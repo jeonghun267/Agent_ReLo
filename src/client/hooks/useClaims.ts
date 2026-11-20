@@ -24,6 +24,7 @@ export const claimKeys = {
 	all: ["claims"] as const,
 	detail: (id: string) => ["claims", "detail", id] as const,
 	template: (id: string) => ["claims", "template", id] as const,
+	agent: (id: string) => ["claims", "agent", id] as const,
 };
 
 export function useClaimDetailQuery(
@@ -216,6 +217,61 @@ export function useAiDraftMutation(claimId: string) {
 	});
 }
 
+/**
+ * Whether the agent is at work on the claim, a proposal still waiting for the person's answer,
+ * and what the last run did. While the agent is at work on its own (nobody on this screen
+ * started it), this asks again every two seconds, so the result appears when it is done.
+ */
+export function useAgentOverviewQuery(claimId: string, enabled: boolean) {
+	return useQuery({
+		queryKey: claimKeys.agent(claimId),
+		queryFn: () => aiApi.agentOverview(claimId),
+		enabled,
+		refetchInterval: (query) => (query.state.data?.working ? 2000 : false),
+	});
+}
+
+/** The claims where the agent is waiting for the person's answer, for the list of claims. */
+export function useAgentWaitingQuery(enabled: boolean) {
+	return useQuery({
+		queryKey: [...claimKeys.all, "agent-waiting"] as const,
+		queryFn: async () => (await aiApi.agentWaiting()).claims,
+		enabled,
+		staleTime: 10 * 1000,
+	});
+}
+
+/** One agent run: the AI picks which tools to use, in what order, toward the claim's goal. */
+export function useAgentRunMutation(claimId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (locale: string) => aiApi.runAgent(claimId, locale),
+		onSuccess: () =>
+			queryClient.invalidateQueries({ queryKey: claimKeys.agent(claimId) }),
+	});
+}
+
+/**
+ * The person's answer to an action the agent proposed. An allowed action changes the claim on
+ * the server, so the claim is read again before this resolves: whatever is shown next (the
+ * message box, the order facts) is already the saved state.
+ */
+export function useAgentDecisionMutation(claimId: string) {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: ({
+			runId,
+			approve,
+			locale,
+		}: {
+			runId: string;
+			approve: boolean;
+			locale: string;
+		}) => aiApi.decideAgent(claimId, runId, approve, locale),
+		onSettled: () => queryClient.invalidateQueries({ queryKey: claimKeys.all }),
+	});
+}
+
 export function useAiAnalyzeReplyMutation(claimId: string) {
 	return useMutation({
 		mutationFn: (body: string) => aiApi.analyzeReply(claimId, body),
@@ -225,6 +281,14 @@ export function useAiAnalyzeReplyMutation(claimId: string) {
 export function useAiTranslateIssueMutation() {
 	return useMutation({
 		mutationFn: (text: string) => aiApi.translateIssue(text),
+	});
+}
+
+/** Filing from one line: the AI reads what the person wrote against their order's items. */
+export function useAiIntakeMutation() {
+	return useMutation({
+		mutationFn: (input: Parameters<typeof aiApi.intake>[0]) =>
+			aiApi.intake(input),
 	});
 }
 

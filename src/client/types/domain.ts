@@ -52,6 +52,10 @@ export interface User {
 	createdAt: string;
 	emailVerifiedAt: string | null;
 	aiConsentAt: string | null;
+	/** When the person left their claims to the agent (it may start by itself). null = off. */
+	agentAutoAt: string | null;
+	/** When the person switched notice emails off ("the AI is waiting for your OK"). null = they receive them. */
+	noticeMailOffAt: string | null;
 }
 
 export interface AiStatus {
@@ -59,6 +63,8 @@ export interface AiStatus {
 	provider: string;
 	model: string | null;
 	hourlyLimit: number;
+	/** The most steps one agent run may take. */
+	agentMaxSteps?: number;
 	consented?: boolean;
 }
 
@@ -237,6 +243,128 @@ export interface DraftSuggestionResponse {
 	notice: string;
 	summaryKo?: string;
 	missingInfo?: string[];
+}
+
+/**
+ * The tools an agent run can choose from. The first three only read or write a suggestion.
+ * The last two change the claim, so the run stops and asks first. None of them sends.
+ */
+export type AgentTool =
+	| "read_evidence"
+	| "analyze_reply"
+	| "write_draft"
+	| "fix_order_facts"
+	| "save_draft";
+
+export type AgentEndedBy =
+	| "done"
+	| "max_steps"
+	| "repeat"
+	| "invalid_choice"
+	| "rate_limited"
+	| "plan_failed";
+
+/** A saved fact an action replaces, with the value it had and the value read from the file. */
+export interface AgentChange {
+	field: "orderRef" | "orderedOn" | "currency";
+	from: string;
+	to: string;
+}
+
+/** One step of an agent run: the tool the AI chose, why, and what it returned. */
+export interface AgentStep {
+	seq: number;
+	tool: AgentTool;
+	reason: string;
+	fileId: string | null;
+	fileName: string | null;
+	replyId: string | null;
+	ok: boolean;
+	errorCode: string;
+	message: string;
+	ms: number;
+	result:
+		| AiExtractionResponse
+		| AiReplyAnalysisResponse
+		| DraftSuggestionResponse
+		| null;
+	/** Saved order facts the document read in this step disagrees with. */
+	mismatches: Array<{
+		field: "orderRef" | "orderedOn" | "currency";
+		saved: string;
+		read: string;
+	}>;
+	/** What the person answered when this step was an action; empty for a reading tool. */
+	decision: "" | "approved" | "declined";
+	changes: AgentChange[];
+}
+
+/** An action the AI wants to take. Nothing happens until the person allows it. */
+export interface AgentPending {
+	tool: AgentTool;
+	reason: string;
+	fileName: string | null;
+	changes: AgentChange[];
+	draftBody: string | null;
+}
+
+/** What started a run: the person's button, or something that happened on the claim. */
+export type AgentStartedBy = "person" | "filed" | "file" | "reply";
+
+export interface AgentRunResponse {
+	runId: string;
+	/** "waiting": stopped on `pending` until the person answers. */
+	status: "waiting" | "finished";
+	endedBy: AgentEndedBy | null;
+	startedBy: AgentStartedBy;
+	maxSteps: number;
+	aiCalls: number;
+	reason: string;
+	userAction: string | null;
+	errorCode: string;
+	steps: AgentStep[];
+	pending: AgentPending | null;
+}
+
+/**
+ * What is known when the claim is opened: whether the agent is at work right now (it started by
+ * itself, or is about to), a proposal still waiting, and the last run.
+ */
+export interface AgentOverview {
+	working: boolean;
+	/** It would have started by itself, but too little of the hourly AI limit was left. */
+	heldBack: boolean;
+	waiting: AgentRunResponse | null;
+	last: {
+		endedAt: string;
+		endedBy: string;
+		startedBy: AgentStartedBy;
+		userAction: string | null;
+		steps: Array<{
+			tool: AgentTool;
+			ok: boolean;
+			decision: "" | "approved" | "declined";
+		}>;
+	} | null;
+}
+
+/** A claim where the agent is stopped on a proposal, for the list of claims. */
+export interface AgentWaitingItem {
+	claimId: string;
+	tool: AgentTool | null;
+}
+
+/**
+ * Filing from one line: how the AI read what the person wrote against the items of their order
+ * document. It names the kind, the item and the quantity; names and prices stay the document's.
+ */
+export interface AiIntakeResponse {
+	kind: ClaimKind;
+	itemIndex: number | null;
+	claimQty: number | null;
+	issueEnglish: string;
+	understood: string | null;
+	model: string;
 }
 
 export interface AiReplyAnalysisResponse {

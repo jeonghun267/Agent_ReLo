@@ -8,6 +8,7 @@
 import { Download, LogOut, Sparkles, Trash2, UserCheck } from "lucide-react";
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useAiConsentGate } from "@/client/components/AiConsentDialog";
 import { ReloOrbEmblem } from "@/client/components/ReloOrbEmblem";
 import {
 	Button,
@@ -17,10 +18,12 @@ import {
 } from "@/client/components/ui/Primitives";
 import { PasskeyCard } from "@/client/features/settings/PasskeyCard";
 import {
+	useAgentAutoMutation,
 	useAiConsentMutation,
 	useAppConfig,
 	useDeleteAccountMutation,
 	useLogoutMutation,
+	useNoticeMailMutation,
 	useSession,
 } from "@/client/hooks/useSession";
 import { useI18n } from "@/client/i18n";
@@ -41,6 +44,9 @@ export function SettingsPage() {
 	const { data: session, isLoading } = useSession();
 	const { data: config } = useAppConfig();
 	const aiConsentMutation = useAiConsentMutation();
+	const agentAutoMutation = useAgentAutoMutation();
+	const noticeMailMutation = useNoticeMailMutation();
+	const { ensureConsent, consentDialog } = useAiConsentGate();
 	const logoutMutation = useLogoutMutation();
 	const deleteMutation = useDeleteAccountMutation();
 	const { showToast } = useToast();
@@ -80,11 +86,40 @@ export function SettingsPage() {
 	}
 
 	const aiConsented = Boolean(user.aiConsentAt);
+	const agentAuto = Boolean(user.agentAutoAt);
+	const auto = t.detail.agent.auto;
+	const noticeMail = !user.noticeMailOffAt;
 
+	// The same switch as on a case: the AI may start by itself when something happens there.
+	const handleToggleAgentAuto = async () => {
+		try {
+			await agentAutoMutation.mutateAsync(!agentAuto);
+			showToast(agentAuto ? auto.toastOff : auto.toastOn);
+		} catch (error) {
+			showToast(errorText(error, auto.toastFail, locale), "error");
+		}
+	};
+
+	// The email that tells them the AI is waiting. Off here, the AI still starts by itself.
+	const handleToggleNoticeMail = async () => {
+		try {
+			await noticeMailMutation.mutateAsync(!noticeMail);
+			showToast(noticeMail ? st.toastNoticeMailOff : st.toastNoticeMailOn);
+		} catch (error) {
+			showToast(errorText(error, st.toastSaveFail, locale), "error");
+		}
+	};
+
+	// Turning it on goes through the same notice as the AI buttons, so the answer is saved
+	// only after the person has read what is sent. Turning it off needs no question.
 	const handleToggleConsent = async () => {
 		try {
-			await aiConsentMutation.mutateAsync(!aiConsented);
-			showToast(!aiConsented ? st.toastAiOn : st.toastAiOff);
+			if (aiConsented) {
+				await aiConsentMutation.mutateAsync(false);
+				showToast(st.toastAiOff);
+			} else if (await ensureConsent()) {
+				showToast(st.toastAiOn);
+			}
 		} catch (error) {
 			showToast(errorText(error, st.toastSaveFail, locale), "error");
 		}
@@ -137,6 +172,7 @@ export function SettingsPage() {
 
 	return (
 		<div className="mx-auto max-w-xl space-y-5 px-4 pt-6 sm:px-6 sm:pt-8">
+			{consentDialog}
 			<div className="space-y-1">
 				<span className="text-xs font-bold text-relo-brand">{st.eyebrow}</span>
 				<h1 className="text-2xl font-extrabold tracking-tight text-relo-ink">
@@ -196,6 +232,49 @@ export function SettingsPage() {
 				>
 					{aiConsented ? st.aiTurnOff : st.aiTurnOn}
 				</Button>
+				{aiConsented && config?.ai.enabled ? (
+					<div
+						className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-relo-line pt-3 text-xs leading-relaxed text-relo-muted"
+						data-testid="settings-agent-auto"
+					>
+						<p className="min-w-0 flex-1 basis-64">
+							{agentAuto ? auto.onNote : auto.offNote}
+						</p>
+						<button
+							type="button"
+							aria-pressed={agentAuto}
+							disabled={agentAutoMutation.isPending}
+							onClick={handleToggleAgentAuto}
+							className="inline-flex min-h-11 shrink-0 cursor-pointer items-center font-semibold text-relo-brand hover:underline disabled:opacity-60"
+						>
+							{agentAuto ? auto.turnOff : auto.turnOn}
+						</button>
+					</div>
+				) : null}
+				{aiConsented && config?.ai.enabled && agentAuto ? (
+					<div
+						className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-t border-relo-line pt-3 text-xs leading-relaxed text-relo-muted"
+						data-testid="settings-notice-mail"
+					>
+						<p className="min-w-0 flex-1 basis-64">
+							{/* No email goes to an address nobody has confirmed: say so instead of promising one. */}
+							{!noticeMail
+								? st.noticeMailOffNote
+								: user.emailVerifiedAt
+									? st.noticeMailOnNote
+									: st.noticeMailUnverifiedNote}
+						</p>
+						<button
+							type="button"
+							aria-pressed={noticeMail}
+							disabled={noticeMailMutation.isPending}
+							onClick={handleToggleNoticeMail}
+							className="inline-flex min-h-11 shrink-0 cursor-pointer items-center font-semibold text-relo-brand hover:underline disabled:opacity-60"
+						>
+							{noticeMail ? st.noticeMailTurnOff : st.noticeMailTurnOn}
+						</button>
+					</div>
+				) : null}
 			</Card>
 
 			{config?.signIn?.passkey ? <PasskeyCard /> : null}

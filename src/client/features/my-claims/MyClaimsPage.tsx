@@ -7,11 +7,12 @@
 
 import { FilePlus2, LogIn, Sparkles, Trash2 } from "lucide-react";
 import { motion } from "motion/react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { ReloOrbEmblem } from "@/client/components/ReloOrbEmblem";
 import { Button, Card } from "@/client/components/ui/Primitives";
 import { ClaimsAnalyticsCard } from "@/client/features/my-claims/ClaimsAnalyticsCard";
 import { ConsumerClaimsLedger } from "@/client/features/my-claims/ConsumerClaimsLedger";
+import { useAgentWaitingQuery } from "@/client/hooks/useClaims";
 import {
 	useAppConfig,
 	useClaimsQuery,
@@ -50,6 +51,15 @@ export function MyClaimsPage() {
 			deleted: showTrash,
 		},
 		isLoggedIn,
+	);
+
+	// Where the agent stopped on a question while the person was away.
+	const { data: waiting } = useAgentWaitingQuery(
+		isLoggedIn && Boolean(config?.ai.enabled) && !showTrash,
+	);
+	const agentWaiting = useMemo(
+		() => new Set((waiting ?? []).map((item) => item.claimId)),
+		[waiting],
 	);
 
 	if (!sessionLoading && !isLoggedIn) {
@@ -229,7 +239,7 @@ export function MyClaimsPage() {
 					) : null}
 				</Card>
 			) : (
-				<ConsumerClaimsLedger claims={claims} />
+				<ConsumerClaimsLedger claims={claims} agentWaiting={agentWaiting} />
 			)}
 		</div>
 	);

@@ -35,6 +35,11 @@ const SettingsPage = lazy(() =>
 		default: m.SettingsPage,
 	})),
 );
+const LegalPage = lazy(() =>
+	import("@/client/features/legal/LegalPage").then((m) => ({
+		default: m.LegalPage,
+	})),
+);
 const AuthPage = lazy(() =>
 	import("@/client/features/auth/AuthPage").then((m) => ({
 		default: m.AuthPage,
@@ -75,6 +80,9 @@ function RouteViewport() {
 		}
 		if (pathname === "/auth") {
 			return <AuthPage />;
+		}
+		if (pathname === "/privacy" || pathname === "/terms") {
+			return <LegalPage doc={pathname === "/privacy" ? "privacy" : "terms"} />;
 		}
 
 		return (

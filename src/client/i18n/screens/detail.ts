@@ -42,14 +42,109 @@ export const detailKo = {
 	},
 	stagePartial: "일부 입금 확인",
 	stageDisputed: "추가 확인 필요",
+	/** The agent run: the AI picks its own next steps, runs them, and shows what it did and why. */
+	agent: {
+		eyebrow: "AI에게 맡기기",
+		goalLabel: "목표",
+		goal: {
+			refund: "{amount} 환불 받기",
+			exchange: "교환품 받기",
+			repair: "수리 받기",
+		},
+		idle: "이 목표까지 지금 할 수 있는 일을 AI가 이 건의 상태를 보고 골라서 해요. 자료 읽기 · 답장 풀기 · 글 쓰기는 바로 하고, 내용을 고치거나 저장하는 일은 먼저 물어봐요. 쇼핑몰에 보내는 일은 하지 않아요.",
+		start: "AI에게 맡기기",
+		again: "다시 맡기기",
+		running:
+			"AI가 무엇을 할지 고르면서 최대 {n}단계까지 하고 있어요. 조금 걸릴 수 있어요...",
+		resultTitle: "AI가 한 일",
+		tools: {
+			read_evidence: "올린 자료 읽기",
+			analyze_reply: "쇼핑몰 답장 풀기",
+			write_draft: "보낼 글 쓰기",
+			fix_order_facts: "주문 정보를 자료대로 고치기",
+			save_draft: "쓴 글을 이 건에 저장하기",
+		},
+		approval: {
+			title: "허락이 필요해요",
+			intro: "AI가 이 일을 하려고 해요. 허락하면 그때 해요.",
+			changeLine: "{field}: {from} → {to}",
+			fixNote: "자료 “{file}”에서 읽은 값이에요. 맞는지 자료와 견줘 보세요.",
+			draftNote:
+				"아래 글이 새 버전으로 저장돼요. 쇼핑몰에 보내는 일은 직접 해야 해요.",
+			approve: "허락하기",
+			decline: "하지 않기",
+		},
+		decided: {
+			approved: "허락해서 했어요.",
+			declined: "허락하지 않아서 그대로 뒀어요.",
+			failed: "허락했지만 하지 못했어요.",
+		},
+		last: "지난번({date})에 한 일: {steps}",
+		lastSaid: "그때 AI가 한 말:",
+		lastApproved: "허락함",
+		lastDeclined: "허락하지 않음",
+		why: "고른 까닭:",
+		fields: {
+			vendor: "쇼핑몰",
+			orderRef: "주문번호",
+			orderedOn: "주문일",
+			currency: "통화",
+			total: "합계",
+		},
+		mismatchTitle: "저장된 내용과 달라요. 어느 쪽이 맞는지 확인해 주세요.",
+		mismatchLine: "{field}: 저장된 값 {saved} · 자료에서 읽은 값 {read}",
+		noMismatch: "저장된 주문번호 · 주문일 · 통화와 같아요.",
+		replyKind: "AI가 본 답장 종류:",
+		mentioned: "답장에 적힌 금액: {amount}",
+		deadline: "답장에 적힌 기한: {date}",
+		useDraft: "이 글을 메시지 칸에 넣기",
+		draftUsed: "메시지 칸에 넣었어요. 읽어 보고 저장해 주세요.",
+		stepFailed: "이 단계는 하지 못했어요.",
+		ended: {
+			done: "AI가 여기까지 하고 멈췄어요.",
+			max_steps: "정해 둔 {n}단계까지 살펴봤어요. 다음은 직접 판단해 주세요.",
+			repeat: "AI가 같은 일을 다시 고르려고 해서 멈췄어요.",
+			invalid_choice: "AI가 할 수 없는 일을 골라서 멈췄어요.",
+			rate_limited: "한 시간에 쓸 수 있는 횟수를 다 써서 멈췄어요.",
+			plan_failed: "AI가 다음 일을 고르지 못해서 멈췄어요.",
+		},
+		nextTitle: "다음에 내가 할 일",
+		note: "AI가 고르고 만든 내용이에요. 틀릴 수 있으니 직접 확인해 주세요. AI는 허락받은 것만 저장했고, 쇼핑몰에는 아무것도 보내지 않았어요. (AI 호출 {n}번)",
+		toastFail: "AI가 하지 못했어요.",
+		toastDecisionFail: "답을 전하지 못했어요. 다시 눌러 주세요.",
+		autoRunning:
+			"일이 생겨서 AI가 스스로 살펴보고 있어요. 조금 걸릴 수 있어요...",
+		startedBy: {
+			filed: "신청이 접수돼서 AI가 스스로 시작했어요.",
+			file: "자료가 올라와서 AI가 스스로 시작했어요.",
+			reply: "쇼핑몰 답장이 저장돼서 AI가 스스로 시작했어요.",
+		},
+		auto: {
+			offNote:
+				"켜 두면 신청하거나, 자료를 올리거나, 답장을 저장했을 때 AI가 스스로 시작해요. 그때 이 건의 내용과 올려 둔 자료가 Google의 AI로 보내져요. 고치거나 저장하는 일은 그때도 먼저 물어봐요. 허락을 기다리는데 한동안 답이 없으면, 인증해 둔 이메일로 한 번 알려 드려요.",
+			onNote:
+				"스스로 시작하기가 켜져 있어요. 신청하거나, 자료를 올리거나, 답장을 저장하면 AI가 알아서 살펴보고, 허락이 필요한 일은 여기서 기다려요.",
+			turnOn: "스스로 시작하기 켜기",
+			turnOff: "끄기",
+			toastOn: "켰어요. 이제 일이 생기면 AI가 스스로 시작해요.",
+			toastOff: "껐어요. 이제 버튼을 눌러야 시작해요.",
+			toastFail: "바꾸지 못했어요. 다시 눌러 주세요.",
+			heldBack:
+				"이번 시간에 쓸 수 있는 AI 횟수가 얼마 남지 않아서 스스로 시작하지 않았어요. 필요하면 위 버튼으로 직접 맡겨 주세요.",
+		},
+	},
 	message: {
 		eyebrow: "외국어 메시지",
 		title: "해외 쇼핑몰 고객센터에 보낼 정중한 메시지",
+		ownNote:
+			"내 이름으로, 내가 직접 보내는 글이에요. ReLo는 대신 보내거나 쇼핑몰과 대신 이야기하지 않아요.",
 		aiButton: "내 상황에 맞게 써 주기",
 		templateButton: "기본 영문 양식 불러오기",
 		preparing:
 			"주문번호, 돌려받을 금액, 문제 설명을 바탕으로 상담원이 바로 이해할 문장을 만들고 있어요...",
 		summaryPrefix: "쓴 내용 요약:",
+		aiNote:
+			"AI가 쓴 글이에요. 틀린 곳이 없는지 읽어 보고, 고친 뒤 보내 주세요.",
 		missingTitle:
 			"보내기 전에 [확인 필요]로 표시된 곳을 내 정보로 채워 주세요:",
 		editorLabel: "쇼핑몰에 보낼 메시지 (직접 고칠 수 있어요 · 20자 이상)",
@@ -90,6 +185,8 @@ export const detailKo = {
 		rawPlaceholder:
 			"예: Hello, we sincerely apologize for the damaged package. We have approved a full refund of $129.99...",
 		summaryPrefix: "핵심 요약:",
+		aiNote: "AI가 읽고 정리한 내용이에요. 원문과 다르면 원문이 맞아요.",
+		aiSaved: "AI 요약",
 		kindLabel: "답장 종류",
 		kindOptions: {
 			agreement: "환불 약속 (금액이 정해짐)",
@@ -240,14 +337,112 @@ export const detailEn: Shape = {
 	},
 	stagePartial: "Partly received",
 	stageDisputed: "Needs a closer look",
+	agent: {
+		eyebrow: "Hand it to the AI",
+		goalLabel: "Goal",
+		goal: {
+			refund: "Get a refund of {amount}",
+			exchange: "Get a replacement",
+			repair: "Get it repaired",
+		},
+		idle: "The AI looks at where this case stands and does what it can toward this goal. It reads files, explains replies and writes the message right away, and asks you first before it changes or saves anything. It never sends anything to the shop.",
+		start: "Hand it to the AI",
+		again: "Hand it over again",
+		running:
+			"The AI is choosing and doing what it can, up to {n} steps. This can take a little while...",
+		resultTitle: "What the AI did",
+		tools: {
+			read_evidence: "Read an uploaded file",
+			analyze_reply: "Explain the shop's reply",
+			write_draft: "Write the message",
+			fix_order_facts: "Correct the order details to match the file",
+			save_draft: "Save the message to this case",
+		},
+		approval: {
+			title: "Your OK is needed",
+			intro: "The AI wants to do this. It happens only if you allow it.",
+			changeLine: "{field}: {from} → {to}",
+			fixNote:
+				"These values were read from “{file}”. Check them against the file.",
+			draftNote:
+				"The message below will be saved as a new version. Sending it to the shop is still up to you.",
+			approve: "Allow",
+			decline: "Don't",
+		},
+		decided: {
+			approved: "You allowed it, so it was done.",
+			declined: "You did not allow it, so nothing was changed.",
+			failed: "You allowed it, but it could not be done.",
+		},
+		last: "Last time ({date}): {steps}",
+		lastSaid: "What the AI said then:",
+		lastApproved: "allowed",
+		lastDeclined: "not allowed",
+		why: "Why it chose this:",
+		fields: {
+			vendor: "Shop",
+			orderRef: "Order number",
+			orderedOn: "Order date",
+			currency: "Currency",
+			total: "Total",
+		},
+		mismatchTitle:
+			"This differs from what is saved. Please check which one is right.",
+		mismatchLine: "{field}: saved {saved} · read from the file {read}",
+		noMismatch: "Same as the saved order number, date and currency.",
+		replyKind: "Kind of reply, as the AI read it:",
+		mentioned: "Amount stated in the reply: {amount}",
+		deadline: "Deadline stated in the reply: {date}",
+		useDraft: "Put this in the message box",
+		draftUsed: "It is in the message box. Read it and save it.",
+		stepFailed: "This step could not be done.",
+		ended: {
+			done: "The AI stopped here.",
+			max_steps:
+				"It looked through the {n} steps it is allowed. The next call is yours.",
+			repeat:
+				"The AI was about to choose the same thing again, so it was stopped.",
+			invalid_choice: "The AI chose something it cannot do, so it was stopped.",
+			rate_limited: "It stopped because the hourly limit was used up.",
+			plan_failed: "It stopped because the AI could not choose a next step.",
+		},
+		nextTitle: "What you do next",
+		note: "The AI chose and made all of this, and it can be wrong, so check it yourself. The AI saved only what you allowed and sent nothing to the shop. ({n} AI calls)",
+		toastFail: "The AI could not do it.",
+		toastDecisionFail: "Your answer did not get through. Please press again.",
+		autoRunning:
+			"Something happened on this case, so the AI is looking into it on its own. This can take a little while...",
+		startedBy: {
+			filed: "You filed the request, so the AI started on its own.",
+			file: "A file was added, so the AI started on its own.",
+			reply: "A reply from the shop was saved, so the AI started on its own.",
+		},
+		auto: {
+			offNote:
+				"Turn this on and the AI starts on its own when you file a request, add a file or save a reply. The details of this case and the files you added are then sent to Google's AI. It still asks you first before it changes or saves anything. If it is left waiting for your OK for a while, it emails you once at your verified address.",
+			onNote:
+				"Starting on its own is on. When you file a request, add a file or save a reply, the AI looks into it by itself, and anything that needs your OK waits here.",
+			turnOn: "Let it start on its own",
+			turnOff: "Turn off",
+			toastOn: "On. The AI now starts on its own when something happens.",
+			toastOff: "Off. It now starts only when you press the button.",
+			toastFail: "Could not change it. Please press again.",
+			heldBack:
+				"Only a few AI uses are left for this hour, so the AI did not start on its own. If you need it, hand it over yourself with the button above.",
+		},
+	},
 	message: {
 		eyebrow: "Message in their language",
 		title: "A polite message for the shop's customer service",
+		ownNote:
+			"This is your own message, sent by you in your name. ReLo does not send it or talk to the shop for you.",
 		aiButton: "Write it for my case",
 		templateButton: "Load the basic English form",
 		preparing:
 			"Writing sentences an agent can understand at once, from your order number, amount and problem...",
 		summaryPrefix: "What it says:",
+		aiNote:
+			"The AI wrote this. Read it for mistakes and fix them before you send it.",
 		missingTitle:
 			"Before sending, fill in the parts marked [확인 필요] with your details:",
 		editorLabel: "Message for the shop (edit freely · 20 characters or more)",
@@ -289,6 +484,9 @@ export const detailEn: Shape = {
 		rawPlaceholder:
 			"e.g. Hello, we sincerely apologize for the damaged package. We have approved a full refund of $129.99...",
 		summaryPrefix: "In short:",
+		aiNote:
+			"The AI read and summed this up. If it differs from the original, the original is right.",
+		aiSaved: "AI summary",
 		kindLabel: "Kind of reply",
 		kindOptions: {
 			agreement: "Promised a refund (amount set)",
@@ -438,14 +636,111 @@ export const detailJa: Shape = {
 	},
 	stagePartial: "一部入金を確認",
 	stageDisputed: "追加の確認が必要",
+	agent: {
+		eyebrow: "AIに任せる",
+		goalLabel: "目標",
+		goal: {
+			refund: "{amount} の返金を受ける",
+			exchange: "交換品を受け取る",
+			repair: "修理してもらう",
+		},
+		idle: "この目標に向けて今できることを、AIがこの件の状態を見て選び、実行します。ファイルを読む・返信を読み解く・文章を書くはすぐに行い、内容の修正や保存は先に確認します。ショップへの送信はしません。",
+		start: "AIに任せる",
+		again: "もう一度任せる",
+		running:
+			"AIが何をするかを選びながら、最大{n}ステップまで進めています。少し時間がかかることがあります...",
+		resultTitle: "AIがしたこと",
+		tools: {
+			read_evidence: "アップロードしたファイルを読む",
+			analyze_reply: "ショップの返信を読み解く",
+			write_draft: "送る文章を書く",
+			fix_order_facts: "注文情報をファイルに合わせて直す",
+			save_draft: "書いた文章をこの件に保存する",
+		},
+		approval: {
+			title: "許可が必要です",
+			intro: "AIがこれを実行しようとしています。許可したときだけ実行します。",
+			changeLine: "{field}：{from} → {to}",
+			fixNote:
+				"ファイル「{file}」から読んだ値です。ファイルと照らして確認してください。",
+			draftNote:
+				"下の文章が新しい版として保存されます。ショップへの送信は自分で行います。",
+			approve: "許可する",
+			decline: "しない",
+		},
+		decided: {
+			approved: "許可したので実行しました。",
+			declined: "許可しなかったので、何も変えていません。",
+			failed: "許可しましたが、実行できませんでした。",
+		},
+		last: "前回（{date}）にしたこと：{steps}",
+		lastSaid: "そのときAIが伝えたこと：",
+		lastApproved: "許可",
+		lastDeclined: "許可せず",
+		why: "選んだ理由：",
+		fields: {
+			vendor: "ショップ",
+			orderRef: "注文番号",
+			orderedOn: "注文日",
+			currency: "通貨",
+			total: "合計",
+		},
+		mismatchTitle:
+			"保存されている内容と違います。どちらが正しいか確認してください。",
+		mismatchLine: "{field}：保存された値 {saved} · ファイルから読んだ値 {read}",
+		noMismatch: "保存された注文番号・注文日・通貨と同じです。",
+		replyKind: "AIが読み取った返信の種類：",
+		mentioned: "返信に書かれた金額：{amount}",
+		deadline: "返信に書かれた期限：{date}",
+		useDraft: "この文章をメッセージ欄に入れる",
+		draftUsed: "メッセージ欄に入れました。読んでから保存してください。",
+		stepFailed: "このステップは実行できませんでした。",
+		ended: {
+			done: "AIはここまで実行して止まりました。",
+			max_steps:
+				"決められた{n}ステップまで確認しました。この先は自分で判断してください。",
+			repeat: "AIが同じことをもう一度選ぼうとしたため、止めました。",
+			invalid_choice: "AIができないことを選んだため、止めました。",
+			rate_limited: "1時間に使える回数を使い切ったため、止まりました。",
+			plan_failed: "AIが次にすることを選べなかったため、止まりました。",
+		},
+		nextTitle: "次に自分ですること",
+		note: "AIが選び、作った内容です。間違っていることがあるので、自分で確認してください。AIは許可されたものだけを保存し、ショップには何も送信していません。（AI呼び出し {n}回）",
+		toastFail: "AIが実行できませんでした。",
+		toastDecisionFail: "返事を伝えられませんでした。もう一度押してください。",
+		autoRunning:
+			"動きがあったので、AIが自分で確認しています。少し時間がかかることがあります...",
+		startedBy: {
+			filed: "申請が登録されたので、AIが自分で始めました。",
+			file: "資料が追加されたので、AIが自分で始めました。",
+			reply: "ショップの返信が保存されたので、AIが自分で始めました。",
+		},
+		auto: {
+			offNote:
+				"オンにすると、申請したとき・資料を追加したとき・返信を保存したときにAIが自分で始めます。そのとき、この件の内容と追加した資料がGoogleのAIに送られます。内容を直したり保存したりする前には、そのときも必ず確認します。許可を待ったまましばらくお返事がないときは、確認済みのメールアドレスに一度だけお知らせします。",
+			onNote:
+				"「自分で始める」がオンです。申請・資料の追加・返信の保存があるとAIが自分で確認し、許可が必要なことはここで待ちます。",
+			turnOn: "自分で始めるをオンにする",
+			turnOff: "オフにする",
+			toastOn: "オンにしました。動きがあるとAIが自分で始めます。",
+			toastOff: "オフにしました。ボタンを押したときだけ始めます。",
+			toastFail: "変更できませんでした。もう一度押してください。",
+			heldBack:
+				"この1時間に使えるAIの回数が残りわずかなため、自分では始めませんでした。必要なときは上のボタンで任せてください。",
+		},
+	},
 	message: {
 		eyebrow: "外国語メッセージ",
 		title: "海外ショップのカスタマーサービスに送る丁寧なメッセージ",
+		ownNote:
+			"自分の名前で、自分で送る文章です。ReLoが代わりに送ったり、ショップとやり取りしたりすることはありません。",
 		aiButton: "状況に合わせて書いてもらう",
 		templateButton: "基本の英文フォームを読み込む",
 		preparing:
 			"注文番号、返金額、問題の説明をもとに、担当者がすぐ理解できる文章を作っています...",
 		summaryPrefix: "書いた内容の要約：",
+		aiNote:
+			"AIが書いた文章です。間違いがないか読んで、直してから送ってください。",
 		missingTitle:
 			"送る前に、[확인 필요] と表示された部分を自分の情報で埋めてください：",
 		editorLabel: "ショップに送るメッセージ（自由に直せます · 20文字以上）",
@@ -489,6 +784,8 @@ export const detailJa: Shape = {
 		rawPlaceholder:
 			"例：Hello, we sincerely apologize for the damaged package. We have approved a full refund of $129.99...",
 		summaryPrefix: "要点：",
+		aiNote: "AIが読んでまとめた内容です。原文と違う場合は原文が正しいです。",
+		aiSaved: "AIの要約",
 		kindLabel: "返信の種類",
 		kindOptions: {
 			agreement: "返金の約束（金額が決定）",
@@ -637,13 +934,103 @@ export const detailZh: Shape = {
 	},
 	stagePartial: "部分到账",
 	stageDisputed: "需要进一步确认",
+	agent: {
+		eyebrow: "交给 AI",
+		goalLabel: "目标",
+		goal: {
+			refund: "拿到 {amount} 的退款",
+			exchange: "收到换货",
+			repair: "完成维修",
+		},
+		idle: "为了这个目标，AI 会根据这件事的状态选择现在能做的事并执行。读取文件、解读回复、撰写留言会直接做；修改或保存内容之前会先问你。不会向商城发送任何内容。",
+		start: "交给 AI",
+		again: "再交给 AI 一次",
+		running: "AI 正在选择并执行，最多 {n} 步。可能需要一点时间...",
+		resultTitle: "AI 做了什么",
+		tools: {
+			read_evidence: "读取上传的文件",
+			analyze_reply: "解读商城回复",
+			write_draft: "撰写留言",
+			fix_order_facts: "按文件修改订单信息",
+			save_draft: "把写好的留言保存到这件事",
+		},
+		approval: {
+			title: "需要你的同意",
+			intro: "AI 想做这件事。只有你同意后才会执行。",
+			changeLine: "{field}：{from} → {to}",
+			fixNote: "这些是从文件“{file}”读到的值，请对照文件确认。",
+			draftNote: "下面的留言会保存为新版本。向商城发送仍需你自己来做。",
+			approve: "同意",
+			decline: "不做",
+		},
+		decided: {
+			approved: "你同意了，已执行。",
+			declined: "你没有同意，所以没有改动。",
+			failed: "你同意了，但没能执行。",
+		},
+		last: "上一次（{date}）做的事：{steps}",
+		lastSaid: "当时 AI 说的话：",
+		lastApproved: "已同意",
+		lastDeclined: "未同意",
+		why: "选择的理由：",
+		fields: {
+			vendor: "商城",
+			orderRef: "订单号",
+			orderedOn: "下单日期",
+			currency: "货币",
+			total: "合计",
+		},
+		mismatchTitle: "与已保存的内容不一致，请确认哪一个是对的。",
+		mismatchLine: "{field}：已保存 {saved} · 从文件读到 {read}",
+		noMismatch: "与已保存的订单号、下单日期和货币一致。",
+		replyKind: "AI 判断的回复类型：",
+		mentioned: "回复中提到的金额：{amount}",
+		deadline: "回复中提到的期限：{date}",
+		useDraft: "把这段文字放进留言框",
+		draftUsed: "已放进留言框，请阅读后保存。",
+		stepFailed: "这一步没能完成。",
+		ended: {
+			done: "AI 做到这里就停下了。",
+			max_steps: "已查看规定的 {n} 步，接下来请自己判断。",
+			repeat: "AI 想再次选择同一件事，所以停下了。",
+			invalid_choice: "AI 选择了做不了的事，所以停下了。",
+			rate_limited: "一小时内可用的次数已用完，所以停下了。",
+			plan_failed: "AI 没能选出下一步，所以停下了。",
+		},
+		nextTitle: "接下来我要做的事",
+		note: "以上内容由 AI 选择并生成，可能有误，请自己确认。AI 只保存了你同意的内容，没有向商城发送任何内容。（AI 调用 {n} 次）",
+		toastFail: "AI 没能完成。",
+		toastDecisionFail: "没能传达你的回答，请再按一次。",
+		autoRunning: "有了新情况，AI 正在自己查看。可能需要一点时间...",
+		startedBy: {
+			filed: "申请已登记，AI 自己开始了。",
+			file: "添加了资料，AI 自己开始了。",
+			reply: "保存了店铺的回复，AI 自己开始了。",
+		},
+		auto: {
+			offNote:
+				"打开后，在你提交申请、添加资料或保存回复时，AI 会自己开始。那时这件事的内容和你添加的资料会发送给 Google 的 AI。修改或保存内容之前，仍然会先问你。如果等你同意等了一段时间仍没有回答，会向你已验证的邮箱发一封提醒邮件。",
+			onNote:
+				"“自己开始”已打开。提交申请、添加资料或保存回复后，AI 会自己查看，需要你同意的事会在这里等你。",
+			turnOn: "打开“自己开始”",
+			turnOff: "关闭",
+			toastOn: "已打开。有新情况时 AI 会自己开始。",
+			toastOff: "已关闭。现在只有按下按钮才会开始。",
+			toastFail: "没能更改，请再按一次。",
+			heldBack:
+				"这一小时可用的 AI 次数所剩不多，所以 AI 没有自己开始。需要的话，请用上面的按钮交给它。",
+		},
+	},
 	message: {
 		eyebrow: "外语留言",
 		title: "发给海外商城客服的礼貌留言",
+		ownNote:
+			"这是以你自己的名义、由你自己发送的留言。ReLo 不会替你发送，也不会替你和商城沟通。",
 		aiButton: "按我的情况来写",
 		templateButton: "载入基本英文模板",
 		preparing: "正在根据订单号、退款金额和问题说明，写出客服一看就懂的句子...",
 		summaryPrefix: "内容摘要：",
+		aiNote: "这是 AI 写的。请先读一遍，有错就改好再发送。",
 		missingTitle: "发送前，请把标有 [확인 필요] 的地方换成你的信息：",
 		editorLabel: "发给商城的留言（可以自己修改 · 至少20字）",
 		editorPlaceholder: "点上面的按钮来生成留言。",
@@ -682,6 +1069,8 @@ export const detailZh: Shape = {
 		rawPlaceholder:
 			"如：Hello, we sincerely apologize for the damaged package. We have approved a full refund of $129.99...",
 		summaryPrefix: "要点：",
+		aiNote: "这是 AI 阅读后整理的内容。与原文不一致时，以原文为准。",
+		aiSaved: "AI 摘要",
 		kindLabel: "回复类型",
 		kindOptions: {
 			agreement: "承诺退款（金额已定）",

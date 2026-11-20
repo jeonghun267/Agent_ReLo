@@ -13,15 +13,12 @@ import {
 } from "@/client/components/media/UppyEvidenceUploader";
 import { ReloOrbEmblem } from "@/client/components/ReloOrbEmblem";
 import { Button, TextField } from "@/client/components/ui/Primitives";
-import { WizardInvoiceScanCard } from "@/client/features/claim-wizard/WizardInvoiceScanCard";
+import type { WizardIntakeResult } from "@/client/features/claim-wizard/intake-fill";
+import { WizardAgentIntake } from "@/client/features/claim-wizard/WizardAgentIntake";
 import { useI18n } from "@/client/i18n";
 import { fieldError } from "@/client/lib/claim-words";
 import { CURRENCY_SYMBOLS, fill } from "@/client/lib/format";
-import type {
-	AiExtractionResponse,
-	ClaimWizardFormValues,
-	CurrencyCode,
-} from "@/client/types";
+import type { ClaimWizardFormValues, CurrencyCode } from "@/client/types";
 
 const QUICK_MALL_OPTIONS: ReadonlyArray<{
 	name: string;
@@ -53,9 +50,15 @@ interface WizardStepsContentProps {
 	form: UseFormReturn<ClaimWizardFormValues>;
 	todayIso: string;
 	isTranslating: boolean;
+	/** The English text came from the AI, so it is marked as the AI's. */
+	englishByAi: boolean;
+	/** The AI filled the form from the order and the person's line: the wizard keeps saying so. */
+	filledByAi: boolean;
+	/** How the AI said it read the person's line. */
+	understood: string | null;
 	stagedFilesCount: number;
 	extraScannedCount: number;
-	onInvoiceExtracted: (res: AiExtractionResponse, scannedFile: File) => void;
+	onIntakeFilled: (result: WizardIntakeResult) => Promise<number>;
 	onTranslateIssue: () => void;
 	onStagedFilesChange: (items: StagedEvidenceItem[]) => void;
 }
@@ -65,9 +68,12 @@ export function WizardStepsContent({
 	form,
 	todayIso,
 	isTranslating,
+	englishByAi,
+	filledByAi,
+	understood,
 	stagedFilesCount,
 	extraScannedCount,
-	onInvoiceExtracted,
+	onIntakeFilled,
 	onTranslateIssue,
 	onStagedFilesChange,
 }: WizardStepsContentProps) {
@@ -83,7 +89,12 @@ export function WizardStepsContent({
 	if (step === 1) {
 		return (
 			<>
-				<WizardInvoiceScanCard onExtracted={onInvoiceExtracted} />
+				<WizardAgentIntake
+					onFilled={onIntakeFilled}
+					filledByAi={filledByAi}
+					understood={understood}
+					initialLine={understood ? values.issue : ""}
+				/>
 
 				<div className="space-y-2">
 					<p className="text-xs font-bold text-relo-muted">{w.quickMalls}</p>
@@ -301,6 +312,9 @@ export function WizardStepsContent({
 							{...form.register("issueEnglish")}
 						/>
 					)}
+					{englishByAi && !isTranslating && values.issueEnglish ? (
+						<p className="text-xs text-relo-muted">{w.englishAiNote}</p>
+					) : null}
 				</div>
 			</>
 		);
@@ -341,13 +355,34 @@ export function WizardStepsContent({
 						{values.claimedAmount}
 					</span>
 				</div>
-				<div className="flex justify-between">
+				<div className="flex justify-between border-b border-relo-line pb-2.5">
 					<span className="text-relo-muted">{w.sumFiles}</span>
 					<span className="font-bold text-relo-ink">
 						{fill(w.sumFilesValue, { n: stagedFilesCount + extraScannedCount })}
 					</span>
 				</div>
+				{/* The words that go to the shop are checked here too, not only the numbers. */}
+				<div className="space-y-1">
+					<span className="text-relo-muted">{w.sumIssue}</span>
+					<p className="whitespace-pre-wrap font-bold text-relo-ink">
+						{values.issue}
+					</p>
+					{values.issueEnglish ? (
+						<p className="whitespace-pre-wrap text-xs text-relo-muted">
+							{values.issueEnglish}
+						</p>
+					) : null}
+				</div>
 			</div>
+
+			{filledByAi ? (
+				<p
+					className="text-xs leading-relaxed text-relo-muted"
+					data-testid="intake-review-note"
+				>
+					{w.intake.reviewNote}
+				</p>
+			) : null}
 
 			<div className="flex items-start gap-2.5 rounded-2xl bg-relo-brand-soft/60 p-3.5 text-xs text-relo-body">
 				<ShieldCheck
