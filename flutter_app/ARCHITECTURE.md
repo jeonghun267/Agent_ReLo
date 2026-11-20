@@ -20,12 +20,14 @@ flutter_app/
     ├── core/                                     # [1계층: 비즈니스 무관 공통 인프라]
     │   ├── config/sdk_registry.dart              # 외부 SDK 점검표 & 패키지 버전 호환성 레지스트리
     │   ├── i18n/relo_i18n.dart                   # 4개국어(KO/EN/JA/ZH) 다국어 사전
+    │   ├── i18n/relo_i18n_agent.dart             # AI에게 맡기기 · 스스로 시작하기 · AI가 채우기 문구 (사전에서 다시 내보냄)
     │   ├── network/api_client.dart               # 세션 쿠키, CSRF, If-Match, Idempotency-Key HTTP 클라이언트
     │   ├── theme/relo_theme.dart                 # 미드나잇 다크(#0F172A) / 라이트(#F9FAFB) / 초고대비(WCAG AAA) 테마
     │   ├── storage/assistant_history_storage.dart # 도우미 지난 대화 (shared_preferences, 이 기기에만)
     │   └── utils/money_format.dart               # 8개국 통화 무오차 정수(Minor Unit) 계산기
     ├── shared/                                   # [2계층: 앱 전역 공유 모델·상태·접근성 프리미티브]
     │   ├── models/domain_models.dart             # User, ClaimView, CookieConsentChoice 등 불변 모델
+    │   ├── models/agent_models.dart              # 에이전트 실행 · 허락을 기다리는 제안 · 신청 한 줄 읽기의 서버 응답 모양
     │   ├── state/relo_store.dart                 # 전역 스토어 (실서버 API 연동 + 오프라인 폴백 + 법적 동의 상태)
     │   └── widgets/
     │       ├── relo_app_shell.dart               # 상단바(로고·프로필) + 키보드 단축키(Alt+1~5) + 같은 모양 4탭 바 (홈·신청·내 환불·설정)
@@ -33,12 +35,14 @@ flutter_app/
     │       ├── relo_mascot.dart                  # ReLo 도우미 캐릭터 (깜빡임·생각 중·웃음)
     │       ├── refund_globe.dart                 # 지구본 (웹 globeCanvasRenderer.ts 포팅)
     │       ├── relo_orb_emblem.dart              # 3D 블루 오브 엠블럼 (로그인 화면)
+    │       ├── ai_consent_sheet.dart             # AI에 보내기 전에 동의를 묻는 아래 시트
     │       └── relo_primitives.dart              # FocusableActionDetector(Tab/Enter) & ReloConsentCheckbox
     └── features/                                 # [3계층: 기능별(Feature-First) 독립 모듈]
         ├── home/home_screen.dart                 # [홈] 승인 디자인 + 숨겨진 요금 0원 + 과장없는 지표 + 사업자 푸터
         ├── wizard/wizard_screen.dart             # [신청하기] 5단계 위저드 + 최소수집 안내 + 제출 전 필수/선택 동의
         ├── claims/
         │   ├── my_claims_screen.dart             # [내 환불] 통화별 환불 통장 + 상태 필터 + 클레임 카드
+        │   ├── agent_sheet.dart                  # [AI에게 맡기기] 목표 · 단계 · 허락 묻기 · 스스로 시작하기 (서버의 에이전트 실행)
         │   └── claim_detail_screen.dart          # [환불 상세] AI 외국어 초안 + 판매자 답장 요약 + 실제 입금 기록
         ├── assistant/assistant_sheet.dart        # [AI 도우미] 떠 있는 캐릭터 + 아래 시트 대화 (POST /api/ai/assistant, 서버 없으면 기본 안내)
         ├── auth/auth_screen.dart                 # [인증] 만 14세 연령 확인 + 다크패턴 없는 필수/선택 동의 양식
@@ -47,7 +51,7 @@ flutter_app/
         │   ├── cookie_consent_banner.dart        # 쿠키 배너 (현재 미사용, 분석 도구를 붙일 때 다시 켬)
         │   ├── business_footer.dart              # 전자상거래법 사업자 정보 & 6대 정책 바로가기 푸터
         │   └── legal_center_screen.dart          # 약관·정책 화면 (설정에서 열림)
-        └── settings/settings_screen.dart         # [설정] 테마/고대비 전환, 이메일 원클릭 수신거부, 즉시 탈퇴/파기
+        └── settings/settings_screen.dart         # [설정] 테마/고대비 전환, 스스로 시작하기 · 알림 메일 받기(서버의 값), 즉시 탈퇴/파기
 ```
 
 ---
@@ -86,6 +90,6 @@ Flutter 프로젝트에서 가장 흔히 발생하는 빌드 오류는 `flutter_
 | **15** | 키보드만으로 이동 가능 | [relo_app_shell.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/shared/widgets/relo_app_shell.dart) (`Alt+1~5`, `FocusTraversalGroup`), [relo_primitives.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/shared/widgets/relo_primitives.dart) (`FocusableActionDetector`) |
 | **16** | 사업자 정보 추가 | [business_footer.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/compliance/business_footer.dart) |
 | **17** | 아동 나이 관련 수집절차 | [auth_screen.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/auth/auth_screen.dart) (만 14세 확인 및 법정대리인 동의 절차) |
-| **18** | 이메일 수신거부 링크 확인 | [legal_center_screen.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/compliance/legal_center_screen.dart), [settings_screen.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/settings/settings_screen.dart) |
+| **18** | 이메일 수신거부 (광고 메일 없음 · 알림 메일은 설정에서 끔) | [legal_center_screen.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/compliance/legal_center_screen.dart), [settings_screen.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/settings/settings_screen.dart) |
 | **19** | 이미지·글꼴 이용권 확보 | [compliance_data.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/compliance/compliance_data.dart), [legal_center_screen.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/compliance/legal_center_screen.dart) |
 | **20** | 개인정보 삭제요청 기능 | [relo_store.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/shared/state/relo_store.dart) (`deleteAccountAndPurgeAllData`), [legal_center_screen.dart](file:///c:/Users/user_34/Agent_ReLo/flutter_app/lib/features/compliance/legal_center_screen.dart) |
