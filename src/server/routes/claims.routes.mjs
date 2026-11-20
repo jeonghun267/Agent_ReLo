@@ -11,10 +11,12 @@ export function registerClaimRoutes(router, {services}) {
     })},
   }));
 
-  router.post('/api/claims', async ctx => ({
-    status: 201,
-    body: {claim: claims.create(ctx.user.id, await ctx.json(), ctx.idempotencyKey)},
-  }));
+  router.post('/api/claims', async ctx => {
+    const claim = claims.create(ctx.user.id, await ctx.json(), ctx.idempotencyKey);
+    // If the person has left their claims to the agent, it starts on the new request by itself.
+    services.agent.wake(ctx.user.id, claim.id, 'filed', ctx.header('x-relo-locale'));
+    return {status: 201, body: {claim}};
+  });
 
   router.get('/api/claims/:id', ctx => ({
     body: {claim: claims.detail(ctx.user.id, ctx.params.id, {includeDeleted: ctx.query.get('deleted') === '1'})},

@@ -11,6 +11,7 @@ import {createAiUsageRepository} from './ai-usage.repo.mjs';
 import {createAccountRepository} from './account.repo.mjs';
 import {createIdentityRepository} from './identity.repo.mjs';
 import {createPasskeyRepository} from './passkey.repo.mjs';
+import {createAgentRunRepository} from './agent-run.repo.mjs';
 
 export function createRepositories(db) {
   return {
@@ -27,5 +28,6 @@ export function createRepositories(db) {
     account: createAccountRepository(db),
     identities: createIdentityRepository(db),
     passkeys: createPasskeyRepository(db),
+    agentRuns: createAgentRunRepository(db),
   };
 }

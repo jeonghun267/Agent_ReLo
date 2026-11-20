@@ -91,6 +91,14 @@ export function loadConfig(env = process.env) {
       model: env.GEMINI_MODEL || DEFAULT_GEMINI_MODEL,
       hourlyLimit: integer(env.AI_HOURLY_LIMIT, 30, 'AI_HOURLY_LIMIT'),
       timeoutMs: integer(env.AI_TIMEOUT_MS, 30000, 'AI_TIMEOUT_MS'),
+      // The most rounds one agent run may take. A round is two AI calls (choose, then run the tool).
+      agentMaxSteps: Math.max(1, integer(env.AGENT_MAX_STEPS, 5, 'AGENT_MAX_STEPS')),
+      // How long the agent waits after an event before it starts by itself, so that several
+      // events in a row (the files of a new request) make one run.
+      agentAutoDelayMs: integer(env.AGENT_AUTO_DELAY_MS, 4000, 'AGENT_AUTO_DELAY_MS'),
+      // How long a run that started by itself may wait for the person's answer before one
+      // email tells them. Long enough that someone who is at the screen is not emailed.
+      agentNoticeDelayMs: integer(env.AGENT_NOTICE_DELAY_MS, 10 * 60 * 1000, 'AGENT_NOTICE_DELAY_MS'),
     }),
   });
 }

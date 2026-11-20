@@ -5,6 +5,18 @@ const REQUEST_PHRASE = {refund: 'a refund', exchange: 'an exchange', repair: 'a 
 
 // Rule-based English inquiry used when AI is unavailable or not consented to.
 // It only restates saved facts; the user edits it before saving a version.
+// The message is the consumer's own: written in the first person and signed with their name
+// ([이름], the same placeholder the AI draft uses). ReLo is never the sender or an agent, so
+// its name does not appear in the text.
+export const NAME_PLACEHOLDER = '[이름]';
+
+// Fills the placeholder with the name on the account. The name is added here, after the text
+// came back, so it is never sent to the AI. Without a name the placeholder stays for the person.
+export function signAs(body, name) {
+  const mine = String(name ?? '').trim();
+  return mine ? body.replaceAll(NAME_PLACEHOLDER, mine) : body;
+}
+
 export function templateDraft(claim) {
   const money = minor => `${claim.currency} ${toDecimal(minor, claim.currency)}`;
   const lines = [
@@ -23,7 +35,8 @@ export function templateDraft(claim) {
     '',
     'Could you please confirm the applicable policy, the evidence you need, the next steps, and whether any return shipping cost applies? I can provide photos and the order receipt.',
     '',
-    'Thank you.',
+    'Thank you,',
+    NAME_PLACEHOLDER,
   );
   return lines.join('\n');
 }

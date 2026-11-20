@@ -140,3 +140,11 @@ test('template draft restates saved facts in the claim currency', () => {
   assert.match(draft, /JPY 4500\./);
   assert.match(draft, /Original note in Korean/);
 });
+
+test('template draft is the consumer\'s own message, never sent in the service\'s name', () => {
+  const draft = templateDraft(parseClaimInput(claimInput()));
+  assert.match(draft, /\nI am contacting you/, 'written in the first person');
+  assert.match(draft, /Thank you,\n\[이름\]$/, 'signed with the consumer\'s name');
+  assert.doesNotMatch(draft, /relo/i, 'the service is not named as sender or agent');
+  assert.doesNotMatch(draft, /on behalf of/i);
+});
