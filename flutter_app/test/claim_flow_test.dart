@@ -215,6 +215,7 @@ void main() {
         summaryKo: '',
         translationKo: '',
         agreedAmountStr: '',
+        aiAssisted: false,
       );
       var c = store.findClaim(refundId)!;
       expect(c.state, 'recovered');
@@ -267,6 +268,7 @@ void main() {
         summaryKo: '',
         translationKo: '',
         agreedAmountStr: '100.00',
+        aiAssisted: false,
       );
       expect(store.findClaim(refundId)!.state, 'recovered');
       await store.completeClaim(refundId);
@@ -295,6 +297,7 @@ void main() {
         summaryKo: '',
         translationKo: '',
         agreedAmountStr: '',
+        aiAssisted: false,
       );
       final c = store.findClaim('clm_jp_mercari')!;
       expect([c.state, c.agreed], ['disputed', 42000]);

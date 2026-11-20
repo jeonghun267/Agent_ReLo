@@ -1,6 +1,6 @@
 // Removes everything one user owns. Call inside a transaction. The purges row
 // lifts the append-only triggers for this owner only, then is removed again.
-const PURGE_ORDER = ['ai_usage', 'idempotency', 'audit', 'draft_submissions', 'drafts', 'ledger', 'files', 'claims', 'sessions', 'email_tokens', 'identities', 'passkeys'];
+const PURGE_ORDER = ['agent_steps', 'agent_runs', 'ai_usage', 'idempotency', 'audit', 'draft_submissions', 'drafts', 'ledger', 'files', 'claims', 'sessions', 'email_tokens', 'identities', 'passkeys'];
 const USER_ID_TABLES = ['sessions', 'email_tokens', 'identities', 'passkeys'];
 
 export function createAccountRepository(db) {

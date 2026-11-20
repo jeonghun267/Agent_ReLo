@@ -7,6 +7,7 @@ import {createReceiptService} from './receipt.service.mjs';
 import {createAccountService} from './account.service.mjs';
 import {createAiService} from './ai.service.mjs';
 import {createPasskeyService} from './passkey.service.mjs';
+import {createAgentService} from './agent.service.mjs';
 
 // Builds the services in dependency order. Each receives only what it uses.
 export function createServices({db, repos, config, aiProvider, mailProvider, googleProvider, logger}) {
@@ -15,15 +16,18 @@ export function createServices({db, repos, config, aiProvider, mailProvider, goo
   const claims = createClaimService(base);
   const withClaims = {...base, claims};
   const files = createFileService(withClaims);
+  const ai = createAiService({...withClaims, files, provider: aiProvider});
+  const drafts = createDraftService(withClaims);
   return {
     auth,
     claims,
     files,
-    drafts: createDraftService(withClaims),
+    drafts,
     replies: createReplyService(withClaims),
     receipts: createReceiptService(withClaims),
     account: createAccountService({...withClaims, auth}),
-    ai: createAiService({...withClaims, files, provider: aiProvider}),
+    ai,
+    agent: createAgentService({...withClaims, drafts, ai, mail: mailProvider, logger}),
     passkeys: createPasskeyService({...base, auth}),
   };
 }

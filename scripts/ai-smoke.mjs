@@ -2,13 +2,15 @@
 // that each answer passes the same validation the server uses.
 //   1. Put GEMINI_API_KEY (and optionally GEMINI_MODEL) in .env
 //   2. npm run ai:smoke
-// Costs four small API calls. Never prints the key.
+// Costs six small API calls. Never prints the key.
+// Whether the agent loop's choice changes with the state of a claim is a separate check: npm run agent:branch
 import {loadConfig} from '../src/server/config.mjs';
 import {createGeminiProvider} from '../src/server/ai/gemini.provider.mjs';
 import {buildDraftRequest, parseDraftResult} from '../src/server/ai/prompts/draft.mjs';
 import {buildIssueTranslationRequest, parseIssueTranslation, buildReplyAnalysisRequest, parseReplyAnalysis} from '../src/server/ai/prompts/translate.mjs';
 import {buildExtractRequest, parseExtraction} from '../src/server/ai/prompts/extract.mjs';
 import {buildAssistantRequest, parseAssistantReply} from '../src/server/ai/prompts/assistant.mjs';
+import {buildPlanRequest, parsePlan} from '../src/server/ai/prompts/plan.mjs';
 import {fixtureOrderPdf} from '../src/server/dev/fixtures.mjs';
 
 const config = loadConfig();
@@ -37,6 +39,9 @@ const checks = [
       nextStep: '판매처 답변을 기다리세요.', updatedAt: '2026-11-01T00:00:00Z'}],
     current: null, history: [], message: '내 환불 어디까지 왔어? 판매자한테 뭐라고 보내면 돼?', locale: 'ko',
   }), data => parseAssistantReply(data, new Set(['clm_smoke'])), result => `${result.action} / ${result.reply}`],
+  ['에이전트의 다음 단계 고르기', buildPlanRequest({...claim, state: 'preparing', deadline: null, drafts: [],
+    files: [{id: 'file_smoke', name: 'order-EG-2026-1001.pdf', mime: 'application/pdf', usedAsProof: false}]}, [], 'ko'),
+    data => parsePlan(data, {fileIds: new Set(['file_smoke']), replyIds: new Set()}), result => `${result.done ? 'done' : result.tool} / ${result.reason}`],
 ];
 
 console.log(`Gemini model: ${config.ai.model}\n`);

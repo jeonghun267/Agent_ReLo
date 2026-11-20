@@ -17,6 +17,23 @@ class BusinessFooter extends StatelessWidget {
     final store = ReloScope.of(context);
     final palette = ReloPalette.of(context);
     final info = ReloComplianceData.businessInfo;
+    // 정해지지 않아 비워 둔 항목(사업자등록번호 · 주소 · 전화 등)은 줄을 보여 주지 않는다.
+    // 빈칸이나 지어낸 값을 사업자 정보로 보이지 않게 하려는 것이다.
+    String? line(String label, String key) {
+      final value = info[key] ?? '';
+      return value.isEmpty ? null : '$label: $value';
+    }
+
+    final details = [
+      line('책임자', 'ceoName'),
+      line('사업자등록번호', 'bizRegNo'),
+      line('통신판매업신고번호', 'ecommerceRegNo'),
+      line('사업장 주소', 'address'),
+      line('개인정보 보호책임자', 'cpoName'),
+      line('고객센터', 'supportPhone'),
+      line('이메일', 'supportEmail'),
+      line('호스팅 제공자', 'hostingProvider'),
+    ].whereType<String>().join('\n');
 
     return Semantics(
       container: true,
@@ -73,12 +90,7 @@ class BusinessFooter extends StatelessWidget {
             ),
             const SizedBox(height: 6),
             Text(
-              '대표자: ${info['ceoName']} | 사업자등록번호: ${info['bizRegNo']}\n'
-              '통신판매업신고번호: ${info['ecommerceRegNo']}\n'
-              '사업장 주소: ${info['address']}\n'
-              '개인정보보호책임자(CPO): ${info['cpoName']}\n'
-              '고객센터: ${info['supportPhone']} | 이메일: ${info['supportEmail']}\n'
-              '호스팅 제공자: ${info['hostingProvider']}',
+              details,
               style: TextStyle(
                 fontSize: 12,
                 color: palette.subtle,

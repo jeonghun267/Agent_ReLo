@@ -43,6 +43,9 @@ export function createApp(config, {aiProvider = createAiProvider(config.ai), mai
   const server = http.createServer((req, res) => handle(req, res));
   const sessionSweep = setInterval(() => services.auth.cleanupExpired(), 60 * 60 * 1000);
   sessionSweep.unref();
+  // Once a minute: an email for a proposal the agent has been waiting on with nobody there.
+  const agentNoticeSweep = setInterval(() => services.agent.notifyWaiting(), 60 * 1000);
+  agentNoticeSweep.unref();
 
   async function handle(req, res) {
     const requestId = newId();
@@ -144,6 +147,8 @@ export function createApp(config, {aiProvider = createAiProvider(config.ai), mai
     },
     async close() {
       clearInterval(sessionSweep);
+      clearInterval(agentNoticeSweep);
+      services.agent.stop();
       await new Promise(resolve => server.close(resolve));
       db.close();
     },

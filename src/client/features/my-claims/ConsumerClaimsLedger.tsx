@@ -52,7 +52,14 @@ function stateTone(state: ClaimState): "danger" | "neutral" {
 	return state === "disputed" ? "danger" : "neutral";
 }
 
-export function ConsumerClaimsLedger({ claims }: { claims: ClaimView[] }) {
+export function ConsumerClaimsLedger({
+	claims,
+	agentWaiting,
+}: {
+	claims: ClaimView[];
+	/** Claims where the agent stopped on a question and waits for the person's answer. */
+	agentWaiting: ReadonlySet<string>;
+}) {
 	const { t, localeOption } = useI18n();
 	const searchId = useId();
 	const [searchQuery, setSearchQuery] = useState("");
@@ -324,6 +331,15 @@ export function ConsumerClaimsLedger({ claims }: { claims: ClaimView[] }) {
 										{nextStepText(t, c)}
 									</span>
 								</div>
+
+								{agentWaiting.has(c.id) ? (
+									<p
+										className="mt-2 text-xs font-semibold text-relo-ink"
+										data-testid="agent-waiting"
+									>
+										{t.claims.agentWaiting}
+									</p>
+								) : null}
 
 								<div className="mt-3 h-1.5 w-full overflow-hidden rounded-full bg-[#eef2f6]">
 									<div

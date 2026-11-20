@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:animations/animations.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -42,35 +44,76 @@ class ReloFlutterApp extends StatelessWidget {
   Widget build(BuildContext context) {
     return ReloScope(
       store: store,
-      child: AnimatedBuilder(
-        animation: store,
-        builder: (context, _) {
-          return MaterialApp(
-            title: 'ReLo — 해외직구 반품·교환·환불 통장',
-            debugShowCheckedModeBanner: false,
-            theme: ReloAppTheme.light(),
-            darkTheme: ReloAppTheme.dark(highContrast: store.isHighContrast),
-            themeMode: store.isDarkMode ? ThemeMode.dark : ThemeMode.light,
-            locale: Locale(store.locale.code),
-            supportedLocales: const [
-              Locale('ko'),
-              Locale('en'),
-              Locale('ja'),
-              Locale('zh'),
-            ],
-            localizationsDelegates: const [
-              GlobalMaterialLocalizations.delegate,
-              GlobalWidgetsLocalizations.delegate,
-              GlobalCupertinoLocalizations.delegate,
-            ],
-            home: showIntro
-                ? const ReloIntro(child: _ReloMainNavigation())
-                : const _ReloMainNavigation(),
-          );
-        },
+      child: _AppLifecycle(
+        store: store,
+        child: AnimatedBuilder(
+          animation: store,
+          builder: (context, _) {
+            return MaterialApp(
+              title: 'ReLo — 해외직구 반품·교환·환불 통장',
+              debugShowCheckedModeBanner: false,
+              theme: ReloAppTheme.light(),
+              darkTheme: ReloAppTheme.dark(highContrast: store.isHighContrast),
+              themeMode: store.isDarkMode ? ThemeMode.dark : ThemeMode.light,
+              locale: Locale(store.locale.code),
+              supportedLocales: const [
+                Locale('ko'),
+                Locale('en'),
+                Locale('ja'),
+                Locale('zh'),
+              ],
+              localizationsDelegates: const [
+                GlobalMaterialLocalizations.delegate,
+                GlobalWidgetsLocalizations.delegate,
+                GlobalCupertinoLocalizations.delegate,
+              ],
+              home: showIntro
+                  ? const ReloIntro(child: _ReloMainNavigation())
+                  : const _ReloMainNavigation(),
+            );
+          },
+        ),
       ),
     );
   }
+}
+
+/// 앱이 뒤로 갔다가 돌아오는 것을 저장소에 알린다. 돌아오면 저장소가 비운 동안 바뀐 것을
+/// 다시 받아 온다 (스스로 시작한 AI가 물어볼 것이 생겼는지 포함).
+class _AppLifecycle extends StatefulWidget {
+  final ReloStore store;
+  final Widget child;
+
+  const _AppLifecycle({required this.store, required this.child});
+
+  @override
+  State<_AppLifecycle> createState() => _AppLifecycleState();
+}
+
+class _AppLifecycleState extends State<_AppLifecycle>
+    with WidgetsBindingObserver {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.paused) widget.store.appPaused();
+    if (state == AppLifecycleState.resumed) {
+      unawaited(widget.store.appResumed());
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => widget.child;
 }
 
 class _ReloMainNavigation extends StatelessWidget {

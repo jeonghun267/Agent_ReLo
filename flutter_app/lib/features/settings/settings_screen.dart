@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import '../../core/i18n/relo_i18n.dart';
 import '../../core/theme/relo_theme.dart';
+import '../../core/network/api_client.dart';
 import '../../shared/state/relo_store.dart';
+import '../../shared/widgets/ai_consent_sheet.dart';
 import '../../shared/widgets/relo_primitives.dart';
 import '../auth/auth_screen.dart';
 import '../compliance/business_footer.dart';
@@ -62,6 +64,45 @@ class SettingsScreen extends StatelessWidget {
         ],
       ),
     );
+  }
+
+  /// "스스로 시작하기"를 켜거나 끈다. 서버가 받아야만 바뀌고, 받지 않으면 까닭을 말한다.
+  Future<void> _setAgentAuto(
+    BuildContext context,
+    ReloStore store,
+    bool on,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final s = store.strings;
+    if (on && !await ensureAiConsent(context)) return;
+    String text;
+    try {
+      await store.setAgentAuto(on);
+      text = on ? s.agAutoToastOn : s.agAutoToastOff;
+    } on ApiError catch (e) {
+      text = store.locale == ReloLocale.ko && e.explained && e.message.isNotEmpty
+          ? e.message
+          : s.agAutoToastFail;
+    } catch (_) {
+      text = s.agAutoToastFail;
+    }
+    messenger.showSnackBar(SnackBar(content: Text(text)));
+  }
+
+  /// 알림 메일을 켜고 끈다. 서버가 받지 않았으면 스위치는 그대로이고, 그렇다고 알린다.
+  Future<void> _setNoticeMail(
+    BuildContext context,
+    ReloStore store,
+    bool on,
+  ) async {
+    final messenger = ScaffoldMessenger.of(context);
+    try {
+      await store.setNoticeMail(on);
+    } catch (_) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(store.strings.stEmailFail)),
+      );
+    }
   }
 
   @override
@@ -207,7 +248,7 @@ class SettingsScreen extends StatelessWidget {
           ),
           const SizedBox(height: 30),
 
-          // 개인정보 보호 · AI 도우미 동의 · 이메일 수신거부(#18) · 즉시 삭제(#20)
+          // 개인정보 보호 · AI 도우미 동의 · 알림 메일 끄기(#18) · 즉시 삭제(#20)
           _SectionLabel(store.strings.stSectionMe),
           ReloSwitchRow(
             title: store.strings.stAi,
@@ -215,13 +256,31 @@ class SettingsScreen extends StatelessWidget {
             value: user.aiConsentAt != null,
             onChanged: (_) => store.toggleAiConsent(),
           ),
-          ReloSwitchRow(
-            title: store.strings.stEmail,
-            subtitle:
-                store.emailUnsubscribed ? store.strings.stEmailOff : store.strings.stEmailOn,
-            value: !store.emailUnsubscribed,
-            onChanged: (v) => store.setEmailUnsubscribed(!v),
-          ),
+          // 스스로 시작하기: 처음에는 꺼져 있다. 서버의 AI가 있을 때만 보이고,
+          // 켤 때는 무엇이 Google로 가는지 알리고 AI 동의부터 받는다. AI 동의를 끄면 함께 꺼진다.
+          if (!store.isOfflineFallback && store.config.aiEnabled)
+            ReloSwitchRow(
+              title: store.strings.stAgentAuto,
+              subtitle: store.strings.stAgentAutoSub,
+              value: store.agentAutoOn,
+              onChanged: (on) => _setAgentAuto(context, store, on),
+            ),
+          // 알림 메일: 스스로 시작한 AI가 허락을 기다리는데 한동안 답이 없을 때 서버가 보내는 한 통.
+          // 스스로 시작하기를 켠 사람에게만 가는 메일이라 켰을 때만 보인다. 서버가 받아야 바뀐다.
+          if (!store.isOfflineFallback &&
+              store.config.aiEnabled &&
+              store.agentAutoOn)
+            ReloSwitchRow(
+              title: store.strings.stEmail,
+              // 인증하지 않은 주소로는 보내지 않는다: 보낸다고 약속하지 않고 그렇다고 말한다
+              subtitle: !store.noticeMailOn
+                  ? store.strings.stEmailOff
+                  : user.emailVerifiedAt == null
+                      ? store.strings.stEmailUnverified
+                      : store.strings.stEmailOn,
+              value: store.noticeMailOn,
+              onChanged: (on) => _setNoticeMail(context, store, on),
+            ),
           _LinkRow(
             title: store.strings.stBackupTitle,
             onTap: () => _showJsonExportDialog(context, store),

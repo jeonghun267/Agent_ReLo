@@ -6,7 +6,11 @@
  */
 
 import type {
+	AgentOverview,
+	AgentRunResponse,
+	AgentWaitingItem,
 	AiExtractionResponse,
+	AiIntakeResponse,
 	AiReplyAnalysisResponse,
 	AppConfig,
 	ClaimMutationInput,
@@ -60,6 +64,14 @@ export function setCsrfToken(token: string | null | undefined): void {
 	csrfToken = token ?? "";
 }
 
+// The language of the screen. It travels with every change, so that an agent run the change
+// starts on the server (nobody pressed a button for it) writes in the language the person reads.
+let requestLocale = "";
+
+export function setRequestLocale(locale: string): void {
+	requestLocale = locale;
+}
+
 export function getCsrfToken(): string {
 	return csrfToken;
 }
@@ -96,6 +108,9 @@ export async function apiRequest<TResponse>(
 	}
 	if (method !== "GET" && csrfToken) {
 		requestHeaders["X-CSRF-Token"] = csrfToken;
+	}
+	if (method !== "GET" && requestLocale) {
+		requestHeaders["X-Relo-Locale"] = requestLocale;
 	}
 	if (idempotencyKey) {
 		requestHeaders["Idempotency-Key"] = idempotencyKey;
@@ -415,6 +430,56 @@ export const aiApi = {
 				method: "POST",
 			},
 		),
+	/**
+	 * The AI chooses and runs its own next steps toward the goal of the claim. A step that would
+	 * change the claim comes back as `pending`: nothing is saved until the person allows it.
+	 */
+	runAgent: (claimId: string, locale: string) =>
+		apiRequest<AgentRunResponse>(
+			`/api/claims/${encodeURIComponent(claimId)}/ai/agent`,
+			{
+				method: "POST",
+				data: { locale },
+			},
+		),
+	/** The person's answer to a pending action. The run then goes on from there. */
+	decideAgent: (
+		claimId: string,
+		runId: string,
+		approve: boolean,
+		locale: string,
+	) =>
+		apiRequest<AgentRunResponse>(
+			`/api/claims/${encodeURIComponent(claimId)}/ai/agent/${encodeURIComponent(runId)}/decision`,
+			{
+				method: "POST",
+				data: { approve, locale },
+			},
+		),
+	/**
+	 * Whether the agent is at work on the claim right now, a proposal still waiting for an
+	 * answer, and what the last run did. No AI call.
+	 */
+	agentOverview: (claimId: string) =>
+		apiRequest<AgentOverview>(
+			`/api/claims/${encodeURIComponent(claimId)}/ai/agent`,
+		),
+	/** Every claim where the agent is waiting for the person's answer. No AI call. */
+	agentWaiting: () =>
+		apiRequest<{ claims: AgentWaitingItem[] }>("/api/ai/agent/waiting"),
+	/**
+	 * Filing from one line: the person's own words, read against the names and quantities of
+	 * the items on their order document. Prices are not sent.
+	 */
+	intake: (input: {
+		text: string;
+		items: Array<{ name: string; orderedQty: number }>;
+		locale: string;
+	}) =>
+		apiRequest<AiIntakeResponse>("/api/ai/intake", {
+			method: "POST",
+			data: input,
+		}),
 	analyzeReply: (claimId: string, body: string) =>
 		apiRequest<AiReplyAnalysisResponse>(
 			`/api/claims/${encodeURIComponent(claimId)}/ai/analyze-reply`,
@@ -430,6 +495,18 @@ export const accountApi = {
 		apiRequest<{ user: User }>("/api/account/ai-consent", {
 			method: "POST",
 			data: { consent },
+		}),
+	/** Leaves the person's claims to the agent (it may start by itself), or takes them back. */
+	setAgentAuto: (on: boolean) =>
+		apiRequest<{ user: User }>("/api/account/agent-auto", {
+			method: "POST",
+			data: { on },
+		}),
+	/** Notice emails ("the AI is waiting for your OK") on or off. Account emails are not affected. */
+	setNoticeMail: (on: boolean) =>
+		apiRequest<{ user: User }>("/api/account/notice-mail", {
+			method: "POST",
+			data: { on },
 		}),
 	exportData: () => apiRequest<Record<string, unknown>>("/api/account/export"),
 	deleteAccount: (password: string) =>

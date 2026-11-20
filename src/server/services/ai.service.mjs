@@ -5,6 +5,8 @@ import {buildDraftRequest, parseDraftResult} from '../ai/prompts/draft.mjs';
 import {buildIssueTranslationRequest, parseIssueTranslation, buildReplyAnalysisRequest, parseReplyAnalysis} from '../ai/prompts/translate.mjs';
 import {buildExtractRequest, parseExtraction} from '../ai/prompts/extract.mjs';
 import {buildAssistantRequest, parseAssistantReply, ASSISTANT_HISTORY_LIMIT} from '../ai/prompts/assistant.mjs';
+import {buildPlanRequest, parsePlan} from '../ai/prompts/plan.mjs';
+import {buildIntakeRequest, parseIntake} from '../ai/prompts/intake.mjs';
 import {checkFile} from './file.service.mjs';
 
 // AI suggestions only. Nothing here saves to a claim: the user reviews the
@@ -93,5 +95,37 @@ export function createAiService({repos, config, claims, files, provider}) {
     return run(user, current?.id ?? null, request, data => parseAssistantReply(data, claimIds));
   }
 
-  return {status, draft, translateIssue, analyzeReply, extract, extractDocument, assistant};
+  // --- For the agent loop (agent.service.mjs). The functions above are not changed. ---
+
+  // How many AI calls the user has left this hour. Refuses for the same reasons as any AI
+  // call: AI is off, the user has not consented, or the hourly limit is already reached.
+  function remaining(user) {
+    guard(user);
+    const since = new Date(Date.now() - 60 * 60 * 1000).toISOString();
+    return config.ai.hourlyLimit - repos.aiUsage.countSince(user.id, since);
+  }
+
+  // One choice of the loop: which tool to run next for this claim, or stop. It goes through
+  // run() like every other AI call, so it is counted, recorded and limited the same way.
+  async function plan(user, claimId, claim, steps, {fileIds, replyIds, locale, earlierRuns, startedBy}) {
+    return run(user, claimId, buildPlanRequest(claim, steps, locale, earlierRuns, startedBy), data => parsePlan(data, {fileIds, replyIds}));
+  }
+
+  // --- Filing a new request. Added next to the functions above, which are not changed. ---
+
+  // What the person wrote in one line, read against the items of their order document (as the
+  // document reading returned them; the list may be empty). The model chooses the kind of
+  // request, the item and the quantity, and translates. Nothing is saved: the screen fills the
+  // form with it and the person checks and files it.
+  async function intake(user, input) {
+    const text = requireText(input.text, 3000, '무슨 일인지 한 줄로 적어 주세요.');
+    // Positions are kept as they are, so the item the model picks is the one the screen has.
+    const items = (Array.isArray(input.items) ? input.items : []).slice(0, 20).map(item => ({
+      name: cleanText(item?.name, 200),
+      orderedQty: Number.isInteger(item?.orderedQty) && item.orderedQty > 0 ? item.orderedQty : 1,
+    }));
+    return run(user, null, buildIntakeRequest({text, items, locale: input.locale}), data => parseIntake(data, items));
+  }
+
+  return {status, draft, translateIssue, analyzeReply, extract, extractDocument, assistant, remaining, plan, intake};
 }

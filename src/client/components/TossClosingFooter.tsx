@@ -16,9 +16,9 @@ import { AppLink } from "@/client/lib/router";
 function CompactFooter() {
 	const { t } = useI18n();
 	const links = [
-		{ to: "/settings", label: t.footer.privacyBold, strong: true },
-		{ to: "/settings", label: t.footer.terms, strong: false },
-		{ to: "/settings", label: t.footer.dataSafety, strong: false },
+		{ to: "/privacy", label: t.footer.privacyBold, strong: true },
+		{ to: "/terms", label: t.footer.terms, strong: false },
+		{ to: "/privacy", label: t.footer.dataSafety, strong: false },
 		{ to: "/#why-relo", label: t.footer.disputeNotice, strong: false },
 	];
 
@@ -232,19 +232,19 @@ export function TossClosingFooter({ compact = false }: { compact?: boolean }) {
 
 					<div className="flex flex-wrap items-center gap-x-5 gap-y-2 pt-1 text-xs">
 						<AppLink
-							to="/settings"
+							to="/privacy"
 							className="font-bold text-white hover:underline"
 						>
 							{t.footer.privacyBold}
 						</AppLink>
 						<AppLink
-							to="/settings"
+							to="/terms"
 							className="text-slate-300 transition-colors hover:text-white hover:underline"
 						>
 							{t.footer.terms}
 						</AppLink>
 						<AppLink
-							to="/settings"
+							to="/privacy"
 							className="text-slate-300 transition-colors hover:text-white hover:underline"
 						>
 							{t.footer.dataSafety}

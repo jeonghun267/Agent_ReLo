@@ -162,8 +162,41 @@ export function useAiConsentMutation() {
 	const queryClient = useQueryClient();
 	return useMutation({
 		mutationFn: (consent: boolean) => accountApi.setAiConsent(consent),
-		onSuccess: () => {
+		onSuccess: ({ user }) => {
+			// The next AI button sees the new answer at once, without waiting for a refetch.
+			queryClient.setQueryData<SessionResponse | null>(
+				queryKeys.session,
+				(old) => (old ? { ...old, user } : old),
+			);
 			queryClient.invalidateQueries({ queryKey: queryKeys.session });
+		},
+	});
+}
+
+/** Leaves the claims to the agent (it may start by itself when something happens), or takes them back. */
+export function useAgentAutoMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (on: boolean) => accountApi.setAgentAuto(on),
+		onSuccess: ({ user }) => {
+			queryClient.setQueryData<SessionResponse | null>(
+				queryKeys.session,
+				(old) => (old ? { ...old, user } : old),
+			);
+		},
+	});
+}
+
+/** Switches the notice emails ("the AI is waiting for your OK") on or off. */
+export function useNoticeMailMutation() {
+	const queryClient = useQueryClient();
+	return useMutation({
+		mutationFn: (on: boolean) => accountApi.setNoticeMail(on),
+		onSuccess: ({ user }) => {
+			queryClient.setQueryData<SessionResponse | null>(
+				queryKeys.session,
+				(old) => (old ? { ...old, user } : old),
+			);
 		},
 	});
 }

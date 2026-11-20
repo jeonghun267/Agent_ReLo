@@ -13,9 +13,11 @@ export function registerInquiryRoutes(router, {services}) {
     body: {claim: services.drafts.submit(ctx.user.id, ctx.params.id, ctx.version, await ctx.json(), ctx.idempotencyKey)},
   }));
 
-  router.post('/api/claims/:id/replies', async ctx => ({
-    body: {claim: services.replies.record(ctx.user.id, ctx.params.id, ctx.version, await ctx.json())},
-  }));
+  router.post('/api/claims/:id/replies', async ctx => {
+    const claim = services.replies.record(ctx.user.id, ctx.params.id, ctx.version, await ctx.json());
+    services.agent.wake(ctx.user.id, ctx.params.id, 'reply', ctx.header('x-relo-locale'));
+    return {body: {claim}};
+  });
 
   router.post('/api/claims/:id/receipts', async ctx => ({
     status: 201,

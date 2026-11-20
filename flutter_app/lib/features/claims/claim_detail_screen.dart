@@ -15,6 +15,7 @@ import '../../shared/widgets/claim_row.dart';
 import '../../shared/widgets/evidence_source_sheet.dart';
 import '../../shared/widgets/relo_primitives.dart';
 import '../assistant/assistant_sheet.dart';
+import 'agent_sheet.dart';
 import 'deadline_sheet.dart';
 import 'dispute_guide.dart';
 import 'receipt_section.dart';
@@ -24,6 +25,7 @@ import '../../shared/widgets/relo_icons.dart';
 /// @layer Feature Module — Individual Claim Workspace
 /// @purpose 환불 건 하나를 끝까지 따라가는 화면 (DESIGN.md 7절 "상세").
 ///          위에서 아래로: 무엇을 · 받기로 한 돈 / 받은 돈 · 지금 단계와 할 일 →
+///          AI에게 맡기기 한 줄(누르면 아래 시트. AI가 물어볼 것이 있으면 여기에 알린다) →
 ///          막혔을 때의 길(분쟁 해결 안내 · 다른 해결 방법 보기 · 다시 열기) →
 ///          글자 탭 넷(메시지 · 답장 · 입금 · 기록) → 아래 고정 "이 건 물어보기".
 ///          교환은 돈 대신 받은 수량, 수리는 수리 결과로 보여 준다.
@@ -51,6 +53,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
 
   int _activeTab = 0;
   bool _tabTaken = false;
+  bool _agentAsked = false;
 
   final _draftCtrl = TextEditingController();
   final _submissionNoteCtrl = TextEditingController();
@@ -63,6 +66,9 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   String _replyKind = 'agreement';
   String _summaryKo = '';
   String _translationKo = '';
+
+  /// AI가 요약 · 번역한 답장의 글. 그 뒤에 글을 고쳤다면 요약은 그 글의 것이 아니다.
+  String _analyzedReply = '';
   bool _analyzingReply = false;
   bool _savingReply = false;
 
@@ -93,9 +99,15 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       _noteSeeded = true;
       _submissionNoteCtrl.text = _s.dNoteDefault;
     }
+    // 열 때 한 번, AI가 이 건을 살펴보는 중인지 · 물어볼 것이 있는지 서버에 묻는다 (AI를 부르지 않는다)
+    if (!_agentAsked && claim != null && store.agentAvailableFor(claim)) {
+      _agentAsked = true;
+      store.refreshAgentOverview(claim.id);
+    }
     if (claim != null) {
       if (_draftCtrl.text.isEmpty && claim.drafts.isNotEmpty) {
-        _draftCtrl.text = claim.drafts.first.body;
+        // 저장된 글 끝의 [이름] 자리는 기기에서 계정의 이름으로 채운다
+        _draftCtrl.text = store.signAsMe(claim.drafts.first.body);
       }
       // 약속 금액은 이미 적어 둔 것이 있을 때만 채운다 (아직 약속이 없으면 비워 둔다)
       if (_agreedAmountCtrl.text.isEmpty && claim.agreed != null) {
@@ -164,9 +176,11 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     if (!mounted) return;
     setState(() {
       _generatingDraft = false;
-      _draftCtrl.text = generated;
+      _draftCtrl.text = generated.body;
       _fieldErrors.remove('draft');
     });
+    // 기본 틀로 채웠으면 AI가 쓴 글이 아니라고 알린다
+    if (generated.notice != null) _toast(generated.notice!);
   }
 
   Future<void> _handleSaveSubmitDraft(ReloStore store, ClaimView claim) async {
@@ -189,22 +203,32 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   }
 
   Future<void> _handleAnalyzeReply(ReloStore store, ClaimView claim) async {
+    // 빈 칸에 판매자가 보내지도 않은 답장을 채워 넣지 않는다 (전에는 예시 답장을 넣었다)
     if (_replyCtrl.text.trim().isEmpty) {
-      _replyCtrl.text =
-          'We sincerely apologize for the defective item. We have approved a refund of ${claim.currency} ${MoneyFormat.minorToDecimalString(claim.claimed, claim.currency)} to your original card without requiring return shipping.';
+      setState(() => _fieldErrors['reply'] = _s.dErrReply);
+      return;
     }
     setState(() => _analyzingReply = true);
-    final res = await store.analyzeSellerReply(claim, _replyCtrl.text.trim());
-    if (!mounted) return;
-    setState(() {
-      _analyzingReply = false;
-      _fieldErrors.remove('reply');
-      _summaryKo = res.summaryKo;
-      _translationKo = res.translationKo;
-      if (res.mentionedAmount != null && res.mentionedAmount!.isNotEmpty) {
-        _agreedAmountCtrl.text = res.mentionedAmount!;
-      }
-    });
+    final asked = _replyCtrl.text.trim();
+    try {
+      final res = await store.analyzeSellerReply(claim, asked);
+      if (!mounted) return;
+      setState(() {
+        _analyzingReply = false;
+        _fieldErrors.remove('reply');
+        _summaryKo = res.summaryKo;
+        _translationKo = res.translationKo;
+        _analyzedReply = asked;
+        if (res.mentionedAmount != null && res.mentionedAmount!.isNotEmpty) {
+          _agreedAmountCtrl.text = res.mentionedAmount!;
+        }
+      });
+    } on AiUnavailable catch (e) {
+      if (!mounted) return;
+      setState(() => _analyzingReply = false);
+      // 읽지 못했으면 요약을 지어내지 않고, 답장은 그대로 저장할 수 있다고 알린다
+      _toast('${e.message} ${_s.dReplySaveAnyway}');
+    }
   }
 
   Future<void> _handleSaveReply(ReloStore store, ClaimView claim) async {
@@ -222,20 +246,32 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
       return;
     }
     setState(() => _savingReply = true);
+    final raw = _replyCtrl.text.trim();
+    // AI의 요약 · 번역은 AI가 바로 이 글을 읽은 것일 때만 함께 저장하고, 그때만 AI가 도왔다고 적는다.
+    // (전에는 AI를 쓰지 않아도 "AI가 도움"으로 저장했고, 번역 칸에는 원문을 그대로 넣었다.)
+    final byAi = _summaryKo.isNotEmpty && _analyzedReply == raw;
     final ok = await _attempt(
       store,
       () => store.saveReplyAndAgreedAmount(
         claimId: claim.id,
-        rawReply: _replyCtrl.text.trim(),
+        rawReply: raw,
         replyKind: _replyKind,
-        summaryKo: _summaryKo.isEmpty ? '쇼핑몰 답장 기록' : _summaryKo,
-        translationKo:
-            _translationKo.isEmpty ? _replyCtrl.text.trim() : _translationKo,
+        summaryKo: byAi ? _summaryKo : '',
+        translationKo: byAi ? _translationKo : '',
         agreedAmountStr: _agreedAmountCtrl.text.trim(),
+        aiAssisted: byAi,
       ),
     );
     if (!mounted) return;
-    setState(() => _savingReply = false);
+    setState(() {
+      _savingReply = false;
+      if (ok) {
+        // 저장했으니 아래 상자는 저장된 답장을 보여 준다
+        _summaryKo = '';
+        _translationKo = '';
+        _analyzedReply = '';
+      }
+    });
     if (ok) _toast(_s.dToastReplySaved);
   }
 
@@ -306,6 +342,24 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
     }
   }
 
+  /// AI에게 맡기기 시트를 연다. AI가 쓴 글을 메시지 칸에 넣겠다고 하면 칸에 넣고 메시지 탭을 보여 준다
+  /// (저장은 사람이 [보냈어요]를 눌러야 된다).
+  void _openAgent(ClaimView claim) {
+    showAgentSheet(
+      context,
+      claim,
+      onUseDraft: (body) {
+        if (!mounted) return;
+        setState(() {
+          _draftCtrl.text = body;
+          _fieldErrors.remove('draft');
+          _activeTab = 0;
+        });
+        _toast(_s.agDraftUsed);
+      },
+    );
+  }
+
   // 이 건을 담은 채로 도우미를 연다. 같은 건의 메시지·답장 버튼은 이 화면의 탭을 바꾼다.
   void _askAssistant(ReloStore store, ClaimView claim) {
     void onAction(AssistantTurn turn) {
@@ -372,6 +426,15 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                   children: [
                     _buildTopBar(store, claim, palette),
                     _buildHeader(store, claim, palette),
+                    // AI에게 맡기기. 서버의 AI가 있을 때만 보인다 (체험 모드에서는 지어내지 않는다).
+                    if (store.agentAvailableFor(claim))
+                      Padding(
+                        padding: const EdgeInsets.fromLTRB(20, 20, 20, 0),
+                        child: AgentEntryRow(
+                          claim: claim,
+                          onTap: () => _openAgent(claim),
+                        ),
+                      ),
                     // 쇼핑몰에서 해결이 안 됐거나 그만둔 건: 다음에 할 수 있는 일
                     if (!claim.deleted &&
                         (claim.state == 'disputed' || claim.state == 'waived'))
@@ -809,6 +872,22 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
   // ── 2. 답장 ──────────────────────────────────────────────────────────
   Widget _buildReplyTab(ReloStore store, ClaimView claim, ReloPalette palette) {
     final hasSummary = _summaryKo.isNotEmpty || claim.replies.isNotEmpty;
+    // 상자에 보일 것: 방금 AI가 읽은 요약, 없으면 마지막으로 저장한 답장.
+    // 저장한 답장에 AI의 요약이 없으면(직접 읽고 저장한 것) 원문을 그대로 보여 준다.
+    final fresh = _summaryKo.isNotEmpty;
+    final latest = claim.replies.isEmpty ? null : claim.replies.first;
+    final latestByAi =
+        latest != null && latest.aiAssisted && latest.summaryKo.isNotEmpty;
+    final boxTitle = fresh
+        ? _summaryKo
+        : (latest != null && latest.summaryKo.isNotEmpty)
+            ? latest.summaryKo
+            : _s.dSavedReply;
+    final boxBody = fresh
+        ? _translationKo
+        : (latest != null && latest.translationKo.isNotEmpty)
+            ? latest.translationKo
+            : (latest?.body ?? '');
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -842,9 +921,7 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
-                  _summaryKo.isNotEmpty
-                      ? _summaryKo
-                      : claim.replies.first.summaryKo,
+                  boxTitle,
                   style: TextStyle(
                     fontSize: 14,
                     fontWeight: FontWeight.w700,
@@ -854,15 +931,25 @@ class _ClaimDetailScreenState extends State<ClaimDetailScreen> {
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  _translationKo.isNotEmpty
-                      ? _translationKo
-                      : claim.replies.first.translationKo,
+                  boxBody,
                   style: TextStyle(
                     fontSize: 13,
                     color: palette.body,
                     height: 1.5,
                   ),
                 ),
+                // AI가 요약 · 번역한 것이면 그렇다고 적는다 (약관 제2조 4항)
+                if (fresh || latestByAi) ...[
+                  const SizedBox(height: 8),
+                  Text(
+                    _s.dAiMadeNote,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: palette.subtle,
+                      height: 1.4,
+                    ),
+                  ),
+                ],
               ],
             ),
           ),

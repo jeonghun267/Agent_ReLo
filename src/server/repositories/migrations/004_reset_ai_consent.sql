@@ -1,0 +1,11 @@
+-- Clears every stored AI consent once, so each person is asked again.
+--
+-- Until 2026-11-18 the web saved the consent by itself the moment an AI button was pressed,
+-- without saying what is sent to Google, and the app's consent text said less than what is
+-- sent. A consent stored that way was not informed, and it cannot be told apart from one given
+-- in settings. From now on the notice lists what is sent and where, and the answer is saved
+-- only after the person agrees (src/client/components/AiConsentDialog.tsx).
+--
+-- Nothing else changes: accounts, claims and files stay as they are, and no AI output was
+-- ever stored on the strength of the consent alone.
+UPDATE users SET ai_consent_at = NULL WHERE ai_consent_at IS NOT NULL;

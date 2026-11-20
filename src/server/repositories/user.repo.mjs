@@ -4,6 +4,8 @@ const toUser = row => row ? {
   name: row.name,
   emailVerifiedAt: row.email_verified_at,
   aiConsentAt: row.ai_consent_at,
+  agentAutoAt: row.agent_auto_at,
+  noticeMailOffAt: row.notice_mail_off_at,
   createdAt: row.created_at,
 } : null;
 
@@ -46,6 +48,16 @@ export function createUserRepository(db) {
 
     setAiConsent(id, consentAt, updatedAt) {
       db.prepare('UPDATE users SET ai_consent_at = ?, updated_at = ? WHERE id = ?').run(consentAt, updatedAt, id);
+    },
+
+    // When the person left their claims to the agent (it may start by itself). null = off.
+    setAgentAuto(id, autoAt, updatedAt) {
+      db.prepare('UPDATE users SET agent_auto_at = ?, updated_at = ? WHERE id = ?').run(autoAt, updatedAt, id);
+    },
+
+    // When the person switched the notice emails off. null = they receive them.
+    setNoticeMail(id, offAt, updatedAt) {
+      db.prepare('UPDATE users SET notice_mail_off_at = ?, updated_at = ? WHERE id = ?').run(offAt, updatedAt, id);
     },
   };
 }

@@ -27,6 +27,7 @@ import {
 	type TranslationDictionary,
 } from "@/client/i18n/types";
 import { zhMessages } from "@/client/i18n/zh";
+import { setRequestLocale } from "@/client/lib/api-client";
 import { cn } from "@/lib/utils";
 
 const STORAGE_KEY = "relo_ui_locale";
@@ -71,10 +72,16 @@ interface I18nContextValue {
 const I18nContext = createContext<I18nContextValue | null>(null);
 
 export function I18nProvider({ children }: { children: ReactNode }) {
-	const [locale, setLocaleState] = useState<LocaleCode>(readInitialLocale);
+	// The server is told the language too, for what the agent writes when it starts by itself.
+	const [locale, setLocaleState] = useState<LocaleCode>(() => {
+		const initial = readInitialLocale();
+		setRequestLocale(initial);
+		return initial;
+	});
 
 	const setLocale = useCallback((next: LocaleCode) => {
 		setLocaleState(next);
+		setRequestLocale(next);
 		try {
 			window.localStorage.setItem(STORAGE_KEY, next);
 		} catch {

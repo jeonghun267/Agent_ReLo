@@ -9,10 +9,12 @@ import '../../core/theme/motion_tokens.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/input_rules.dart';
 import '../../core/utils/money_format.dart';
+import '../../shared/models/agent_models.dart';
 import '../../shared/models/claim_words.dart';
 import '../../shared/models/domain_models.dart';
 import '../../shared/state/relo_store.dart';
 import '../../core/attachments/evidence_rules.dart';
+import '../../shared/widgets/ai_consent_sheet.dart';
 import '../../shared/widgets/claim_row.dart';
 import '../../shared/widgets/evidence_source_sheet.dart';
 import '../../shared/widgets/refund_globe.dart';
@@ -43,7 +45,7 @@ class _WizardScreenState extends State<WizardScreen> {
   bool _stepReverse = false;
   late final ConfettiController _confetti =
       ConfettiController(duration: ReloMotion.celebrate);
-  bool _isScanning = false;
+  bool _isFilling = false;
   bool _isTranslating = false;
   bool _isSubmitting = false;
   ClaimView? _createdClaim;
@@ -64,53 +66,25 @@ class _WizardScreenState extends State<WizardScreen> {
   // [항목 #6 & #9] 5단계 양식 제출 시 필수/선택 동의 상태 (기본 미체크 원칙)
   bool _consentClaimStorageRequired = false;
   bool _consentNoFalseClaimRequired = false;
-  bool _consentAiDraftOptional = false;
 
-  final _vendorCtrl = TextEditingController(text: 'Amazon US');
-  final _orderRefCtrl = TextEditingController(text: '114-8920411-33012');
+  // 신청은 빈 칸으로 연다. 예시 값이나 예시 파일을 미리 넣어 두면, 그대로 등록했을 때
+  // 사용자가 적지도 올리지도 않은 것이 그 사람의 주문 · 증빙으로 저장된다.
+  // (예시로 채워 보고 싶으면 "샘플 영수증으로 해 보기"를 직접 고른다.)
+  final _vendorCtrl = TextEditingController();
+  final _orderRefCtrl = TextEditingController();
   final _orderedOnCtrl = TextEditingController(
     text: DateTime.now().toIso8601String().substring(0, 10),
   );
-  final _titleCtrl = TextEditingController(
-    text: 'Sony WH-1000XM5 무선 노이즈캔슬링 헤드폰',
-  );
+  final _titleCtrl = TextEditingController();
   final _orderedQtyCtrl = TextEditingController(text: '1');
   final _claimQtyCtrl = TextEditingController(text: '1');
   String _currency = 'USD';
-  final _amountCtrl = TextEditingController(text: '289.00');
+  final _amountCtrl = TextEditingController();
   String _kind = 'refund';
-  final _issueCtrl = TextEditingController(
-    text:
-        '배송받아서 전원을 켰는데 오른쪽 유닛에서 심한 노이즈가 발생하고 블루투스 연결이 계속 끊어집니다. 교환 또는 전액 환불 원합니다.',
-  );
-  final _issueEnCtrl = TextEditingController(
-    text:
-        'Upon unboxing and powering on the device, there is severe static noise in the right earpiece and Bluetooth continuously disconnects. I request an immediate replacement or full refund.',
-  );
+  final _issueCtrl = TextEditingController();
+  final _issueEnCtrl = TextEditingController();
 
-  final List<StagedEvidenceFile> _stagedFiles = [
-    StagedEvidenceFile(
-      id: 'stg_default_01',
-      name: 'Amazon_Order_Receipt_Masked.pdf',
-      mime: 'application/pdf',
-      bytes: ReloStore.ensureValidFileSignature(
-        'application/pdf',
-        utf8.encode('RELO_MASKED_RECEIPT_PDF_CONTENT'),
-      ),
-      addressMasked: true,
-    ),
-    StagedEvidenceFile(
-      id: 'stg_default_02',
-      name: '우측_하우징_파손_부위_확대.jpg',
-      mime: 'image/jpeg',
-      bytes: ReloStore.ensureValidFileSignature(
-        'image/jpeg',
-        utf8.encode('RELO_DAMAGE_PHOTO_JPEG_CONTENT'),
-      ),
-      addressMasked: true,
-      defectTag: '파손 부위 표시됨',
-    ),
-  ];
+  final List<StagedEvidenceFile> _stagedFiles = [];
 
   // 한 화면에 질문 하나. 말투는 DESIGN.md 6절("어디서 샀어요?")
   List<String> get _stepTitles => [
@@ -134,6 +108,17 @@ class _WizardScreenState extends State<WizardScreen> {
 
   /// "직접 입력"을 눌렀을 때만 쇼핑몰 이름 칸을 보여 준다
   bool _customVendor = false;
+
+  // AI가 채워 주기 (1단계): 무슨 일인지 적은 한 줄과, AI가 읽을 주문서 하나
+  final _intakeLineCtrl = TextEditingController();
+  PickedEvidence? _intakeFile;
+  String? _intakeStagedId;
+
+  /// AI가 칸을 채웠는지. 채웠으면 1단계와 마지막 확인 단계에 "AI가 채운 값"이라고 적는다.
+  bool _filledByAi = false;
+
+  /// AI가 적은 한 줄을 어떻게 이해했는지 한 문장 (AI의 말 그대로)
+  String? _understood;
 
   // label은 칩에 보이는 짧은 말, text는 설명 칸에 채워지는 문장
   List<({String label, String text})> get _quickIssues => [
@@ -177,7 +162,7 @@ class _WizardScreenState extends State<WizardScreen> {
     final shared = store.takeIncomingEvidence();
     if (shared != null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (mounted) _useReceipt(shared, announce: true);
+        if (mounted) _useReceipt(shared);
       });
     }
   }
@@ -186,6 +171,7 @@ class _WizardScreenState extends State<WizardScreen> {
   void dispose() {
     _scroll.dispose();
     _confetti.dispose();
+    _intakeLineCtrl.dispose();
     _vendorCtrl.dispose();
     _orderRefCtrl.dispose();
     _orderedOnCtrl.dispose();
@@ -212,64 +198,154 @@ class _WizardScreenState extends State<WizardScreen> {
         () => _orderedOnCtrl.text = picked.toIso8601String().substring(0, 10));
   }
 
-  // 영수증으로 채우기: 진짜 영수증을 찍거나 골라 붙이고, 서버의 AI가 읽은 내용으로 칸을 채운다.
-  // 파일을 고를 수 없는 곳(웹 미리보기)에서는 샘플 영수증만 고른다.
-  Future<void> _fillFromReceipt(ReloPalette p) async {
+  // AI가 채워 주기: 주문서 · 영수증을 고른다. 고르기만 해서는 AI에 보내지 않고 신청에 붙이기만 한다
+  // (AI는 [AI가 채우기]를 눌렀을 때만 읽는다).
+  // 샘플 영수증은 서버 없이 둘러보는 체험 모드에서만 고를 수 있다: 서버에 붙어 있을 때 고르면
+  // 진짜 계정에 예시 주문과 예시 파일이 증빙으로 올라가기 때문이다.
+  Future<void> _pickIntakeFile(ReloPalette p) async {
     final store = ReloScope.of(context);
-    if (!store.evidencePicker.isSupported) return _openSampleReceipts(p);
+    final trial = store.isOfflineFallback;
+    if (!store.evidencePicker.isSupported) {
+      if (trial) return _openSampleReceipts(p);
+      _toast(_s.evUnavailable);
+      return;
+    }
     final picked = await pickEvidenceWithSheet(
       context,
-      extra: (label: _s.wSampleTitle, onTap: () => _openSampleReceipts(p)),
+      extra: trial
+          ? (label: _s.wSampleTitle, onTap: () => _openSampleReceipts(p))
+          : null,
     );
     if (picked == null || !mounted) return;
-    await _useReceipt(picked);
+    _useReceipt(picked);
   }
 
-  /// 진짜 영수증 하나를 붙이고, 첫 단계라면 서버의 AI가 읽은 내용으로 칸을 채운다.
+  /// 진짜 영수증 하나를 신청에 붙인다. 첫 단계라면 "AI가 채워 주기"가 읽을 파일로도 둔다.
   /// (공유로 넘어온 영수증도 이 길로 온다.)
-  Future<void> _useReceipt(PickedEvidence picked, {bool announce = false}) async {
+  void _useReceipt(PickedEvidence picked) {
     if (_createdClaim != null) return;
-    final store = ReloScope.of(context);
     if (_step != 1) {
-      // 이미 적어 둔 내용을 덮어쓰지 않게, 첫 단계가 아니면 붙이기만 한다
+      // 이미 적어 둔 내용이 있을 수 있으니, 첫 단계가 아니면 붙이기만 한다
       setState(() => _attach(picked, first: true));
       _toast(_s.evSharedAttached);
       return;
     }
     setState(() {
-      _isScanning = true;
       _formError = null;
-      _notice = null;
+      _fieldErrors.remove('intake');
+      // 먼저 골랐던 파일은 뺀다 (읽을 파일은 하나다)
+      _stagedFiles.removeWhere((f) => f.id == _intakeStagedId);
+      _intakeStagedId = _attach(picked, first: true);
+      _intakeFile = picked;
     });
-    // 진짜 파일에서는 읽지 못했을 때 예시 값을 지어내지 않는다
-    final extracted = await store.scanReceiptDocument(
-      fileName: picked.name,
-      bytes: picked.bytes,
-      mime: picked.mime,
-      allowSample: false,
-    );
-    if (!mounted) return;
-    setState(() {
-      _isScanning = false;
-      _applyExtracted(extracted);
-      _attach(picked, first: true);
-    });
-    if (extracted.isEmpty) {
-      _toast(_s.evReceiptAttachedOnly);
-    } else if (announce) {
-      _toast(_s.evSharedAttached);
-    }
+    _toast(_s.wIntakeFileAttached);
   }
 
-  /// 진짜 파일을 붙인다. 미리 넣어 둔 예시 파일은 이때 뺀다. setState 안에서 부른다.
-  void _attach(PickedEvidence picked, {bool first = false}) {
-    _stagedFiles.removeWhere((f) => f.id.startsWith('stg_default_'));
+  /// 파일을 붙이고, 붙인 줄의 id를 돌려준다. setState 안에서 부른다.
+  String _attach(PickedEvidence picked, {bool first = false}) {
     final staged = _stagedFrom(picked);
     if (first) {
       _stagedFiles.insert(0, staged);
     } else {
       _stagedFiles.add(staged);
     }
+    return staged.id;
+  }
+
+  /// AI가 채우기: 고른 주문서를 AI가 읽고, 적은 한 줄을 그 주문서의 상품에 맞춰 읽어 칸을 채운다.
+  /// 다 채워지면 마지막 확인 단계로, 빈 칸이 있으면 그 단계로 간다. 등록하기 전에는 저장되지 않는다.
+  Future<void> _runIntake() async {
+    final store = ReloScope.of(context);
+    final line = _intakeLineCtrl.text.trim();
+    if (_intakeFile == null && line.isEmpty) {
+      setState(() => _fieldErrors['intake'] = _s.wIntakeNeedInput);
+      return;
+    }
+    // 보내기 전에 무엇이 어디로 가는지 알리고 동의를 받는다
+    if (!await ensureAiConsent(context)) return;
+    if (!mounted) return;
+    setState(() {
+      _isFilling = true;
+      _formError = null;
+      _notice = null;
+      _fieldErrors.clear();
+    });
+    final ({OrderReading? order, IntakeReading? intake}) read;
+    try {
+      read = await store.fillRequestWithAi(file: _intakeFile, text: line);
+    } on AiUnavailable catch (e) {
+      if (!mounted) return;
+      // 읽지 못했으면 예시 값을 지어내지 않는다. 칸은 그대로 두고 까닭만 말한다.
+      setState(() {
+        _isFilling = false;
+        _notice = e.message;
+      });
+      return;
+    }
+    if (!mounted) return;
+    late final int next;
+    setState(() {
+      _isFilling = false;
+      next = _applyIntake(read.order, read.intake, line);
+      _filledByAi = true;
+      _understood = read.intake?.understood;
+      _fieldErrors
+        ..clear()
+        // 빈 칸이 있어서 멈춘 단계라면, 어느 칸인지 그 칸 아래에 알린다
+        ..addAll(
+          read.order != null && read.intake != null && next < 5
+              ? _errorsFor(next)
+              : const <String, String>{},
+        );
+      _stepReverse = false;
+      _step = next;
+      // 다 채워서 마지막 확인으로 갔으면 그 화면 맨 위의 안내가 알린다 (같은 말을 두 번 하지 않는다)
+      _notice = read.order == null
+          ? _s.wIntakeLineOnly
+          : next == 5
+              ? null
+              : _s.wIntakePartly;
+    });
+    _scrollToTop();
+  }
+
+  /// AI가 읽은 것을 칸에 넣고, 보여 줄 단계를 돌려준다. setState 안에서 부른다.
+  /// 주문의 사실(쇼핑몰 · 주문번호 · 상품 이름 · 값)은 주문서에서 읽은 것만 쓴다. AI가 정하는 것은
+  /// 종류와, 주문서의 어느 상품 몇 개인지뿐이다. 금액은 주문서의 한 개 값 × 수량으로 앱이 계산한다.
+  int _applyIntake(OrderReading? order, IntakeReading? intake, String line) {
+    if (order != null) {
+      // 먼저 적었거나 샘플로 채운 값이 "읽은 값"처럼 남지 않게, 주문 칸은 읽은 것으로만 채운다
+      _vendorCtrl.text = order.vendor ?? '';
+      _customVendor = !_quickMalls.any((m) => m.name == _vendorCtrl.text);
+      _orderRefCtrl.text = order.orderRef ?? '';
+      if (order.orderedOn != null) _orderedOnCtrl.text = order.orderedOn!;
+      if (order.currency != null) _currency = order.currency!;
+      final picked = intake?.itemIndex ?? 0;
+      final item = picked >= 0 && picked < order.items.length
+          ? order.items[picked]
+          : null;
+      final qty = (intake?.claimQty ?? 1).clamp(1, item?.orderedQty ?? 1);
+      _titleCtrl.text = item?.name ?? '';
+      _orderedQtyCtrl.text = '${item?.orderedQty ?? 1}';
+      _claimQtyCtrl.text = '$qty';
+      _amountCtrl.text = item?.unitPrice == null
+          ? ''
+          : MoneyFormat.timesQty(item!.unitPrice!, qty, _currency);
+    }
+    if (line.isNotEmpty) {
+      // 문제 설명은 사람이 적은 말 그대로다. 영어는 AI가 옮긴 것만 넣는다.
+      _issueCtrl.text = line;
+      _issueEnCtrl.text = intake?.issueEnglish ?? '';
+    }
+    if (intake != null && _kinds.any((k) => k.id == intake.kind)) {
+      _kind = intake.kind;
+    }
+    // 주문서 없이는 주문 정보를 알 수 없고, 한 줄 없이는 무슨 일인지 알 수 없다: 첫 단계에 머문다
+    if (order == null || intake == null) return 1;
+    for (var step = 1; step <= 3; step++) {
+      if (_errorsFor(step).isNotEmpty) return step;
+    }
+    return 5;
   }
 
   StagedEvidenceFile _stagedFrom(PickedEvidence picked) => StagedEvidenceFile(
@@ -376,20 +452,13 @@ class _WizardScreenState extends State<WizardScreen> {
     if (file != null) await _handleScanSampleReceipt(file);
   }
 
+  /// 고른 샘플의 예시 값으로 칸을 채운다. AI에 보내지 않고, 예시라는 것을 한 줄로 알린다.
   Future<void> _handleScanSampleReceipt(String sampleFileName) async {
     final store = ReloScope.of(context);
+    final extracted = store.sampleReceipt(sampleFileName);
     setState(() {
-      _isScanning = true;
       _formError = null;
-      _notice = null;
-    });
-    final extracted = await store.scanReceiptDocument(
-      fileName: sampleFileName,
-      bytes: utf8.encode('SAMPLE_RECEIPT_$sampleFileName'),
-    );
-    if (!mounted) return;
-    setState(() {
-      _isScanning = false;
+      _notice = _s.wSampleFilled;
       _applyExtracted(extracted);
       _stagedFiles.insert(
         0,
@@ -421,29 +490,38 @@ class _WizardScreenState extends State<WizardScreen> {
       _notice = null;
       _fieldErrors.remove('issue');
     });
-    final en = await store.translateIssueToEnglish(kor);
-    if (!mounted) return;
-    setState(() {
-      _isTranslating = false;
-      _issueEnCtrl.text = en;
-    });
+    try {
+      final en = await store.translateIssueToEnglish(kor);
+      if (!mounted) return;
+      setState(() {
+        _isTranslating = false;
+        _issueEnCtrl.text = en;
+      });
+    } on AiUnavailable catch (e) {
+      if (!mounted) return;
+      // 옮기지 못했으면 영어 문장을 지어내지 않는다. 영어 칸은 비워 두어도 된다.
+      setState(() {
+        _isTranslating = false;
+        _notice = '${e.message} ${_s.wTranslateSkip}';
+      });
+    }
   }
 
   void _clearFieldError(String key) {
     if (_fieldErrors.containsKey(key)) setState(() => _fieldErrors.remove(key));
   }
 
-  /// 다음 단계로 가기 전에 이 단계의 칸을 본다. 고칠 것이 있으면 그 칸 아래에 알리고 머문다.
-  void _goNextStep() {
+  /// 그 단계의 칸에서 고칠 것 (칸 이름 → 알릴 말). 없으면 빈 것.
+  Map<String, String> _errorsFor(int step) {
     final errors = <String, String>{};
-    if (_step == 1) {
+    if (step == 1) {
       if (_vendorCtrl.text.trim().isEmpty) {
         errors['vendor'] = _s.wErrVendor;
       }
       if (_orderRefCtrl.text.trim().isEmpty) {
         errors['orderRef'] = _s.wErrOrderRef;
       }
-    } else if (_step == 2) {
+    } else if (step == 2) {
       final ordQty = int.tryParse(_orderedQtyCtrl.text) ?? 0;
       final clmQty = int.tryParse(_claimQtyCtrl.text) ?? 0;
       if (_titleCtrl.text.trim().isEmpty) {
@@ -460,11 +538,17 @@ class _WizardScreenState extends State<WizardScreen> {
       if (InputRules.amount(_amountCtrl.text) == null) {
         errors['amount'] = _s.cmErrAmount;
       }
-    } else if (_step == 3) {
+    } else if (step == 3) {
       if (_issueCtrl.text.trim().length < 5) {
         errors['issue'] = _s.wErrIssue;
       }
     }
+    return errors;
+  }
+
+  /// 다음 단계로 가기 전에 이 단계의 칸을 본다. 고칠 것이 있으면 그 칸 아래에 알리고 머문다.
+  void _goNextStep() {
+    final errors = _errorsFor(_step);
     setState(() {
       _formError = null;
       _notice = null;
@@ -745,6 +829,23 @@ class _WizardScreenState extends State<WizardScreen> {
                 textAlign: TextAlign.center,
                 style: TextStyle(fontSize: 13, color: p.muted, height: 1.5),
               ),
+              // 신청은 저장됐지만 서버가 받지 못한 파일이 있으면, 올라간 것처럼 넘어가지 않는다
+              if (store.wizardFilesNotSaved.isNotEmpty) ...[
+                const SizedBox(height: 10),
+                Semantics(
+                  liveRegion: true,
+                  child: Text(
+                    _s.wFilesNotSaved(store.wizardFilesNotSaved.length),
+                    textAlign: TextAlign.center,
+                    style: TextStyle(
+                      fontSize: 13,
+                      fontWeight: FontWeight.w600,
+                      color: p.danger,
+                      height: 1.5,
+                    ),
+                  ),
+                ),
+              ],
               const SizedBox(height: 24),
               ReloButton(
                 text: _s.wGoMessage,
@@ -831,12 +932,39 @@ class _WizardScreenState extends State<WizardScreen> {
   // ── 1. 어디서 샀어요? ────────────────────────────────────────────────
   Widget _buildWhereStep(ReloPalette p) {
     final knownMall = _quickMalls.any((m) => m.name == _vendorCtrl.text);
-    final showVendorField = _customVendor || !knownMall;
+    // 아직 아무것도 고르지 않았으면 이름 칸을 열지 않는다 (칩부터 고르게)
+    final showVendorField =
+        _customVendor || (_vendorCtrl.text.isNotEmpty && !knownMall);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // 영수증으로 채우기. 이 화면의 상자는 이것 하나다. 샘플 고르기는 누르면 아래에서 열린다.
+        // AI가 채워 주기: 주문서 하나와 한 줄이면 나머지 칸은 AI가 채운다.
+        // 이 화면의 상자는 파일 고르는 줄 하나다. 샘플 고르기는 누르면 아래에서 열린다.
+        Text(
+          _s.wIntakeTitle,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.w700,
+            color: p.ink,
+          ),
+        ),
+        const SizedBox(height: 4),
+        Text(
+          _s.wIntakeBody,
+          style: TextStyle(fontSize: 13, color: p.muted, height: 1.45),
+        ),
+        const SizedBox(height: 14),
+        ReloTextField(
+          label: _s.wIntakeLineLabel,
+          hint: _s.wIntakeLineHint,
+          controller: _intakeLineCtrl,
+          maxLines: 2,
+          fillColor: p.raised,
+          errorText: _fieldErrors['intake'],
+          onChanged: (_) => _clearFieldError('intake'),
+        ),
+        const SizedBox(height: 10),
         Semantics(
           button: true,
           child: Material(
@@ -844,7 +972,7 @@ class _WizardScreenState extends State<WizardScreen> {
             borderRadius: BorderRadius.circular(18),
             clipBehavior: Clip.antiAlias,
             child: InkWell(
-              onTap: _isScanning ? null : () => _fillFromReceipt(p),
+              onTap: _isFilling ? null : () => _pickIntakeFile(p),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
                 child: Row(
@@ -855,32 +983,57 @@ class _WizardScreenState extends State<WizardScreen> {
                     ),
                     const SizedBox(width: 12),
                     Expanded(
-                      child: Text(
-                        _isScanning ? _s.wReceiptReading : _s.wReceiptFill,
-                        style: TextStyle(
-                          fontSize: 15,
-                          fontWeight: FontWeight.w700,
-                          color: p.ink,
-                        ),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _intakeFile?.name ?? _s.wIntakeFile,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w700,
+                              color: p.ink,
+                            ),
+                          ),
+                          if (_intakeFile != null) ...[
+                            const SizedBox(height: 2),
+                            Text(
+                              _s.wIntakeFileChange,
+                              style: TextStyle(fontSize: 13, color: p.subtle),
+                            ),
+                          ],
+                        ],
                       ),
                     ),
-                    if (_isScanning)
-                      const Padding(
-                        padding: EdgeInsets.only(right: 8),
-                        child: SizedBox.square(
-                          dimension: 18,
-                          child: CircularProgressIndicator(strokeWidth: 2),
-                        ),
-                      )
-                    else
-                      Icon(ReloIcons.chevronRight,
-                          size: 22, color: p.subtle),
+                    Icon(ReloIcons.chevronRight, size: 22, color: p.subtle),
                   ],
                 ),
               ),
             ),
           ),
         ),
+        const SizedBox(height: 12),
+        SizedBox(
+          width: double.infinity,
+          child: ReloButton(
+            text: _isFilling ? _s.wIntakeReading : _s.wIntakeRun,
+            isPrimary: false,
+            height: 48,
+            busy: _isFilling,
+            onPressed: _isFilling ? null : _runIntake,
+          ),
+        ),
+        // AI가 채운 뒤: 채운 값이라는 것과, AI가 적은 한 줄을 어떻게 이해했는지
+        if (_filledByAi) ...[
+          const SizedBox(height: 10),
+          Text(
+            _understood == null
+                ? _s.wIntakeAiNote
+                : '${_s.wIntakeAiNote}\n${_s.wIntakeUnderstood} $_understood',
+            style: TextStyle(fontSize: 12, color: p.subtle, height: 1.5),
+          ),
+        ],
         const SizedBox(height: 24),
         _label(_s.wOrPick, p),
         const SizedBox(height: 10),
@@ -920,6 +1073,20 @@ class _WizardScreenState extends State<WizardScreen> {
             fillColor: p.raised,
             errorText: _fieldErrors['vendor'],
             onChanged: (_) => _clearFieldError('vendor'),
+          ),
+        ] else if (_fieldErrors['vendor'] != null) ...[
+          // 이름 칸이 닫혀 있을 때는 칩 아래에 알린다
+          const SizedBox(height: 8),
+          Semantics(
+            liveRegion: true,
+            child: Text(
+              _s.wErrVendorPick,
+              style: TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: p.danger,
+              ),
+            ),
           ),
         ],
         const SizedBox(height: 22),
@@ -1164,15 +1331,18 @@ class _WizardScreenState extends State<WizardScreen> {
                     ],
                   ),
                 ),
-                // 진짜 파일은 언제든 뺄 수 있고, 예시 파일은 하나는 남긴다
-                if (_stagedFiles.length > 1 || !f.id.startsWith('stg_default_'))
-                  IconButton(
-                    tooltip: _s.wRemoveFile,
-                    icon: Icon(ReloIcons.close, size: 20, color: p.subtle),
-                    onPressed: () => setState(
-                      () => _stagedFiles.removeWhere((item) => item.id == f.id),
-                    ),
-                  ),
+                IconButton(
+                  tooltip: _s.wRemoveFile,
+                  icon: Icon(ReloIcons.close, size: 20, color: p.subtle),
+                  onPressed: () => setState(() {
+                    _stagedFiles.removeWhere((item) => item.id == f.id);
+                    // AI가 읽을 파일로 골라 둔 것이었다면 그 줄도 비운다
+                    if (f.id == _intakeStagedId) {
+                      _intakeStagedId = null;
+                      _intakeFile = null;
+                    }
+                  }),
+                ),
               ],
             ),
           ),
@@ -1228,6 +1398,14 @@ class _WizardScreenState extends State<WizardScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        // AI가 채웠으면 그렇다고 알리고, 고칠 길(이전 단계)을 말해 준다
+        if (_filledByAi) ...[
+          Text(
+            _s.wIntakeReviewNote,
+            style: TextStyle(fontSize: 13, color: p.muted, height: 1.45),
+          ),
+          const SizedBox(height: 8),
+        ],
         // 신청 내용 (상자 없이 줄로)
         summary(_s.wSumVendor, _vendorCtrl.text),
         summary(_s.cmOrderNo, _orderRefCtrl.text),
@@ -1236,12 +1414,17 @@ class _WizardScreenState extends State<WizardScreen> {
           _s.wSumAmount,
           '${MoneyFormat.symbolOf(_currency)}${_amountCtrl.text} $_currency',
         ),
+        // 무엇을 요청하는지와 적은 문제도 확인하게 한다 (AI가 채웠을 수 있는 칸이다)
+        summary(_s.wSumKind, _s.cwKind(_kind)),
+        summary(_s.wSumIssue, _issueCtrl.text),
         summary(
           _s.wSumFiles,
-          _s.wSumFilesValue(
-            _stagedFiles.length,
-            masked: _stagedFiles.every((f) => f.addressMasked),
-          ),
+          _stagedFiles.isEmpty
+              ? _s.wSumFilesNone
+              : _s.wSumFilesValue(
+                  _stagedFiles.length,
+                  masked: _stagedFiles.every((f) => f.addressMasked),
+                ),
         ),
         // [항목 #10 숨겨진 요금 0원 확인]
         summary(_s.wSumFee, _s.wFree),
@@ -1266,13 +1449,8 @@ class _WizardScreenState extends State<WizardScreen> {
           subtitle: _s.wConsent2Sub,
           onViewDetail: () => store.openLegalDocument('terms'),
         ),
-        ReloConsentRow(
-          value: _consentAiDraftOptional,
-          onChanged: (v) => setState(() => _consentAiDraftOptional = v),
-          isRequired: false,
-          title: _s.wConsent3Title,
-          subtitle: _s.wConsent3Sub,
-        ),
+        // AI 동의는 계정에 하나만 있다 (설정 · 도우미 화면). 여기 있던 "AI 초안 동의" 체크는
+        // 체크해도 아무 일도 하지 않아서 뺐다.
       ],
     );
   }

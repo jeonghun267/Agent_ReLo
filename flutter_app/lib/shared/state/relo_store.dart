@@ -13,6 +13,7 @@ import '../../core/storage/reminder_prefs.dart';
 import '../../core/theme/relo_theme.dart';
 import '../../core/utils/dday.dart';
 import '../../core/utils/money_format.dart';
+import '../models/agent_models.dart';
 import '../models/claim_rules.dart';
 import '../models/claim_words.dart';
 import '../models/domain_models.dart';
@@ -20,7 +21,7 @@ import '../models/domain_models.dart';
 /// @module shared/state/relo_store
 /// @layer Shared Application State (MVVM ViewModel / Store)
 /// @purpose 백엔드 API 연동, 로컬 체험 폴백, 그리고 20대 법적 컴플라이언스
-///          (쿠키 동의, 고대비 모드, 외부 SDK 제어, 이메일 수신거부, 개인정보 즉시 파기) 상태를 관리합니다.
+///          (쿠키 동의, 고대비 모드, 외부 SDK 제어, 알림 메일 끄기, 개인정보 즉시 파기) 상태를 관리합니다.
 class ReloStore extends ChangeNotifier {
   final ReloApiClient api;
 
@@ -32,9 +33,7 @@ class ReloStore extends ChangeNotifier {
 
   // [20대 법적 안전장치 상태]
   CookieConsentChoice cookieConsent = CookieConsentChoice.pending; // [항목 #4, #5]
-  bool emailUnsubscribed = false; // [항목 #18] 이메일 원클릭 수신거부 상태
   bool sdkAiEnabled = true; // [항목 #8] 외부 AI SDK 전송 스위치
-  bool sdkMailEnabled = true; // [항목 #8] 외부 메일 SDK 전송 스위치
   String activeLegalDocId = 'checklist'; // [항목 #1~#4, #16, #19] 현재 열람 중인 법적 문서 탭
   String? lastPurgeReceiptCode; // [항목 #20] 개인정보 즉시 파기 확인서 코드
 
@@ -63,6 +62,12 @@ class ReloStore extends ChangeNotifier {
 
   /// 도우미가 상세 화면을 열 때 고른 탭 (0 메시지, 1 답장). 없으면 상세가 지금 단계에 맞는 탭을 고른다.
   int? pendingDetailSubTab;
+
+  // AI에게 맡기기 (에이전트). 서버가 알려 준 것만 담는다: 건마다 지금 일하는 중인지 ·
+  // 기다리는 제안 · 지난 실행, 그리고 AI가 허락을 기다리는 건들(목록의 줄에 알린다).
+  final Map<String, AgentOverview> agentOverviews = {};
+  Set<String> agentWaitingClaimIds = const {};
+  final Map<String, Timer> _agentWatch = {};
 
   // 필터 상태
   String stateFilter = '';
@@ -443,20 +448,13 @@ class ReloStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// [항목 #18] 이메일 원클릭 수신거부 상태 전환
-  void setEmailUnsubscribed(bool unsubscribed) {
-    emailUnsubscribed = unsubscribed;
-    notifyListeners();
-  }
-
-  /// [항목 #8] 외부 SDK (Gemini AI / Resend 이메일) 전송 스위치 제어
+  /// [항목 #8] 외부 AI(Gemini) 전송 스위치. 메일에는 이런 스위치가 없다: 인증 · 재설정 메일은
+  /// 요청했을 때만 가고, 알림 메일은 [setNoticeMail]로 서버에서 끈다.
+  /// (전에는 기기 안의 값만 바꾸는 메일 스위치가 있었다. 서버는 그 값을 알지 못했다.)
   void toggleExternalSdk(String sdkId) {
     if (sdkId == 'gemini_ai_bridge') {
       sdkAiEnabled = !sdkAiEnabled;
       toggleAiConsent();
-    } else if (sdkId == 'resend_mail_bridge') {
-      sdkMailEnabled = !sdkMailEnabled;
-      emailUnsubscribed = !sdkMailEnabled;
     }
     notifyListeners();
   }
@@ -471,6 +469,7 @@ class ReloStore extends ChangeNotifier {
 
   void setLocale(ReloLocale next) {
     locale = next;
+    api.locale = next.code;
     notifyListeners();
   }
 
@@ -823,6 +822,7 @@ class ReloStore extends ChangeNotifier {
         notifyListeners();
       }
     } catch (_) {}
+    await refreshAgentWaiting();
   }
 
   Future<String> login(
@@ -863,9 +863,7 @@ class ReloStore extends ChangeNotifier {
     String email,
     String password, {
     bool aiConsented = false,
-    bool marketingEmailConsented = false,
   }) async {
-    emailUnsubscribed = !marketingEmailConsented;
     sdkAiEnabled = aiConsented;
     try {
       final res = await api.requestJson(
@@ -896,6 +894,7 @@ class ReloStore extends ChangeNotifier {
 
   Future<void> logout() async {
     _clearRemindersForSignOut();
+    _forgetAgent();
     try {
       await api.requestJson('/api/auth/logout', method: 'POST');
     } catch (_) {}
@@ -909,6 +908,7 @@ class ReloStore extends ChangeNotifier {
   /// [항목 #20] 개인정보 즉시 파기 및 회원 탈퇴 요청 (`POST /api/account/delete`)
   Future<String> deleteAccountAndPurgeAllData(String password) async {
     _clearRemindersForSignOut();
+    _forgetAgent();
     try {
       await api.requestJson(
         '/api/account/delete',
@@ -941,53 +941,9 @@ class ReloStore extends ChangeNotifier {
     return '입력하신 이메일($email)로 비밀번호 재설정 안내 링크를 발송했습니다.';
   }
 
-  /// 백엔드 `src/server/services/file.service.mjs`의 매직 바이트(Magic Signature) 검증 통과 보장
-  static List<int> ensureValidFileSignature(String mime, List<int> rawBytes) {
-    if (mime == 'application/pdf') {
-      const pdfHeader = [0x25, 0x50, 0x44, 0x46, 0x2D]; // "%PDF-"
-      if (rawBytes.length >= 5 &&
-          rawBytes[0] == 0x25 &&
-          rawBytes[1] == 0x50 &&
-          rawBytes[2] == 0x44 &&
-          rawBytes[3] == 0x46 &&
-          rawBytes[4] == 0x2D) {
-        return rawBytes;
-      }
-      return [...pdfHeader, ...utf8.encode('1.4\n'), ...rawBytes];
-    }
-    if (mime == 'image/png') {
-      const pngHeader = [137, 80, 78, 71, 13, 10, 26, 10];
-      if (rawBytes.length >= 8 &&
-          rawBytes[0] == 137 &&
-          rawBytes[1] == 80 &&
-          rawBytes[2] == 78 &&
-          rawBytes[3] == 71) {
-        return rawBytes;
-      }
-      return [...pngHeader, ...rawBytes];
-    }
-    if (mime == 'image/webp') {
-      if (rawBytes.length >= 12 &&
-          rawBytes[0] == 0x52 &&
-          rawBytes[1] == 0x49 &&
-          rawBytes[2] == 0x46 &&
-          rawBytes[3] == 0x46) {
-        return rawBytes;
-      }
-      return [
-        ...utf8.encode('RIFF\x00\x00\x00\x00WEBP'),
-        ...rawBytes,
-      ];
-    }
-    // 기본 image/jpeg 매직 바이트 ([0xFF, 0xD8, 0xFF])
-    if (rawBytes.length >= 3 &&
-        rawBytes[0] == 255 &&
-        rawBytes[1] == 216 &&
-        rawBytes[2] == 255) {
-      return rawBytes;
-    }
-    return [255, 216, 255, 224, ...rawBytes];
-  }
+  // 파일은 고른 그대로 올린다. 고른 파일은 [EvidenceRules.prepare]가 내용을 보고 사진 · PDF인지
+  // 확인한 것이다. (전에는 서버의 파일 검사를 통과하도록, 내용이 맞지 않는 파일 앞에 PDF · 사진의
+  // 머리글을 덧붙여 올렸다. 예시 파일을 올리려던 것인데, 서버의 검사를 속이는 일이었다.)
 
   Future<void> toggleAiConsent() async {
     if (user == null) return;
@@ -1017,54 +973,26 @@ class ReloStore extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// 영수증에서 쇼핑몰 · 주문번호 · 금액을 읽어 온다 (서버의 AI).
-  /// [allowSample]이 false면(사용자가 진짜 파일을 골랐을 때) 서버가 읽지 못했을 때
-  /// 예시 값을 지어내지 않고 빈 결과를 돌려준다.
-  Future<Map<String, dynamic>> scanReceiptDocument({
-    required String fileName,
-    required List<int> bytes,
-    String? mime,
-    bool allowSample = true,
-  }) async {
-    mime ??= fileName.toLowerCase().endsWith('.pdf')
-        ? 'application/pdf'
-        : 'image/jpeg';
-    final safeBytes = ensureValidFileSignature(mime, bytes);
-    if (sdkAiEnabled) {
-      try {
-        final res = await api.requestJson(
-          '/api/ai/extract',
-          method: 'POST',
-          rawBytes: safeBytes,
-          headers: {
-            'Content-Type': mime,
-            'X-File-Name': Uri.encodeComponent(fileName),
-          },
-        );
-        if (res['suggestion'] is Map<String, dynamic>) {
-          final sug = Map<String, dynamic>.from(
-            res['suggestion'] as Map<String, dynamic>,
-          );
-          final items = sug['items'];
-          if (sug['title'] == null &&
-              items is List &&
-              items.isNotEmpty &&
-              items.first is Map) {
-            sug['title'] = (items.first as Map)['name']?.toString();
-          }
-          if (sug['amount'] == null) {
-            sug['amount'] =
-                res['orderTotal']?.toString() ??
-                ((items is List && items.isNotEmpty && items.first is Map)
-                    ? (items.first as Map)['unitPrice']?.toString()
-                    : null);
-          }
-          return sug;
-        }
-      } catch (_) {}
+  /// AI가 답하지 못한 까닭을 화면에 보일 한 문장으로.
+  /// AI가 만들지 않은 것을 AI의 결과처럼 보여 주지 않으려고, 지어낸 답 대신 이 문장을 보여 준다.
+  String aiUnavailableText([Object? error]) {
+    if (!sdkAiEnabled) return strings.aiOff;
+    if (isOfflineFallback) return strings.aiNoServer;
+    // 서버가 "동의가 없다"고 답했으면 (다시 동의를 받게 된 계정 포함) 켜는 곳을 알려 준다
+    if (error is ApiError && error.code == 'ai_consent_required') {
+      return strings.aiOff;
     }
-    if (!allowSample) return const {};
+    if (error is ApiError &&
+        error.explained &&
+        locale == ReloLocale.ko &&
+        error.message.isNotEmpty) {
+      return error.message;
+    }
+    return strings.aiFailed;
+  }
 
+  /// "샘플 영수증으로 해 보기"에서 고른 예시의 값. AI가 읽은 것이 아니고, 서버에 보내지도 않는다.
+  Map<String, dynamic> sampleReceipt(String fileName) {
     final lower = fileName.toLowerCase();
     if (lower.contains('ali')) {
       return {
@@ -1096,8 +1024,11 @@ class ReloStore extends ChangeNotifier {
     };
   }
 
+  /// 문제 설명을 영어로 옮긴다 (서버의 AI). 옮기지 못하면 [AiUnavailable]을 던진다.
+  /// (전에는 낱말 몇 개를 보고 미리 써 둔 영어 문장을 돌려줬다. 사용자가 적지 않은 요구가 들어갔다.)
   Future<String> translateIssueToEnglish(String koreanIssue) async {
-    if (sdkAiEnabled) {
+    Object? cause;
+    if (sdkAiEnabled && !isOfflineFallback) {
       try {
         final res = await api.requestJson(
           '/api/ai/translate-issue',
@@ -1106,20 +1037,15 @@ class ReloStore extends ChangeNotifier {
         );
         final en = res['english']?.toString() ?? '';
         if (en.isNotEmpty) return en;
-      } catch (_) {}
+      } catch (e) {
+        cause = e;
+      }
     }
-
-    if (koreanIssue.contains('깨진') || koreanIssue.contains('파손')) {
-      return 'The outer shipping box and the product housing arrived cracked and visibly damaged upon unboxing. Please issue a full refund without return shipping fees.';
-    }
-    if (koreanIssue.contains('다른') || koreanIssue.contains('오배송')) {
-      return 'A completely different model/color was delivered instead of the item I ordered. I request an immediate replacement or a full refund.';
-    }
-    if (koreanIssue.contains('전원') || koreanIssue.contains('작동')) {
-      return 'The device does not power on or function properly even after charging. Given this clear hardware defect, I request a full refund.';
-    }
-    return 'Upon receiving the package, I found a clear defect with the item ($koreanIssue). Please process a prompt replacement or a full refund to my original payment method.';
+    throw AiUnavailable(aiUnavailableText(cause));
   }
+
+  /// 방금 신청하면서 서버가 받지 못한 파일의 이름. 신청을 마친 화면이 읽어 알린다.
+  List<String> wizardFilesNotSaved = const [];
 
   Future<ClaimView> createClaimFromWizard({
     required String vendor,
@@ -1135,6 +1061,7 @@ class ReloStore extends ChangeNotifier {
     required String issueEnglish,
     required List<StagedEvidenceFile> stagedFiles,
   }) async {
+    wizardFilesNotSaved = const [];
     final digits = MoneyFormat.digitsOf(currency);
     final totalNum = double.tryParse(claimedAmount.replaceAll(',', '')) ?? 0.0;
     final unitNum = claimQty <= 1 ? totalNum : totalNum / claimQty;
@@ -1171,15 +1098,15 @@ class ReloStore extends ChangeNotifier {
       );
 
       var created = ClaimView.fromJson(res['claim'] as Map<String, dynamic>);
+      final failed = <String>[];
       for (final file in stagedFiles) {
         try {
-          final validBytes = ensureValidFileSignature(file.mime, file.bytes);
           final uploadRes = await api.requestJson(
             '/api/claims/${Uri.encodeComponent(created.id)}/files',
             method: 'POST',
             version: created.version,
             idempotencyKey: ReloApiClient.newIdempotencyKey(),
-            rawBytes: validBytes,
+            rawBytes: file.bytes,
             headers: {
               'Content-Type': file.mime,
               'X-File-Name': Uri.encodeComponent(file.name),
@@ -1190,9 +1117,14 @@ class ReloStore extends ChangeNotifier {
               uploadRes['claim'] as Map<String, dynamic>,
             );
           }
-        } catch (_) {}
+        } catch (_) {
+          // 신청은 이미 저장됐다. 올리지 못한 파일은 이름을 적어 두었다가 화면에서 알린다.
+          failed.add(file.name);
+        }
       }
+      wizardFilesNotSaved = failed;
       await refreshClaims();
+      _agentMayStart(created.id);
       notifyListeners();
       return created;
     } catch (e) {
@@ -1216,20 +1148,8 @@ class ReloStore extends ChangeNotifier {
           )
           .toList();
 
-      if (mappedFiles.isEmpty) {
-        mappedFiles.add(
-          ClaimFile(
-            id: 'fil_auto_${DateTime.now().millisecondsSinceEpoch}',
-            claimId: newId,
-            name: '${vendor.replaceAll(' ', '_')}_Receipt.pdf',
-            mime: 'application/pdf',
-            size: 312400,
-            sha: 'auto_receipt_sha',
-            createdAt: nowIso,
-            usedAsProof: false,
-          ),
-        );
-      }
+      // 파일을 붙이지 않았으면 파일 없이 만든다. (전에는 올리지도 않은 영수증 파일 하나를
+      // 지어내 붙였다.)
 
       final created = ClaimView(
         id: newId,
@@ -1252,9 +1172,8 @@ class ReloStore extends ChangeNotifier {
         claimed: minor,
         agreed: null,
         issue: issue,
-        issueEnglish: issueEnglish.isNotEmpty
-            ? issueEnglish
-            : 'Order #$orderRef arrived defective ($title). Requesting prompt $kind of $currency $claimedAmount.',
+        // 영어 설명을 적지 않았으면 비워 둔다. (전에는 "불량품이 왔다"는 영어 문장을 지어냈다.)
+        issueEnglish: issueEnglish,
         deadline: null,
         deadlineQuote: '',
         deadlineZone: 'UTC',
@@ -1290,41 +1209,81 @@ class ReloStore extends ChangeNotifier {
     }
   }
 
-  Future<String> generateForeignDraft(ClaimView claim) async {
-    if (sdkAiEnabled) {
+  /// 쇼핑몰에 보낼 글을 쓴다. AI가 쓰지 못하면 기본 틀로 채우고, 그랬다는 것을 [byAi]로 알린다.
+  /// 화면은 [byAi]가 false면 "AI가 쓴 글이 아니다"라고 [notice]를 보여 준다.
+  Future<({String body, bool byAi, String? notice})> generateForeignDraft(
+    ClaimView claim,
+  ) async {
+    Object? cause;
+    if (sdkAiEnabled && !isOfflineFallback) {
       try {
         final res = await api.requestJson(
           '/api/claims/${Uri.encodeComponent(claim.id)}/ai/draft',
           method: 'POST',
         );
         final body = res['body']?.toString() ?? '';
-        if (body.isNotEmpty) return body;
-      } catch (_) {}
+        if (body.isNotEmpty) {
+          return (body: signAsMe(body), byAi: true, notice: null);
+        }
+      } catch (e) {
+        cause = e;
+      }
     }
+    final notice = '${aiUnavailableText(cause)} ${strings.dDraftByTemplate}';
 
     try {
       final tplRes = await api.requestJson(
         '/api/claims/${Uri.encodeComponent(claim.id)}/draft-template',
       );
       final tplBody = tplRes['body']?.toString() ?? '';
-      if (tplBody.isNotEmpty) return tplBody;
+      if (tplBody.isNotEmpty) {
+        return (body: signAsMe(tplBody), byAi: false, notice: notice);
+      }
     } catch (_) {}
 
-    final amountStr = MoneyFormat.formatMinor(claim.claimed, claim.currency);
-    final enReason = claim.issueEnglish.isNotEmpty
-        ? claim.issueEnglish
-        : 'The item arrived damaged and defective upon delivery.';
+    return (
+      body: signAsMe(_templateDraft(claim)),
+      byAi: false,
+      notice: notice,
+    );
+  }
 
-    return 'Subject: ${claim.kind.toUpperCase()} Request — Order #${claim.orderRef} (${claim.title})\n\n'
-        'Dear ${claim.vendor} Customer Support,\n\n'
-        'I am writing regarding my order #${claim.orderRef} placed on ${claim.orderedOn} for "${claim.title}".\n\n'
-        'Issue Details:\n'
-        '$enReason\n\n'
-        'I have attached clear photographic proof and the order receipt (with personal residential details masked for security). '
-        'Please process a ${claim.kind == 'refund' ? 'full refund of $amountStr to my original payment method' : 'replacement shipment'} without requiring international return shipping fees.\n\n'
-        'Thank you for your prompt assistance.\n'
-        'Best regards,\n'
-        '${user?.name ?? 'Customer'}';
+  /// 보내는 글은 고객 자신의 이름으로 나간다. ReLo의 이름으로 보내거나 대신 보내지 않는다.
+  /// AI 초안과 기본 틀은 끝에 [이름]을 남기고, 그 자리를 기기에서 계정의 이름으로 채운다
+  /// (이름은 AI에 보내지 않는다). 사용자가 고칠 수 있다.
+  String signAsMe(String text) {
+    final name = user?.name.trim() ?? '';
+    return name.isEmpty ? text : text.replaceAll('[이름]', name);
+  }
+
+  /// 서버의 기본 틀(`domain/draft-template.mjs`)과 같은 글. 저장된 사실만 다시 적는다.
+  /// 영어 설명이 없으면 사유를 지어내지 않고 적을 자리를 남긴다.
+  String _templateDraft(ClaimView claim) {
+    final request = switch (claim.kind) {
+      'exchange' => 'an exchange',
+      'repair' => 'a repair',
+      _ => 'a refund',
+    };
+    final money =
+        '${claim.currency} ${MoneyFormat.minorToDecimalString(claim.claimed, claim.currency)}';
+    final problem = claim.issueEnglish.isNotEmpty
+        ? claim.issueEnglish
+        : '[Describe the problem in English. Original note in Korean: ${claim.issue}]';
+    return [
+      'Subject: Request for $request - Order ${claim.orderRef}',
+      '',
+      'Hello ${claim.vendor} Support,',
+      '',
+      'I am contacting you about order ${claim.orderRef} placed on ${claim.orderedOn}: ${claim.title}.',
+      '${claim.kind == 'refund' ? 'Amount requested' : 'Item price'}: $money.',
+      '',
+      problem,
+      '',
+      'Could you please confirm the applicable policy, the evidence you need, the next steps, and whether any return shipping cost applies? I can provide photos and the order receipt.',
+      '',
+      'Thank you,',
+      '[이름]',
+    ].join('\n');
   }
 
   Future<void> saveAndSubmitDraft(
@@ -1424,7 +1383,8 @@ class ReloStore extends ChangeNotifier {
 
   Future<({String summaryKo, String translationKo, String? mentionedAmount})>
   analyzeSellerReply(ClaimView claim, String rawReply) async {
-    if (sdkAiEnabled) {
+    Object? cause;
+    if (sdkAiEnabled && !isOfflineFallback) {
       try {
         final res = await api.requestJson(
           '/api/claims/${Uri.encodeComponent(claim.id)}/ai/analyze-reply',
@@ -1436,20 +1396,280 @@ class ReloStore extends ChangeNotifier {
           translationKo: (res['translationKo'] ?? '').toString(),
           mentionedAmount: res['mentionedAmount']?.toString(),
         );
-      } catch (_) {}
+      } catch (e) {
+        cause = e;
+      }
     }
+    // 전에는 어떤 답장이든 "환불을 약속했습니다"라고 지어내고 약속 금액 칸까지 채웠다.
+    // 거절한 답장도 약속으로 읽힐 수 있어서, 읽지 못했으면 못 했다고만 알린다.
+    throw AiUnavailable(aiUnavailableText(cause));
+  }
 
-    final numMatch = RegExp(r'(\d+(?:\.\d{1,2})?)').firstMatch(rawReply);
-    final extractedAmount =
-        numMatch?.group(1) ??
-        MoneyFormat.minorToDecimalString(claim.claimed, claim.currency);
+  // ── AI에게 맡기기 (에이전트) ─────────────────────────────────────────
+  // 목표(이 건의 환불 · 교환 · 수리)까지 지금 할 수 있는 일을 서버의 AI가 건의 상태를 보고 고른다.
+  // 읽는 일은 바로 하고, 건을 바꾸는 일은 제안으로 내놓고 멈춘다. 앱은 그 제안을 보여 주고
+  // 사람의 답(허락 · 하지 않기)을 서버에 전할 뿐, 스스로 건을 바꾸지 않는다.
+  // 서버가 없으면(체험 모드) 에이전트도 없다: 앱이 대신 지어내지 않는다.
 
-    return (
-      summaryKo: '판매자가 사과와 함께 ${claim.currency} $extractedAmount 환불 처리를 약속했습니다.',
-      translationKo:
-          '불편을 드려 죄송합니다. 보내주신 증빙 사진을 확인했으며, ${claim.currency} $extractedAmount 환불(결제 수단 취소)을 승인했습니다. 영업일 기준 3~5일 내 카드사에서 확인하실 수 있습니다.',
-      mentionedAmount: extractedAmount,
+  /// 이 건을 AI에게 맡길 수 있는지: 서버에 붙어 있고, 서버의 AI가 켜져 있고, 휴지통에 없는 건
+  bool agentAvailableFor(ClaimView claim) =>
+      user != null && !isOfflineFallback && config.aiEnabled && !claim.deleted;
+
+  /// "스스로 시작하기"를 켰는지. 켜 두면 신청 · 자료 추가 · 답장 저장 때 서버가 버튼 없이 시작한다.
+  bool get agentAutoOn => user?.agentAutoAt != null;
+
+  /// 서버에 이 건의 에이전트가 지금 어떤지 묻는다 (`GET /api/claims/:id/ai/agent`). AI를 부르지 않는다.
+  /// 일하는 중이면 끝날 때까지 2초마다 다시 묻는다.
+  Future<AgentOverview?> refreshAgentOverview(String claimId) async {
+    if (user == null || isOfflineFallback) return null;
+    try {
+      final res = await api.requestJson(
+        '/api/claims/${Uri.encodeComponent(claimId)}/ai/agent',
+      );
+      final overview = AgentOverview.fromJson(res);
+      agentOverviews[claimId] = overview;
+      _markAgentWaiting(claimId, overview.waiting != null);
+      if (overview.working) _watchAgent(claimId);
+      notifyListeners();
+      return overview;
+    } catch (_) {
+      return agentOverviews[claimId];
+    }
+  }
+
+  void _watchAgent(String claimId) {
+    if (_agentWatch.containsKey(claimId)) return;
+    _agentWatch[claimId] = Timer(const Duration(seconds: 2), () {
+      _agentWatch.remove(claimId);
+      unawaited(refreshAgentOverview(claimId));
+    });
+  }
+
+  void _markAgentWaiting(String claimId, bool waiting) {
+    if (agentWaitingClaimIds.contains(claimId) == waiting) return;
+    agentWaitingClaimIds = {
+      ...agentWaitingClaimIds.where((id) => id != claimId),
+      if (waiting) claimId,
+    };
+  }
+
+  /// AI가 허락을 기다리는 건들을 받아 온다 (`GET /api/ai/agent/waiting`). AI를 부르지 않는다.
+  Future<void> refreshAgentWaiting() async {
+    if (user == null || isOfflineFallback) return;
+    try {
+      final res = await api.requestJson('/api/ai/agent/waiting');
+      final list = res['claims'];
+      if (list is! List) return;
+      final next = {
+        for (final item in list.whereType<Map<String, dynamic>>())
+          (item['claimId'] ?? '').toString(),
+      }..remove('');
+      if (next.length == agentWaitingClaimIds.length &&
+          next.containsAll(agentWaitingClaimIds)) {
+        return;
+      }
+      agentWaitingClaimIds = next;
+      notifyListeners();
+    } catch (_) {}
+  }
+
+  // ── 앱으로 돌아왔을 때 ──────────────────────────────────────────────
+  // 앱은 꺼져 있거나 뒤에 있는 동안 서버의 소식을 받지 못한다 (푸시 알림이 없다).
+  // 그래서 돌아왔을 때, 비운 동안 바뀐 것을 바로 다시 받아 온다: 다른 기기에서 고친 건,
+  // 그리고 스스로 시작한 AI가 물어볼 것이 생겼는지. (오래 답이 없으면 서버가 메일로도 알린다.)
+
+  /// 이만큼 넘게 비웠을 때만 다시 받아 온다 (사진 고르기처럼 잠깐 나갔다 온 것은 넘어간다)
+  Duration resumeRefreshAfter = const Duration(seconds: 30);
+  DateTime? _leftAt;
+
+  /// 앱이 뒤로 갔다 (다른 앱을 보거나 화면을 껐다)
+  void appPaused({DateTime? now}) => _leftAt = now ?? DateTime.now();
+
+  /// 앱으로 돌아왔다
+  Future<void> appResumed({DateTime? now}) async {
+    final left = _leftAt;
+    _leftAt = null;
+    if (left == null) return;
+    if ((now ?? DateTime.now()).difference(left) < resumeRefreshAfter) return;
+    if (user == null || isOfflineFallback) return;
+    await refreshClaims();
+    final open = selectedClaimId;
+    if (open != null) await refreshAgentOverview(open);
+  }
+
+  /// 서버가 저장을 받았다. "스스로 시작하기"가 켜져 있으면 AI가 곧 이 건을 살펴보므로 지켜본다.
+  void _agentMayStart(String claimId) {
+    if (agentAutoOn) unawaited(refreshAgentOverview(claimId));
+  }
+
+  /// 로그아웃 · 탈퇴: 다른 사람의 화면에 남지 않게 지운다
+  void _forgetAgent() {
+    for (final timer in _agentWatch.values) {
+      timer.cancel();
+    }
+    _agentWatch.clear();
+    agentOverviews.clear();
+    agentWaitingClaimIds = const {};
+  }
+
+  void _rememberAgentRun(String claimId, AgentRun run) {
+    final before = agentOverviews[claimId];
+    agentOverviews[claimId] = AgentOverview(
+      waiting: run.isWaiting ? run : null,
+      last: before?.last,
     );
+    _markAgentWaiting(claimId, run.isWaiting);
+    notifyListeners();
+  }
+
+  /// 에이전트가 하지 못한 까닭을 화면에 보일 한 문장으로
+  String _agentFailText(Object? error, String fallback) {
+    if (!sdkAiEnabled) return strings.aiOff;
+    if (isOfflineFallback) return strings.aiNoServer;
+    if (error is ApiError && error.code == 'ai_consent_required') {
+      return strings.aiOff;
+    }
+    if (error is ApiError &&
+        error.explained &&
+        locale == ReloLocale.ko &&
+        error.message.isNotEmpty) {
+      return error.message;
+    }
+    return fallback;
+  }
+
+  /// 이 건을 AI에게 맡긴다 (`POST /api/claims/:id/ai/agent`).
+  /// 끝났거나, 허락이 필요한 일에서 멈춘 실행을 돌려준다. 하지 못하면 [AiUnavailable]을 던진다.
+  Future<AgentRun> runAgent(String claimId) async {
+    Object? cause;
+    if (sdkAiEnabled && !isOfflineFallback) {
+      try {
+        final res = await api.requestJson(
+          '/api/claims/${Uri.encodeComponent(claimId)}/ai/agent',
+          method: 'POST',
+          data: {'locale': locale.code},
+        );
+        final run = AgentRun.fromJson(res);
+        _rememberAgentRun(claimId, run);
+        return run;
+      } catch (e) {
+        cause = e;
+      }
+    }
+    throw AiUnavailable(_agentFailText(cause, strings.agFailed));
+  }
+
+  /// AI가 하려는 일에 답한다 (`POST .../ai/agent/:runId/decision`). 허락하면 그때 서버가 그 일을 하고,
+  /// 실행은 이어진다. 허락한 일이 건을 바꿨을 수 있으므로 건을 다시 받아 온다.
+  Future<AgentRun> decideAgent(
+    String claimId,
+    String runId, {
+    required bool approve,
+  }) async {
+    try {
+      final res = await api.requestJson(
+        '/api/claims/${Uri.encodeComponent(claimId)}/ai/agent/${Uri.encodeComponent(runId)}/decision',
+        method: 'POST',
+        data: {'approve': approve, 'locale': locale.code},
+      );
+      final run = AgentRun.fromJson(res);
+      _rememberAgentRun(claimId, run);
+      if (approve) await refreshClaims();
+      return run;
+    } catch (e) {
+      throw AiUnavailable(_agentFailText(e, strings.agDecisionFailed));
+    }
+  }
+
+  /// "스스로 시작하기"를 켜거나 끈다 (`POST /api/account/agent-auto`).
+  /// 서버가 받아야만 바뀐다: 기기 안에서만 켜진 것처럼 보이면, 켰는데도 AI가 시작하지 않는다.
+  /// 서버가 받지 않으면 [ApiError]를 던진다.
+  Future<void> setAgentAuto(bool on) async {
+    final res = await api.requestJson(
+      '/api/account/agent-auto',
+      method: 'POST',
+      data: {'on': on},
+    );
+    if (res['user'] is! Map<String, dynamic>) {
+      throw const ApiError('요청을 처리하지 못했어요.');
+    }
+    user = User.fromJson(res['user'] as Map<String, dynamic>);
+    notifyListeners();
+  }
+
+  /// 알림 메일을 받는지. 스스로 시작한 AI가 허락을 기다리는데 한동안 답이 없으면 서버가
+  /// 인증한 이메일로 한 통 보낸다. 처음에는 받는다.
+  bool get noticeMailOn => user?.noticeMailOffAt == null;
+
+  /// 알림 메일을 켜고 끈다 (`POST /api/account/notice-mail`). 서버가 받아야 바뀐다:
+  /// 기기 안의 값만 바꾸면 메일은 계속 오는데 화면은 껐다고 말하게 된다.
+  /// 이메일 인증 · 비밀번호 재설정 메일은 알림이 아니어서 이 스위치와 상관없다.
+  Future<void> setNoticeMail(bool on) async {
+    final res = await api.requestJson(
+      '/api/account/notice-mail',
+      method: 'POST',
+      data: {'on': on},
+    );
+    if (res['user'] is! Map<String, dynamic>) {
+      throw const ApiError('요청을 처리하지 못했어요.');
+    }
+    user = User.fromJson(res['user'] as Map<String, dynamic>);
+    notifyListeners();
+  }
+
+  /// 신청을 AI가 채운다: 주문서를 읽고([file], `POST /api/ai/extract`), 적은 한 줄([text])을
+  /// 그 주문서의 상품에 맞춰 읽는다(`POST /api/ai/intake`). 한 줄을 읽을 때 AI에는 그 한 줄과
+  /// 상품의 이름 · 수량만 가고, 금액은 가지 않는다. 둘 중 하나만 돼도 된 만큼 돌려주고,
+  /// 둘 다 못 했으면 [AiUnavailable]을 던진다. 저장하는 것은 없다.
+  Future<({OrderReading? order, IntakeReading? intake})> fillRequestWithAi({
+    PickedEvidence? file,
+    String text = '',
+  }) async {
+    if (!sdkAiEnabled || isOfflineFallback) {
+      throw AiUnavailable(aiUnavailableText());
+    }
+    Object? cause;
+    OrderReading? order;
+    if (file != null) {
+      try {
+        final res = await api.requestJson(
+          '/api/ai/extract',
+          method: 'POST',
+          rawBytes: file.bytes,
+          headers: {
+            'Content-Type': file.mime,
+            'X-File-Name': Uri.encodeComponent(file.name),
+          },
+        );
+        order = OrderReading.fromJson(res);
+      } catch (e) {
+        cause = e;
+      }
+    }
+    IntakeReading? intake;
+    if (text.trim().isNotEmpty) {
+      try {
+        final res = await api.requestJson(
+          '/api/ai/intake',
+          method: 'POST',
+          data: {
+            'text': text.trim(),
+            'items': [
+              for (final item in order?.items ?? const <OrderItemReading>[])
+                {'name': item.name, 'orderedQty': item.orderedQty},
+            ],
+            'locale': locale.code,
+          },
+        );
+        intake = IntakeReading.fromJson(res);
+      } catch (e) {
+        cause ??= e;
+      }
+    }
+    if (order == null && intake == null) {
+      throw AiUnavailable(aiUnavailableText(cause));
+    }
+    return (order: order, intake: intake);
   }
 
   /// 서버가 이 건을 알고 "안 된다"고 답했는지. 이럴 때는 기기 안에서 된 것처럼 바꾸지 않고
@@ -1493,6 +1713,8 @@ class ReloStore extends ChangeNotifier {
     required String summaryKo,
     required String translationKo,
     required String agreedAmountStr,
+    // AI가 이 답장을 읽고 요약 · 번역했을 때만 true. 직접 읽고 저장한 답장은 false다.
+    required bool aiAssisted,
   }) async {
     final target = findClaim(claimId);
     if (target == null) return;
@@ -1513,7 +1735,7 @@ class ReloStore extends ChangeNotifier {
           'kind': replyKind,
           'summaryKo': summaryKo,
           'translationKo': translationKo,
-          'aiAssisted': true,
+          'aiAssisted': aiAssisted,
         },
       );
       try {
@@ -1539,6 +1761,7 @@ class ReloStore extends ChangeNotifier {
       } finally {
         // 답장은 이미 저장됐다. 금액 저장이 거절돼도 저장된 데까지는 화면에 보여 준다.
         await refreshClaims();
+        _agentMayStart(claimId);
       }
       return;
     } catch (e) {
@@ -1552,7 +1775,7 @@ class ReloStore extends ChangeNotifier {
       kind: replyKind,
       translationKo: translationKo,
       summaryKo: summaryKo,
-      aiAssisted: true,
+      aiAssisted: aiAssisted,
       recordedAt: nowIso,
     );
     final summary = claimTotals(target, agreed: agreedMinor);
@@ -2073,7 +2296,6 @@ class ReloStore extends ChangeNotifier {
   }) async {
     final target = findClaim(claimId);
     if (target == null) return;
-    final validBytes = ensureValidFileSignature(mime, bytes);
 
     try {
       await api.requestJson(
@@ -2081,13 +2303,14 @@ class ReloStore extends ChangeNotifier {
         method: 'POST',
         version: target.version,
         idempotencyKey: ReloApiClient.newIdempotencyKey(),
-        rawBytes: validBytes,
+        rawBytes: bytes,
         headers: {
           'Content-Type': mime,
           'X-File-Name': Uri.encodeComponent(fileName),
         },
       );
       await refreshClaims();
+      _agentMayStart(claimId);
       return;
     } catch (e) {
       if (_refused(e)) rethrow;
@@ -2099,7 +2322,7 @@ class ReloStore extends ChangeNotifier {
       claimId: claimId,
       name: fileName,
       mime: mime,
-      size: validBytes.length,
+      size: bytes.length,
       sha: 'sha256_${DateTime.now().millisecondsSinceEpoch.toRadixString(16)}',
       createdAt: nowIso,
       usedAsProof: false,
@@ -2216,9 +2439,8 @@ class ReloStore extends ChangeNotifier {
           : {'id': user!.id, 'name': user!.name, 'email': user!.email},
       'compliance': {
         'cookieConsent': cookieConsent.name,
-        'emailUnsubscribed': emailUnsubscribed,
+        'noticeMailOn': noticeMailOn,
         'sdkAiEnabled': sdkAiEnabled,
-        'sdkMailEnabled': sdkMailEnabled,
       },
       'claimsCount': claims.length,
       'claims': claims

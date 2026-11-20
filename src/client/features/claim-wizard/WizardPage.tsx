@@ -11,8 +11,14 @@ import { ArrowLeft, ArrowRight, Sparkles } from "lucide-react";
 import { AnimatePresence, motion } from "motion/react";
 import { useEffect, useMemo, useState } from "react";
 import { useForm } from "react-hook-form";
+import { useAiConsentGate } from "@/client/components/AiConsentDialog";
 import type { StagedEvidenceItem } from "@/client/components/media/UppyEvidenceUploader";
 import { Button, Card, useToast } from "@/client/components/ui/Primitives";
+import {
+	applyIntake,
+	STEP_FIELDS,
+	type WizardIntakeResult,
+} from "@/client/features/claim-wizard/intake-fill";
 import { useWizardDraft } from "@/client/features/claim-wizard/useWizardDraft";
 import {
 	WizardGuestGate,
@@ -24,7 +30,6 @@ import {
 	useCreateClaimMutation,
 } from "@/client/hooks/useClaims";
 import {
-	useAiConsentMutation,
 	useAppConfig,
 	useLoginMutation,
 	useSession,
@@ -37,7 +42,6 @@ import { useCalmPreparation } from "@/client/lib/preparation";
 import { useRouter } from "@/client/lib/router";
 import { zodV4Resolver } from "@/client/lib/zod-resolver";
 import {
-	type AiExtractionResponse,
 	type ClaimKind,
 	type ClaimView,
 	type ClaimWizardFormValues,
@@ -52,7 +56,7 @@ export function WizardPage() {
 	const { data: session, isLoading: sessionLoading } = useSession();
 	const { data: config } = useAppConfig();
 	const loginMutation = useLoginMutation();
-	const aiConsentMutation = useAiConsentMutation();
+	const { ensureConsent, consentDialog } = useAiConsentGate();
 	const createClaimMutation = useCreateClaimMutation();
 	const translateMutation = useAiTranslateIssueMutation();
 	const { isPreparing, runCalmly } = useCalmPreparation();
@@ -63,6 +67,9 @@ export function WizardPage() {
 	const [extraScannedFiles, setExtraScannedFiles] = useState<File[]>([]);
 	const [createdClaim, setCreatedClaim] = useState<ClaimView | null>(null);
 	const [isSubmittingAll, setIsSubmittingAll] = useState(false);
+	const [englishByAi, setEnglishByAi] = useState(false);
+	const [filledByAi, setFilledByAi] = useState(false);
+	const [understood, setUnderstood] = useState<string | null>(null);
 
 	const queryDefaults = useMemo(() => {
 		const params = new URLSearchParams(search);
@@ -143,6 +150,8 @@ export function WizardPage() {
 		setStep(1);
 		setStagedFiles([]);
 		setExtraScannedFiles([]);
+		setFilledByAi(false);
+		setUnderstood(null);
 		showToast(w.toastDraftCleared);
 	};
 
@@ -162,26 +171,19 @@ export function WizardPage() {
 		}
 	};
 
-	const handleInvoiceExtracted = (
-		res: AiExtractionResponse,
-		scannedFile: File,
-	) => {
-		const { suggestion, orderTotal } = res;
-		if (suggestion.vendor) form.setValue("vendor", suggestion.vendor);
-		if (suggestion.orderRef) form.setValue("orderRef", suggestion.orderRef);
-		if (suggestion.orderedOn) form.setValue("orderedOn", suggestion.orderedOn);
-		if (suggestion.currency) form.setValue("currency", suggestion.currency);
-		if (suggestion.items[0]) {
-			form.setValue("title", suggestion.items[0].name);
-			form.setValue("orderedQty", suggestion.items[0].orderedQty);
-			form.setValue("claimQty", suggestion.items[0].claimQty);
-			if (suggestion.items[0].unitPrice) {
-				form.setValue("claimedAmount", suggestion.items[0].unitPrice);
-			}
-		} else if (orderTotal) {
-			form.setValue("claimedAmount", orderTotal);
+	// The AI read the order and the person's line: the form is filled and the wizard moves to
+	// the first step that still has a gap, or straight to the review.
+	const handleIntakeFilled = async (result: WizardIntakeResult) => {
+		const { file, intake } = result;
+		if (file) setExtraScannedFiles((prev) => [...prev, file]);
+		const next = await applyIntake(form, result);
+		setFilledByAi(true);
+		setUnderstood(intake?.understood ?? null);
+		if (intake) {
+			setEnglishByAi(true);
+			setStep(next);
 		}
-		setExtraScannedFiles((prev) => [...prev, scannedFile]);
+		return next;
 	};
 
 	const handleTranslateIssue = async () => {
@@ -190,15 +192,15 @@ export function WizardPage() {
 			showToast(w.toastNeedIssue, "error");
 			return;
 		}
+		// What was typed is sent for translation only after the person has agreed.
+		if (!(await ensureConsent())) return;
 		try {
-			if (!session?.user?.aiConsentAt) {
-				await aiConsentMutation.mutateAsync(true);
-			}
 			const res = await runCalmly(() =>
 				translateMutation.mutateAsync(issueText),
 			);
 			if (res) {
 				form.setValue("issueEnglish", res.english);
+				setEnglishByAi(true);
 				showToast(w.toastTranslated);
 			}
 		} catch (error) {
@@ -207,21 +209,9 @@ export function WizardPage() {
 	};
 
 	const goNextStep = async () => {
-		let fieldsToValidate: Array<keyof ClaimWizardFormValues> = [];
-		if (step === 1) fieldsToValidate = ["vendor", "orderRef", "orderedOn"];
-		if (step === 2) {
-			fieldsToValidate = [
-				"title",
-				"orderedQty",
-				"claimQty",
-				"currency",
-				"claimedAmount",
-			];
-		}
-		if (step === 3) fieldsToValidate = ["kind", "issue"];
-
+		const fieldsToValidate = STEP_FIELDS[step - 1] ?? [];
 		if (fieldsToValidate.length > 0) {
-			const ok = await form.trigger(fieldsToValidate);
+			const ok = await form.trigger([...fieldsToValidate]);
 			if (!ok) return;
 		}
 		if (step === 2 && values.claimQty > values.orderedQty) {
@@ -331,6 +321,7 @@ export function WizardPage() {
 
 	return (
 		<div className="bg-relo-canvas py-8 sm:py-14">
+			{consentDialog}
 			<div className="mx-auto max-w-2xl px-4 sm:px-6">
 				<form onSubmit={onSubmitWizard}>
 					<Card className="overflow-hidden p-0">
@@ -390,9 +381,12 @@ export function WizardPage() {
 										form={form}
 										todayIso={todayLocalIso()}
 										isTranslating={isPreparing || translateMutation.isPending}
+										englishByAi={englishByAi}
+										filledByAi={filledByAi}
+										understood={understood}
 										stagedFilesCount={stagedFiles.length}
 										extraScannedCount={extraScannedFiles.length}
-										onInvoiceExtracted={handleInvoiceExtracted}
+										onIntakeFilled={handleIntakeFilled}
 										onTranslateIssue={handleTranslateIssue}
 										onStagedFilesChange={setStagedFiles}
 									/>

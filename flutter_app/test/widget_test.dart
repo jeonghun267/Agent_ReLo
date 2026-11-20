@@ -12,6 +12,7 @@ import 'package:relo_flutter/shared/state/relo_store.dart';
 import 'package:relo_flutter/shared/widgets/relo_icons.dart';
 import 'package:relo_flutter/shared/widgets/relo_mascot.dart';
 import 'package:relo_flutter/shared/widgets/relo_primitives.dart';
+import 'wizard_helpers.dart';
 
 void main() {
   group('MoneyFormat · 파일 시그니처 · 보호 항목 데이터', () {
@@ -20,26 +21,6 @@ void main() {
       expect(MoneyFormat.formatMinor(18450, 'USD'), r'$184.50');
       expect(MoneyFormat.decimalStringToMinor('42000', 'JPY'), 42000);
       expect(MoneyFormat.formatMinor(42000, 'JPY'), '¥42,000');
-    });
-
-    test('백엔드 파일 업로드 매직 바이트 시그니처(%PDF-, JPEG, PNG) 보장 검증', () {
-      final pdfBytes = ReloStore.ensureValidFileSignature(
-        'application/pdf',
-        [1, 2, 3],
-      );
-      expect(pdfBytes.sublist(0, 5), [0x25, 0x50, 0x44, 0x46, 0x2D]);
-
-      final jpgBytes = ReloStore.ensureValidFileSignature(
-        'image/jpeg',
-        [1, 2, 3],
-      );
-      expect(jpgBytes.sublist(0, 3), [255, 216, 255]);
-
-      final pngBytes = ReloStore.ensureValidFileSignature(
-        'image/png',
-        [1, 2, 3],
-      );
-      expect(pngBytes.sublist(0, 4), [137, 80, 78, 71]);
     });
 
     test('보호 항목 20개와 외부 SDK 목록이 비어 있지 않다', () {
@@ -92,15 +73,24 @@ void main() {
       await tester.pumpAndSettle();
       expect(store.activeTabIndex, 1);
       expect(find.text('어디서 샀어요?'), findsOneWidget);
-      expect(find.text('영수증으로 자동 채우기'), findsOneWidget);
+      expect(find.text('AI가 채워 주기'), findsOneWidget);
+      expect(find.text('AI가 채우기'), findsOneWidget);
       expect(find.text('쇼핑몰 이름'), findsNothing, reason: '칩으로 고르면 이름 칸은 숨긴다');
 
       // 단계마다 질문 하나. "다음"은 아래에 고정돼 있어 단계가 바뀌어도 같은 자리다.
       expect(find.text('1 / 5'), findsOneWidget);
+      // 신청은 빈 칸으로 열린다: 예시 값이 없으니, 채우지 않으면 넘어가지 않고 무엇이 비었는지 알린다
+      await tester.tap(find.text('다음'));
+      await tester.pumpAndSettle();
+      expect(find.text('어디서 샀어요?'), findsOneWidget);
+      expect(find.text('쇼핑몰을 골라 주세요.'), findsOneWidget);
+      expect(find.text('주문번호를 적어 주세요.'), findsOneWidget);
+      await fillWizardStep1(tester);
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
       expect(find.text('어떤 상품이에요?'), findsOneWidget);
       expect(find.text('결제한 통화'), findsOneWidget);
+      await fillWizardStep2(tester);
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
       expect(find.text('어떻게 해결할까요?'), findsOneWidget);
@@ -111,10 +101,15 @@ void main() {
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
       expect(find.text('영수증이나 사진이 있어요?'), findsOneWidget);
-      expect(find.text('주소 가려짐'), findsNWidgets(2));
+      // 올리지 않은 파일이 미리 붙어 있지 않다 (전에는 예시 영수증과 사진이 두 개 붙어 있었다)
+      expect(find.text('주소 가려짐'), findsNothing);
+      expect(find.text('Amazon_Order_Receipt_Masked.pdf'), findsNothing);
       await tester.tap(find.text('다음'));
       await tester.pumpAndSettle();
       expect(find.text('마지막으로 확인해요'), findsOneWidget);
+      // 마지막 확인에는 적은 것만 나온다: 붙인 파일은 없다
+      expect(find.text('없음'), findsOneWidget);
+      expect(find.text('114-0000000-0000001'), findsOneWidget);
       expect(find.text('수수료 · 성공보수'), findsOneWidget);
       // 필수 동의를 체크하지 않으면 등록되지 않고, 버튼 위 빨간 글자로 알려 준다
       await tester.tap(find.text('환불 신청 등록하기'));
@@ -201,11 +196,15 @@ void main() {
       await tester.pumpAndSettle();
       expect(find.text('고대비 모드'), findsOneWidget);
       expect(find.text('약관 · 개인정보 처리방침 · 정책'), findsOneWidget);
-      // 상자 없이 줄로: 구역 이름표 둘, 켜고 끄는 줄 여섯(마감 알림 포함), 언어는 고르는 칩
+      // 상자 없이 줄로: 구역 이름표 둘, 켜고 끄는 줄 다섯(마감 알림 포함), 언어는 고르는 칩
       expect(find.text('화면'), findsOneWidget);
       expect(find.text('내 정보'), findsOneWidget);
       expect(find.text('마감 알림'), findsOneWidget);
-      expect(find.byType(Switch), findsNWidgets(6));
+      // "이메일 알림 받기" 스위치는 없다: 기기 안의 값만 바꾸고 서버에는 전해지지 않던 스위치였다.
+      // 알림 메일 스위치는 서버에 붙어 있고 스스로 시작하기를 켰을 때만 보인다 (agent_test).
+      expect(find.byType(Switch), findsNWidgets(5));
+      expect(find.text('이메일 알림 받기'), findsNothing);
+      expect(find.text('알림 메일 받기'), findsNothing);
       expect(find.text('한국어'), findsOneWidget);
       expect(find.text('회원 탈퇴 · 내 정보 모두 삭제'), findsOneWidget);
       // 켜고 끄는 줄은 글자를 눌러도 바뀐다

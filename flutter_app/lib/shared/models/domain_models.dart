@@ -17,6 +17,12 @@ class User {
   final String? emailVerifiedAt;
   final String? aiConsentAt;
 
+  /// "스스로 시작하기"를 켠 때. 처음에는 꺼져 있고(null), AI 동의를 끄면 함께 꺼진다.
+  final String? agentAutoAt;
+
+  /// 알림 메일("AI가 허락을 기다려요")을 끈 때. null이면 받는다.
+  final String? noticeMailOffAt;
+
   const User({
     required this.id,
     required this.email,
@@ -24,6 +30,8 @@ class User {
     required this.createdAt,
     this.emailVerifiedAt,
     this.aiConsentAt,
+    this.agentAutoAt,
+    this.noticeMailOffAt,
   });
 
   factory User.fromJson(Map<String, dynamic> json) {
@@ -34,6 +42,8 @@ class User {
       createdAt: (json['createdAt'] ?? '').toString(),
       emailVerifiedAt: json['emailVerifiedAt']?.toString(),
       aiConsentAt: json['aiConsentAt']?.toString(),
+      agentAutoAt: json['agentAutoAt']?.toString(),
+      noticeMailOffAt: json['noticeMailOffAt']?.toString(),
     );
   }
 }
@@ -66,6 +76,9 @@ class AppConfig {
   final Map<String, String> receiptKinds;
   final bool aiEnabled;
   final String? aiModel;
+
+  /// AI에게 맡겼을 때 한 번에 가는 최대 단계 수 (서버 설정)
+  final int agentMaxSteps;
   final DemoAccountHint? demoAccount;
 
   const AppConfig({
@@ -76,6 +89,7 @@ class AppConfig {
     required this.receiptKinds,
     required this.aiEnabled,
     this.aiModel,
+    this.agentMaxSteps = 5,
     this.demoAccount,
   });
 
@@ -141,6 +155,8 @@ class AppConfig {
       receiptKinds: parseMap(json['receiptKinds'], defaults.receiptKinds),
       aiEnabled: aiRaw is Map ? (aiRaw['enabled'] == true) : true,
       aiModel: aiRaw is Map ? aiRaw['model']?.toString() : 'gemini-2.5-flash',
+      agentMaxSteps:
+          aiRaw is Map ? (aiRaw['agentMaxSteps'] as num?)?.toInt() ?? 5 : 5,
       demoAccount: demoRaw is Map<String, dynamic>
           ? DemoAccountHint.fromJson(demoRaw)
           : defaults.demoAccount,

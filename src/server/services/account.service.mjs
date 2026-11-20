@@ -7,7 +7,31 @@ export function createAccountService(ctx) {
 
   function setAiConsent(ownerId, consent) {
     const at = nowIso();
-    repos.users.setAiConsent(ownerId, consent ? at : null, at);
+    transaction(db, () => {
+      repos.users.setAiConsent(ownerId, consent ? at : null, at);
+      // Without consent nothing may go to the AI, so the agent may not start by itself either.
+      if (!consent) repos.users.setAgentAuto(ownerId, null, at);
+    });
+    return repos.users.findById(ownerId);
+  }
+
+  // "맡겨 두기": the agent may start by itself when something happens on a claim. It is a
+  // separate choice from the AI consent, because it sends data to the AI without a press each time.
+  function setAgentAuto(ownerId, on) {
+    const user = repos.users.findById(ownerId);
+    reject(on && !user.aiConsentAt, 'AI에게 맡겨 두려면 먼저 AI 처리에 동의해 주세요.', 'ai_consent_required', 403);
+    const at = nowIso();
+    repos.users.setAgentAuto(ownerId, on ? (user.agentAutoAt ?? at) : null, at);
+    return repos.users.findById(ownerId);
+  }
+
+  // Notice emails (today: "the agent is waiting for your answer"). On unless the person
+  // switches them off. The account emails they asked for themself (confirming the address,
+  // resetting the password) are not notices and are not affected.
+  function setNoticeMail(ownerId, on) {
+    const user = repos.users.findById(ownerId);
+    const at = nowIso();
+    repos.users.setNoticeMail(ownerId, on ? null : (user.noticeMailOffAt ?? at), at);
     return repos.users.findById(ownerId);
   }
 
@@ -17,9 +41,11 @@ export function createAccountService(ctx) {
     return {
       format: 'relo-export-v1',
       exportedAt: nowIso(),
-      user: {email: user.email, name: user.name, createdAt: user.createdAt, emailVerifiedAt: user.emailVerifiedAt, aiConsentAt: user.aiConsentAt},
+      user: {email: user.email, name: user.name, createdAt: user.createdAt, emailVerifiedAt: user.emailVerifiedAt, aiConsentAt: user.aiConsentAt, agentAutoAt: user.agentAutoAt, noticeMailOffAt: user.noticeMailOffAt},
       claims: repos.claims.listAllRows(ownerId).map(row => claims.toView(ownerId, row)),
       files: repos.files.listAllWithBytes(ownerId).map(({bytes, ...meta}) => ({...meta, base64: bytes.toString('base64')})),
+      // Each time the AI chose its own steps for a claim: which tools, in what order, and why.
+      agentRuns: repos.agentRuns.listAll(ownerId),
     };
   }
 
@@ -30,5 +56,5 @@ export function createAccountService(ctx) {
     transaction(db, () => repos.account.purgeOwner(ownerId));
   }
 
-  return {setAiConsent, exportData, deleteAccount};
+  return {setAiConsent, setAgentAuto, setNoticeMail, exportData, deleteAccount};
 }

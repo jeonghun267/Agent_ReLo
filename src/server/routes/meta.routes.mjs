@@ -18,7 +18,7 @@ export function registerMetaRoutes(router, {config, services}) {
       receiptKinds: RECEIPT_KINDS,
       deadlineZones: DEADLINE_ZONES,
       files: {types: ALLOWED_FILE_TYPES, maxBytes: MAX_FILE_BYTES},
-      ai: services.ai.status(),
+      ai: {...services.ai.status(), agentMaxSteps: services.agent.maxSteps},
       mail: services.auth.mailStatus(),
       signIn: services.auth.signInMethods(),
       ...(config.seedDemo ? {demoAccount: DEMO_ACCOUNT} : {}),

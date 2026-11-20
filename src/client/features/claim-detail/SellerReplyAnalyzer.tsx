@@ -8,6 +8,7 @@
 
 import { Check, HandCoins, Languages, MessageSquarePlus } from "lucide-react";
 import { useId, useState } from "react";
+import { useAiConsentGate } from "@/client/components/AiConsentDialog";
 import { ReloOrbEmblem } from "@/client/components/ReloOrbEmblem";
 import {
 	Badge,
@@ -21,11 +22,7 @@ import {
 	useRecordReplyMutation,
 	useUpdateClaimMutation,
 } from "@/client/hooks/useClaims";
-import {
-	useAiConsentMutation,
-	useAppConfig,
-	useSession,
-} from "@/client/hooks/useSession";
+import { useAppConfig } from "@/client/hooks/useSession";
 import { useI18n } from "@/client/i18n";
 import {
 	claimToInput,
@@ -53,9 +50,8 @@ const REPLY_KIND_ORDER: ReplyKind[] = [
 export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 	const replyTextareaId = useId();
 	const kindSelectId = useId();
-	const { data: session } = useSession();
 	const { data: config } = useAppConfig();
-	const aiConsentMutation = useAiConsentMutation();
+	const { ensureConsent, consentDialog } = useAiConsentGate();
 	const analyzeMutation = useAiAnalyzeReplyMutation(claim.id);
 	const recordReplyMutation = useRecordReplyMutation(claim.id);
 	const updateClaimMutation = useUpdateClaimMutation(claim.id);
@@ -90,10 +86,9 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 			showToast(r.toastNeedReply, "error");
 			return;
 		}
+		// The pasted reply stays here until the person has agreed to send it.
+		if (!(await ensureConsent())) return;
 		try {
-			if (!session?.user?.aiConsentAt) {
-				await aiConsentMutation.mutateAsync(true);
-			}
 			const res = await runCalmly(() => analyzeMutation.mutateAsync(rawReply));
 			if (!res) return;
 			setTranslationKo(res.translationKo);
@@ -159,6 +154,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 
 	return (
 		<div className="space-y-4">
+			{consentDialog}
 			<div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2 px-1">
 				<p className="text-sm font-semibold text-relo-ink">{method.label}</p>
 				{/* biome-ignore lint/a11y/useSemanticElements: a three-way toggle, not a form fieldset */}
@@ -282,6 +278,9 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 										{translationKo}
 									</p>
 								) : null}
+								{aiAssisted ? (
+									<p className="text-relo-muted">{r.aiNote}</p>
+								) : null}
 							</div>
 						) : null}
 
@@ -338,6 +337,7 @@ export function SellerReplyAnalyzer({ claim }: { claim: ClaimView }) {
 										{replyKindLabel(t, rep.kind, claim.kind)}
 									</Badge>
 									<span className="text-relo-muted">
+										{rep.aiAssisted ? `${r.aiSaved} · ` : ""}
 										{formatLocalDate(rep.recordedAt, localeOption.bcp47)}
 									</span>
 								</div>

@@ -9,6 +9,7 @@ export function registerFileRoutes(router, {services}) {
       mime: ctx.header('content-type') || '',
       bytes,
     }, ctx.idempotencyKey);
+    services.agent.wake(ctx.user.id, ctx.params.id, 'file', ctx.header('x-relo-locale'));
     return {status: 201, body: result};
   });
 
