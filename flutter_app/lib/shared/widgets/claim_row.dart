@@ -148,6 +148,7 @@ class ClaimRow extends StatelessWidget {
     final hasDeadline = !done && DDay.label(claim.deadline) != null;
     // 교환 · 수리는 돈 대신 받은 것을 적는다: "1개 / 3개", "아직 확인 전"
     final arrived = store.strings.cwArrived(claim);
+    final agentAsks = store.agentWaitingClaimIds.contains(claim.id);
 
     final content = Row(
       children: [
@@ -188,6 +189,20 @@ class ClaimRow extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
                 style: TextStyle(fontSize: 13, color: palette.subtle),
               ),
+              // AI가 허락을 기다리며 멈춰 있는 건: 열어서 답해 달라고 한 줄로 알린다
+              if (agentAsks) ...[
+                const SizedBox(height: 2),
+                Text(
+                  store.strings.agAsks,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: palette.focusRing,
+                  ),
+                ),
+              ],
             ],
           ),
         ),
@@ -226,11 +241,14 @@ class ClaimRow extends StatelessWidget {
     );
 
     final open = onTap ?? () => store.openClaimDetail(claim.id);
+    final label = agentAsks
+        ? '$title · $status · ${store.strings.agAsks}'
+        : '$title · $status';
 
     if (boxed) {
       return Semantics(
         button: true,
-        label: '$title · $status',
+        label: label,
         child: Material(
           color: palette.raised,
           borderRadius: BorderRadius.circular(18),
@@ -247,7 +265,7 @@ class ClaimRow extends StatelessWidget {
     }
     return Semantics(
       button: true,
-      label: '$title · $status',
+      label: label,
       child: Material(
         color: Colors.transparent,
         child: InkWell(

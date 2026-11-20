@@ -28,6 +28,17 @@ class ApiError implements Exception {
   String toString() => message;
 }
 
+/// AI가 답하지 못했다. [message]는 화면에 그대로 보일 까닭 한 문장이다.
+/// AI 기능은 실패했을 때 그럴듯한 답을 지어내지 않고 이것을 던진다.
+class AiUnavailable implements Exception {
+  final String message;
+
+  const AiUnavailable(this.message);
+
+  @override
+  String toString() => message;
+}
+
 class ReloApiClient {
   String baseUrl;
   String _csrfToken = '';
@@ -55,6 +66,10 @@ class ReloApiClient {
     }
     return 'http://127.0.0.1:4180';
   }
+
+  /// 화면의 언어 (ko · en · ja · zh). 저장하는 요청에 `X-Relo-Locale`로 실어 보낸다.
+  /// 저장 뒤에 AI가 스스로 시작할 때, 서버가 이 언어로 글을 쓰게 하려는 것이다.
+  String locale = 'ko';
 
   String get csrfToken => _csrfToken;
   bool get hasSession => _sessionCookie.isNotEmpty;
@@ -100,6 +115,7 @@ class ReloApiClient {
     req.headers.set('Accept', 'application/json');
     if (method != 'GET' && method != 'HEAD') {
       req.headers.set('Origin', origin);
+      req.headers.set('X-Relo-Locale', locale);
       if (_csrfToken.isNotEmpty) {
         req.headers.set('X-CSRF-Token', _csrfToken);
       }

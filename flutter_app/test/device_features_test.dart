@@ -19,6 +19,7 @@ import 'package:relo_flutter/shared/widgets/relo_icons.dart';
 import 'package:relo_flutter/shared/widgets/relo_intro.dart';
 import 'package:relo_flutter/shared/widgets/relo_mascot.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'wizard_helpers.dart';
 
 /// 기기 기능: 영수증 · 사진 붙이기와 마감 알림.
 /// 기기 없이 시험할 수 있게, 고르기 화면과 알림은 가짜로 바꿔 끼운다.
@@ -443,10 +444,7 @@ void main() {
     final store = await startApp(tester, picker: picker);
     store.navigateToTab(1);
     await tester.pumpAndSettle();
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.text('다음'));
-      await tester.pumpAndSettle();
-    }
+    await wizardToStep(tester, 4);
     expect(find.text('영수증이나 사진이 있어요?'), findsOneWidget);
 
     await tester.ensureVisible(find.text('사진 · 영수증 추가'));
@@ -470,10 +468,7 @@ void main() {
     final store = await startApp(tester, picker: picker);
     store.navigateToTab(1);
     await tester.pumpAndSettle();
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.text('다음'));
-      await tester.pumpAndSettle();
-    }
+    await wizardToStep(tester, 4);
     await tester.ensureVisible(find.text('사진 · 영수증 추가'));
     await tester.tap(find.text('사진 · 영수증 추가'));
     await tester.pumpAndSettle();
@@ -605,7 +600,7 @@ void main() {
     );
   });
 
-  testWidgets('다른 앱에서 공유한 영수증으로 신청이 열리고, 예시 파일 대신 그 파일이 붙는다', (tester) async {
+  testWidgets('다른 앱에서 공유한 영수증으로 신청이 열리고, 그 파일이 붙는다', (tester) async {
     final inbox = FakeSharedInbox();
     final store = await startApp(tester, inbox: inbox);
     expect(store.activeTabIndex, 0);
@@ -616,15 +611,15 @@ void main() {
     await tester.pumpAndSettle();
     expect(store.activeTabIndex, 1);
     expect(store.incomingEvidence, isNull, reason: '신청 화면이 가져갔다');
-    // 서버가 읽어 주지 못해도 예시 값을 지어내지 않고, 붙였다고만 알린다
-    expect(find.text('영수증을 붙였어요. 내용은 직접 적어 주세요.'), findsOneWidget);
+    // 붙이기만 한다: AI는 [AI가 채우기]를 눌러야 읽는다
+    expect(find.text('파일을 붙였어요. [AI가 채우기]를 누르면 AI가 읽어요.'), findsOneWidget);
+    expect(find.text('Order Confirmation.pdf'), findsOneWidget, reason: 'AI가 읽을 파일로 보인다');
 
-    for (var i = 0; i < 3; i++) {
-      await tester.tap(find.text('다음'));
-      await tester.pumpAndSettle();
-    }
+    await wizardToStep(tester, 4);
+    expect(find.text('영수증이나 사진이 있어요?'), findsOneWidget);
     expect(find.text('Order Confirmation.pdf'), findsOneWidget);
-    expect(find.text('Amazon_Order_Receipt_Masked.pdf'), findsNothing, reason: '예시 파일은 뺀다');
+    expect(find.text('주소 확인 필요'), findsOneWidget, reason: '붙은 파일은 그것 하나다');
+    expect(find.text('Amazon_Order_Receipt_Masked.pdf'), findsNothing, reason: '예시 파일은 없다');
   });
 
   testWidgets('공유받은 파일을 붙일 수 없으면 까닭을 말한다', (tester) async {

@@ -94,6 +94,13 @@ class MoneyFormat {
     return major.toStringAsFixed(digits);
   }
 
+  /// 한 개 값 × 수량을 금액 칸에 넣을 글자로: ("39.90", 2, EUR) → "79.80"
+  static String timesQty(String unitPrice, int qty, String currency) =>
+      minorToDecimalString(
+        decimalStringToMinor(unitPrice, currency) * qty,
+        currency,
+      );
+
   static String _addCommas(String intPart) {
     final negative = intPart.startsWith('-');
     final digits = negative ? intPart.substring(1) : intPart;

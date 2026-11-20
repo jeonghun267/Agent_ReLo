@@ -42,7 +42,6 @@ class _AuthScreenState extends State<AuthScreen> {
   bool _guardianVerified = false;
   final _guardianNameCtrl = TextEditingController();
   bool _agreeAiOptional = false;
-  bool _agreeEmailOptional = false;
 
   /// 칸마다의 오류 (칸 아래 빨간 글자). 키: name, email, password
   final Map<String, String> _fieldErrors = {};
@@ -104,7 +103,6 @@ class _AuthScreenState extends State<AuthScreen> {
         _emailCtrl.text.trim(),
         _passwordCtrl.text,
         aiConsented: _agreeAiOptional,
-        marketingEmailConsented: _agreeEmailOptional,
       );
     } else {
       message = await store.login(
@@ -333,13 +331,8 @@ class _AuthScreenState extends State<AuthScreen> {
               title: _s.auC4,
               subtitle: _s.auC4Sub,
             ),
-            ReloConsentRow(
-              value: _agreeEmailOptional,
-              onChanged: (v) => setState(() => _agreeEmailOptional = v),
-              isRequired: false,
-              title: _s.auC5,
-              subtitle: _s.auC5Sub,
-            ),
+            // "마감일 알림 · 안내 이메일 수신 동의"가 여기 있었다. 그런 메일은 보내지 않고
+            // (마감 알림은 기기의 알림이다), 체크해도 서버에 전해지지 않아서 뺐다.
           ],
 
           const SizedBox(height: 22),

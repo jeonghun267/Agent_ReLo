@@ -4,6 +4,7 @@ import 'package:relo_flutter/core/i18n/relo_i18n.dart';
 import 'package:relo_flutter/core/utils/input_rules.dart';
 import 'package:relo_flutter/main.dart';
 import 'package:relo_flutter/shared/state/relo_store.dart';
+import 'wizard_helpers.dart';
 
 /// 앱의 기본기: 입력 검사, 안드로이드 뒤로 가기, 네 언어.
 void main() {
@@ -122,8 +123,7 @@ void main() {
     // 신청: 2단계 → 1단계 → 홈
     store.navigateToTab(1);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
+    await wizardToStep(tester, 2);
     expect(find.text('어떤 상품이에요?'), findsOneWidget);
     await tester.binding.handlePopRoute();
     await tester.pumpAndSettle();
@@ -160,18 +160,23 @@ void main() {
     final store = await startApp(tester);
     store.navigateToTab(1);
     await tester.pumpAndSettle();
-    await tester.tap(find.text('다음'));
-    await tester.pumpAndSettle();
+    await wizardToStep(tester, 2);
     expect(find.text('어떤 상품이에요?'), findsOneWidget);
+    // 금액 칸은 비어 있다 (전에는 예시 금액 289.00이 들어 있었다)
+    expect(find.text('289.00'), findsNothing);
+    await tester.enterText(find.byType(EditableText).at(0), '무선 헤드폰');
 
-    // 금액 칸에는 글자가 들어가지 않는다
-    await tester.enterText(find.text('289.00'), '289.00원');
+    // 금액 칸에는 글자가 들어가지 않는다: 숫자를 적은 뒤 글자를 붙여도 숫자만 남는다
+    final amountField = find.byType(EditableText).at(3);
+    await tester.enterText(amountField, '289.00');
+    await tester.pump();
+    await tester.enterText(amountField, '289.00원');
     await tester.pump();
     expect(find.text('289.00'), findsOneWidget);
     expect(find.text('289.00원'), findsNothing);
 
     // 비우면 다음으로 넘어가지 않고, 칸 아래에 빨간 글자로 알린다
-    await tester.enterText(find.text('289.00'), '');
+    await tester.enterText(amountField, '');
     await tester.pump();
     await tester.tap(find.text('다음'));
     await tester.pumpAndSettle();
@@ -197,19 +202,24 @@ void main() {
     store.navigateToTab(1);
     await tester.pumpAndSettle();
     expect(find.text('Where did you buy it?'), findsOneWidget);
-    expect(find.text('Fill in from a receipt'), findsOneWidget);
+    expect(find.text('Let the AI fill it in'), findsOneWidget);
     expect(find.text('Next'), findsOneWidget);
     expect(find.text('어디서 샀어요?'), findsNothing);
     // 다섯 단계를 끝까지 넘겨 본다 (글자가 길어진 언어에서 넘치는 줄이 없는지도 같이 본다)
-    for (final title in [
+    final titles = [
       'Which item is it?',
       'How should it be resolved?',
       'Do you have a receipt or photos?',
       'One last check',
-    ]) {
+    ];
+    for (var i = 0; i < titles.length; i++) {
+      // 빈 칸으로 열리므로 단계마다 채우고 넘어간다
+      if (i == 0) await fillWizardStep1(tester);
+      if (i == 1) await fillWizardStep2(tester, title: 'Wireless headphones');
+      if (i == 2) await fillWizardStep3(tester, issue: 'It does not turn on.');
       await tester.tap(find.text('Next'));
       await tester.pumpAndSettle();
-      expect(find.text(title), findsOneWidget);
+      expect(find.text(titles[i]), findsOneWidget);
     }
     expect(find.text('Submit refund request'), findsOneWidget);
 

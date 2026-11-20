@@ -2,6 +2,8 @@ import '../attachments/evidence_rules.dart';
 import '../utils/dday.dart';
 import '../utils/money_format.dart';
 
+export 'relo_i18n_agent.dart';
+
 /// @module core/i18n/relo_i18n
 /// @layer Core Localization (KO / EN / JA / ZH 4-Language Dictionary)
 /// @purpose 4개국어 다국어 사전. 사용자에게 보이는 문구는 DESIGN.md 6절의 말투를 따른다.
@@ -299,11 +301,15 @@ class ReloStrings {
       };
 
   String get assistantConsentBody => switch (locale) {
-        ReloLocale.ko => '쇼핑몰·주문번호·금액·진행 상태만 AI에 보내요. 이름·주소·카드번호는 보내지 않아요.',
+        // 이 동의 하나로 도우미 · 영수증 읽기 · 답장 요약 · 글 쓰기가 모두 켜지므로, 보내는 것을 다 적는다
+        ReloLocale.ko =>
+          'AI 도우미는 해외에 있는 Google의 AI(Gemini)로 일해요. 주문 내용(쇼핑몰·주문번호·상품·금액·문제 설명), 붙여 넣은 판매자 답장, 읽어 달라고 고른 영수증 파일을 보내요. 파일에 적힌 이름·주소도 함께 가요. 가입할 때 적은 이름·이메일·비밀번호는 보내지 않아요.',
         ReloLocale.en =>
-          'Only shop, order number, amounts and status are sent. Never your name, address or card number.',
-        ReloLocale.ja => 'ショップ・注文番号・金額・進行状況だけを送ります。氏名・住所・カード番号は送りません。',
-        ReloLocale.zh => '只发送商城、订单号、金额和进度，不发送姓名、地址和卡号。',
+          'The AI helper works with Google\'s AI (Gemini) outside Korea. It sends your order details (shop, order number, product, amount, what went wrong), the seller reply you paste, and the receipt file you choose to have read, including any name or address printed on it. The name, email and password you signed up with are not sent.',
+        ReloLocale.ja =>
+          'AIアシスタントは海外にあるGoogleのAI（Gemini）で動きます。注文内容（ショップ・注文番号・商品・金額・問題の説明）、貼り付けた販売者の返信、読み取りのために選んだ領収書ファイルを送ります。ファイルに書かれた氏名・住所も一緒に送られます。登録時の氏名・メールアドレス・パスワードは送りません。',
+        ReloLocale.zh =>
+          'AI 助手使用位于海外的 Google AI（Gemini）。会发送订单内容（商城、订单号、商品、金额、问题说明）、你粘贴的卖家回复，以及你选来读取的收据文件，文件上的姓名和地址也会一起发送。注册时填写的姓名、邮箱和密码不会发送。',
       };
 
   String get assistantConsentButton => switch (locale) {
@@ -1122,6 +1128,50 @@ class ReloStrings {
         'サンプルの領収書で試す',
         '用示例收据试试',
       );
+  String get wSampleFilled => _t(
+        '샘플 영수증의 예시 값으로 채웠어요. AI가 읽은 값이 아니에요.',
+        'Filled in with the sample receipt\'s example values. The AI did not read these.',
+        'サンプルの領収書の例の値で入力しました。AIが読み取った値ではありません。',
+        '已用示例收据的示例值填写。这不是 AI 读取的内容。',
+      );
+  String get wTranslateSkip => _t(
+        '영어로 직접 적거나 비워 두어도 돼요.',
+        'You can write it in English yourself or leave it empty.',
+        '英語で直接入力するか、空のままでも大丈夫です。',
+        '可以自己用英语填写，也可以留空。',
+      );
+
+  // ── AI가 답하지 못했을 때 (지어낸 답 대신 까닭을 말한다) ──
+  String get aiOff => _t(
+        'AI 도우미가 꺼져 있어요. 설정에서 켤 수 있어요.',
+        'The AI helper is off. You can turn it on in Settings.',
+        'AIアシスタントがオフです。設定からオンにできます。',
+        'AI 助手已关闭，可以在设置里开启。',
+      );
+  String get aiNoServer => _t(
+        '서버에 연결되지 않아 AI를 쓸 수 없어요.',
+        'The AI is not available because the server is not connected.',
+        'サーバーに接続されていないため、AIを使えません。',
+        '未连接服务器，无法使用 AI。',
+      );
+  String get aiFailed => _t(
+        'AI가 지금은 답하지 못했어요. 잠시 뒤 다시 해 주세요.',
+        'The AI could not answer just now. Please try again shortly.',
+        'AIが今は答えられませんでした。少ししてからもう一度お試しください。',
+        'AI 暂时没能回答，请稍后再试。',
+      );
+  String get dDraftByTemplate => _t(
+        '그래서 AI가 쓴 글 대신 기본 틀로 채웠어요. 문제 설명을 확인해 주세요.',
+        'So this is the basic template, not written by the AI. Please check the problem description.',
+        'そのため、AIの文章ではなく基本のひな形を入れました。問題の説明を確認してください。',
+        '所以填入的是基本模板，不是 AI 写的。请检查问题说明。',
+      );
+  String get dReplySaveAnyway => _t(
+        '답장은 직접 읽고 그대로 저장할 수 있어요.',
+        'You can still read the reply yourself and save it as it is.',
+        '返信は自分で読んで、そのまま保存できます。',
+        '你仍然可以自己阅读回复并照原样保存。',
+      );
   String get wSampleNote => _t(
         '예시 영수증으로 채워지는 모습을 볼 수 있어요.',
         'See how a sample receipt fills in the form.',
@@ -1139,6 +1189,18 @@ class ReloStrings {
         'Enter the store name.',
         'ショップ名を入力してください。',
         '请填写商家名称。',
+      );
+  String get wErrVendorPick => _t(
+        '쇼핑몰을 골라 주세요.',
+        'Choose a store.',
+        'ショップを選んでください。',
+        '请选择商家。',
+      );
+  String get wSumFilesNone => _t(
+        '없음',
+        'None',
+        'なし',
+        '无',
       );
   String get wErrOrderRef => _t(
         '주문번호를 적어 주세요.',
@@ -1223,18 +1285,6 @@ class ReloStrings {
         'View My Claims',
         'マイ返金を見る',
         '查看我的退款',
-      );
-  String get wReceiptReading => _t(
-        '영수증 읽는 중…',
-        'Reading the receipt…',
-        '領収書を読み取り中…',
-        '正在读取收据…',
-      );
-  String get wReceiptFill => _t(
-        '영수증으로 자동 채우기',
-        'Fill in from a receipt',
-        '領収書から自動入力',
-        '用收据自动填写',
       );
   String get wOrPick => _t(
         '또는 직접 고르기',
@@ -1446,18 +1496,6 @@ class ReloStrings {
         '虚偽の申告ではないことを確認し、利用規約に同意します。',
         '我确认并非虚假申报，并同意服务条款。',
       );
-  String get wConsent3Title => _t(
-        'AI로 외국어 요청서 초안 만들기에 동의해요',
-        'I agree to have AI draft my request in a foreign language',
-        'AIで外国語の依頼文の下書きを作成することに同意します',
-        '我同意由 AI 起草外语申请',
-      );
-  String get wConsent3Sub => _t(
-        '고르지 않아도 기본 영어·일본어·중국어 문장은 무료로 쓸 수 있어요.',
-        'Even without this, the basic English, Japanese and Chinese templates are free to use.',
-        '選択しなくても、基本の英語・日本語・中国語の文は無料で使えます。',
-        '即使不勾选，也可以免费使用基础的英文、日文和中文模板。',
-      );
   String get stBackupTitle => _t(
         '내 환불 기록 백업',
         'Back up my refund records',
@@ -1531,22 +1569,40 @@ class ReloStrings {
         '用于读取收据和翻译。关闭后不会把收据和原因发送到 AI 服务器',
       );
   String get stEmail => _t(
-        '이메일 알림 받기',
-        'Email notifications',
-        'メール通知を受け取る',
-        '接收邮件通知',
+        '알림 메일 받기',
+        'Notice emails',
+        'お知らせメールを受け取る',
+        '接收提醒邮件',
       );
   String get stEmailOff => _t(
-        '지금은 메일을 보내지 않아요',
-        'No emails are being sent',
-        '現在メールは送信されません',
-        '目前不会发送邮件',
+        '꺼져 있어요. AI가 허락을 기다려도 메일을 보내지 않아요',
+        'Off. No email is sent when the AI is waiting for your OK',
+        'オフです。AIが許可を待っていてもメールは送りません',
+        '已关闭。AI 等你同意时也不会发邮件',
       );
   String get stEmailOn => _t(
-        '끄면 바로 수신 거부돼요',
-        'Turn off to unsubscribe immediately',
-        'オフにするとすぐ配信停止になります',
-        '关闭后立即退订',
+        'AI가 허락을 기다리는데 한동안 답이 없으면 인증한 이메일로 한 번 알려 드려요. 메일에는 주문 내용을 적지 않아요',
+        'If the AI is left waiting for your OK for a while, it emails you once at your verified address. The email says nothing about your order',
+        'AIが許可を待ったまましばらくお返事がないときは、確認済みのメールアドレスに一度だけお知らせします。メールに注文の内容は書きません',
+        '如果 AI 等你同意等了一段时间仍没有回答，会向你已验证的邮箱发一封提醒邮件。邮件里不写订单内容',
+      );
+  String get stEmailUnverified => _t(
+        '이메일 인증 전이라 지금은 알림 메일을 보내지 않아요. 인증을 마치면, AI가 허락을 기다리는데 한동안 답이 없을 때 한 번 알려 드려요',
+        'Your email address is not confirmed yet, so no notice email is sent for now. Once it is confirmed, the AI emails you once if it is left waiting for your OK for a while',
+        'メールアドレスの確認がまだのため、今はお知らせメールを送りません。確認が済むと、AIが許可を待ったまましばらくお返事がないときに一度だけお知らせします',
+        '邮箱还没有验证，所以现在不会发送提醒邮件。验证之后，如果 AI 等你同意等了一段时间仍没有回答，会发一封提醒邮件',
+      );
+  String get stEmailFail => _t(
+        '알림 메일 설정을 바꾸지 못했어요. 잠시 후 다시 해 보세요.',
+        'Could not change the notice email setting. Try again in a moment.',
+        'お知らせメールの設定を変更できませんでした。しばらくしてからもう一度お試しください。',
+        '没能更改提醒邮件设置。请稍后再试。',
+      );
+  String get lgMailFacts => _t(
+        '광고 메일은 보내지 않아요. 보내는 메일은 세 가지예요: 가입할 때의 이메일 인증, 요청했을 때의 비밀번호 재설정, 그리고 [스스로 시작하기]를 켠 경우 AI가 허락을 기다린다는 알림. 알림 메일에는 주문 내용을 적지 않고, 설정의 [알림 메일 받기]로 끌 수 있어요. 끄는 방법은 메일에도 적혀 있어요.',
+        'We send no advertising email. There are three kinds of email: confirming your address when you sign up, resetting your password when you ask, and, if "Let the AI start on its own" is on, a notice that the AI is waiting for your OK. The notice says nothing about your order, and you can turn it off under "Notice emails" in Settings. The email itself says how.',
+        '広告メールは送りません。送るメールは3種類です: 登録時のメールアドレスの確認、依頼があったときのパスワード再設定、そして「AIが自分で始める」をオンにしている場合の、AIが許可を待っているというお知らせ。お知らせメールに注文の内容は書かず、設定の「お知らせメールを受け取る」でオフにできます。止め方はメールにも書いてあります。',
+        '我们不发送广告邮件。发送的邮件只有三种：注册时的邮箱验证、你请求时的密码重置，以及在你打开“让 AI 自己开始”时，提醒你 AI 正在等你同意的邮件。提醒邮件里不写订单内容，可以在设置的“接收提醒邮件”中关闭。邮件里也写了关闭方法。',
       );
   String get stLegal => _t(
         '약관 · 개인정보 처리방침 · 정책',
@@ -1729,22 +1785,10 @@ class ReloStrings {
         '同意使用 AI 自动读取收据和翻译助手',
       );
   String get auC4Sub => _t(
-        '미동의 시에도 직접 입력 및 기본 템플릿을 100% 이용할 수 있어요.',
-        'Without this, you can still enter everything yourself and use all the basic templates.',
-        '同意しなくても、手入力と基本テンプレートはすべて利用できます。',
-        '不同意也可以手动填写并完整使用基础模板。',
-      );
-  String get auC5 => _t(
-        '환불 마감일 알림 및 안내 이메일 수신 동의',
-        'Consent to receive deadline reminders and notice emails',
-        '返金期限の通知と案内メールの受信に同意',
-        '同意接收退款截止提醒和通知邮件',
-      );
-  String get auC5Sub => _t(
-        '언제든 메일 하단 또는 설정에서 원클릭으로 수신거부할 수 있어요.',
-        'You can unsubscribe with one click from any email or in Settings.',
-        'メール下部または設定からワンクリックでいつでも配信停止できます。',
-        '可随时在邮件底部或设置中一键退订。',
+        '주문 내용 · 붙여 넣은 답장 · 고른 영수증 파일이 해외의 Google AI로 보내져요. 동의하지 않아도 직접 적어서 다 쓸 수 있어요.',
+        'Your order details, the reply you paste and the receipt file you choose are sent to Google\'s AI outside Korea. Without this, you can still enter everything yourself.',
+        '注文内容・貼り付けた返信・選んだ領収書ファイルが海外のGoogleのAIへ送られます。同意しなくても、手入力ですべて利用できます。',
+        '订单内容、粘贴的回复和所选的收据文件会发送到海外的 Google AI。不同意也可以手动填写，照常使用。',
       );
   String get auBusy => _t(
         '처리 중…',
@@ -1807,10 +1851,10 @@ class ReloStrings {
         'Cookie',
       );
   String get lgTabSdk => _t(
-        '외부 서비스·수신거부',
-        'Third parties · unsubscribe',
-        '外部サービス・配信停止',
-        '第三方服务 · 退订',
+        '외부 서비스 · 메일',
+        'Third parties · email',
+        '外部サービス・メール',
+        '第三方服务 · 邮件',
       );
   String get lgTabLicenses => _t(
         '글꼴·이미지',
@@ -1927,28 +1971,10 @@ class ReloStrings {
         '恢复为未选择状态',
       );
   String get lgUnsubTitle => _t(
-        '원클릭 이메일 알림 · 안내 메일 수신거부',
-        'One-click unsubscribe from notification and notice emails',
-        'メール通知・案内メールのワンクリック配信停止',
-        '一键退订通知和公告邮件',
-      );
-  String get lgEmailReceive => _t(
-        '이메일 받기',
-        'Receive emails',
-        'メールを受け取る',
-        '接收邮件',
-      );
-  String get lgEmailStateOff => _t(
-        '현재 상태: 수신거부 완료 (마케팅·안내 이메일이 발송되지 않습니다)',
-        'Status: unsubscribed (no marketing or notice emails are sent)',
-        '現在の状態: 配信停止済み（マーケティング・案内メールは送信されません）',
-        '当前状态：已退订（不会发送营销和公告邮件）',
-      );
-  String get lgEmailStateOn => _t(
-        '현재 상태: 이메일 수신 허용 중 (언제든 스위치 하나로 즉시 거부 가능)',
-        'Status: receiving emails (turn the switch off to unsubscribe at any time)',
-        '現在の状態: メール受信を許可中（スイッチ1つでいつでも停止できます）',
-        '当前状态：正在接收邮件（可随时通过开关立即退订）',
+        '보내는 메일과 알림 메일 끄기',
+        'Emails we send, and turning notices off',
+        '送信するメールと、お知らせメールの停止',
+        '我们发送的邮件，以及关闭提醒邮件',
       );
   String get lgSdkTitle => _t(
         '탑재 SDK · 패키지 버전 호환성 및 데이터 전송 제어',
@@ -2047,10 +2073,10 @@ class ReloStrings {
         'Cookie 政策',
       );
   String get ftSdk => _t(
-        '외부 SDK 점검·수신거부',
-        'Third-party SDKs · unsubscribe',
-        '外部SDKの点検・配信停止',
-        '第三方 SDK 检查 · 退订',
+        '외부 SDK 점검 · 메일',
+        'Third-party SDKs · email',
+        '外部SDKの点検・メール',
+        '第三方 SDK 检查 · 邮件',
       );
   String get ftLicense => _t(
         '글꼴·이미지 라이선스',
@@ -2401,12 +2427,6 @@ class ReloStrings {
         'After sending, tap "I sent it".',
         '送信したら「送信しました」を押してください。',
         '发送后请点“已发送”。',
-      );
-  String get evReceiptAttachedOnly => _t(
-        '영수증을 붙였어요. 내용은 직접 적어 주세요.',
-        'Receipt attached. Please fill in the details yourself.',
-        '領収書を添付しました。内容は直接入力してください。',
-        '收据已添加，请自行填写内容。',
       );
 
   // ── 마감일 정하기 ──

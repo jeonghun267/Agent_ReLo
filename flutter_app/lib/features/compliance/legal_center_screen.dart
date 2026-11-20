@@ -384,22 +384,32 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // [항목 #18] 이메일 원클릭 수신거부
+        // [항목 #18] 보내는 메일과 알림 메일 끄기. 스위치는 서버의 값이다: 서버에 붙어 있고
+        // 알림 메일이 갈 수 있을 때(스스로 시작하기를 켰을 때)만 보인다.
         _heading(_s.lgUnsubTitle, palette),
-        ReloSwitchRow(
-          title: _s.lgEmailReceive,
-          subtitle: store.emailUnsubscribed
-              ? _s.lgEmailStateOff
-              : _s.lgEmailStateOn,
-          value: !store.emailUnsubscribed,
-          onChanged: (receive) => store.setEmailUnsubscribed(!receive),
-        ),
+        if (store.user != null &&
+            !store.isOfflineFallback &&
+            store.config.aiEnabled &&
+            store.agentAutoOn)
+          ReloSwitchRow(
+            title: _s.stEmail,
+            subtitle: !store.noticeMailOn
+                ? _s.stEmailOff
+                : store.user?.emailVerifiedAt == null
+                    ? _s.stEmailUnverified
+                    : _s.stEmailOn,
+            value: store.noticeMailOn,
+            onChanged: (on) async {
+              final messenger = ScaffoldMessenger.of(context);
+              try {
+                await store.setNoticeMail(on);
+              } catch (_) {
+                messenger.showSnackBar(SnackBar(content: Text(_s.stEmailFail)));
+              }
+            },
+          ),
         const SizedBox(height: 12),
-        _note(
-          '[발송 이메일 하단 필수 표기 문구 미리보기]\n'
-          '본 메일은 정보통신망법 제50조에 의거하여 발송되었습니다. 메일 수신을 원치 않으시면 [수신거부(Unsubscribe)]를 클릭해 주세요. (If you no longer wish to receive these emails, click Unsubscribe.)',
-          palette,
-        ),
+        _note(_s.lgMailFacts, palette),
         const SizedBox(height: 32),
 
         // [항목 #8] 외부 SDK 점검 및 패키지 버전 충돌 방지 매트릭스
@@ -421,7 +431,6 @@ class _LegalCenterScreenState extends State<LegalCenterScreen> {
                   _s.lgSdkDetail(sdk.purpose, sdk.dataShared, sdk.license),
               value: switch (sdk.id) {
                 'gemini_ai_bridge' => store.sdkAiEnabled,
-                'resend_mail_bridge' => store.sdkMailEnabled,
                 _ => true,
               },
               onChanged: (_) => store.toggleExternalSdk(sdk.id),

@@ -2,7 +2,7 @@
 /// @layer Core Infrastructure (SDK Compatibility & Privacy Audit)
 /// @purpose [법적 안전장치 #8 외부 SDK 점검 & 패키지 버전 충돌 방지 관리]
 ///          앱 내 탑재된 모든 Flutter SDK 패키지 및 외부 API 연동 모듈의 버전 호환성,
-///          라이선스, 개인정보 외부 전송 여부, 킬스위치(ON/OFF) 제어 상태를 중앙 관리합니다.
+///          라이선스, 개인정보 외부 전송 여부, 사용자가 끌 수 있는지를 중앙 관리합니다.
 
 class SdkAuditEntry {
   final String id;
@@ -69,12 +69,12 @@ class ReloSdkRegistry {
     ),
     SdkAuditEntry(
       id: 'gemini_ai_bridge',
-      name: 'Google Gemini 2.5 Flash API (백엔드 프록시 연동)',
+      name: 'Google Gemini API (백엔드 프록시 연동)',
       pinnedVersion: 'v1beta (REST Proxy)',
       sdkConstraint: 'Server-side isolated',
       license: 'Google Cloud / Gemini API Terms',
       purpose: '주문 영수증 자동 읽기, 한국어 파손 사유 외국어 번역, 쇼핑몰 답장 3줄 요약',
-      dataShared: '사용자가 명시적으로 동의(Opt-in)한 경우에 한해 마스킹된 주문 텍스트만 일회성 전송 (모델 학습 미사용)',
+      dataShared: '사용자가 명시적으로 동의(Opt-in)한 경우에 한해, AI 기능을 쓸 때 주문 내용 · 붙여 넣은 판매자 답장 · 고른 영수증 파일을 가리지 않고 국외의 Google 서버로 전송',
       isExternalNetwork: true,
       canUserDisable: true,
     ),
@@ -84,10 +84,11 @@ class ReloSdkRegistry {
       pinnedVersion: 'v1 (HTTPS REST)',
       sdkConstraint: 'Server-side isolated',
       license: 'Resend Commercial Terms',
-      purpose: '이메일 본인 인증 링크 및 비밀번호 재설정 링크 발송 (모든 메일에 원클릭 수신거부 헤더 포함)',
-      dataShared: '수신자 이메일 주소 (수신거부 시 즉시 발송 차단)',
+      purpose: '이메일 본인 인증 링크 · 비밀번호 재설정 링크 발송, [스스로 시작하기]를 켠 경우 AI가 허락을 기다린다는 알림 메일 발송',
+      dataShared: '받는 이메일 주소와 메일 내용. 알림 메일에는 주문 내용을 적지 않음. 알림 메일은 위 스위치(설정에도 있음)로 끌 수 있고, 인증 · 재설정 메일은 요청했을 때만 보냄',
       isExternalNetwork: true,
-      canUserDisable: true,
+      // 여기서 켜고 끄는 스위치를 두지 않는다 (전에는 기기 안의 값만 바꾸는 스위치였다)
+      canUserDisable: false,
     ),
   ];
 

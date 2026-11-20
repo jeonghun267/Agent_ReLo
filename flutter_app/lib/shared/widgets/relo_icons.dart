@@ -34,6 +34,9 @@ abstract final class ReloIcons {
   static const IconData newChat = LucideIcons.messageSquarePlus;
   static const IconData write = LucideIcons.squarePen;
 
+  /// AI에게 맡기기 (에이전트)
+  static const IconData agent = LucideIcons.bot;
+
   // ── 물건 · 상태 ──
   static const IconData package = LucideIcons.package;
   static const IconData document = LucideIcons.fileText;
