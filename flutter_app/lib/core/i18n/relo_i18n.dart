@@ -2162,6 +2162,13 @@ class ReloStrings {
         'まだ返金申請がありません',
         '还没有退款申请',
       );
+  // 건은 있는데 고른 조건(필터 · 검색)에 맞는 것이 없을 때
+  String get mcEmptyFiltered => _t(
+        '여기에 맞는 환불 건이 없어요',
+        'No refunds match this view',
+        'ここに当てはまる返金はありません',
+        '这里没有符合的退款',
+      );
   String get mcStart => _t(
         '환불 신청 시작하기',
         'Start a refund request',

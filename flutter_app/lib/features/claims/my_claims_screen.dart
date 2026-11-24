@@ -37,10 +37,10 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
 
   // 단계별 필터 대신 셋만: 전체 · 진행 중 · 입금 완료 (스토어의 'open' · 'done')
   List<({String id, String label})> get _filterTabs => [
-    (id: '', label: _s.mcAll),
-    (id: 'open', label: _s.mcOpen),
-    (id: 'done', label: _s.mcDone),
-  ];
+        (id: '', label: _s.mcAll),
+        (id: 'open', label: _s.mcOpen),
+        (id: 'done', label: _s.mcDone),
+      ];
 
   @override
   void dispose() {
@@ -116,8 +116,8 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
               color: on ? (onColor ?? palette.brand) : palette.raised,
               shape: BoxShape.circle,
             ),
-            child: Icon(icon,
-                size: 18, color: on ? Colors.white : palette.muted),
+            child:
+                Icon(icon, size: 18, color: on ? Colors.white : palette.muted),
           ),
         ),
       );
@@ -164,169 +164,186 @@ class _MyClaimsScreenState extends State<MyClaimsScreen> {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         Expanded(
-          child: SingleChildScrollView(
-            padding: const EdgeInsets.only(top: 8, bottom: 16),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                // 1. 말랑이의 한 줄 요약
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      const ReloMascot(size: 48, hopOnTap: true),
-                      const SizedBox(width: 10),
-                      Expanded(
-                        child: Text(
-                          s.claimsSummary(inFlight.length, replied),
-                          style: TextStyle(
-                            fontSize: 15,
-                            fontWeight: FontWeight.w600,
-                            color: palette.ink,
-                            height: 1.4,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                const SizedBox(height: 20),
-
-                // 2. 받을 돈 / 받은 돈 (상자 없이 가는 선으로만 나눈다)
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: IntrinsicHeight(
+          // 아래로 당기면 서버에서 다시 받아 온다 (다른 곳에서 넣은 건, AI가 기다리는 건).
+          // 건이 적어 화면이 차지 않아도 당길 수 있게 늘 스크롤되게 둔다.
+          child: RefreshIndicator(
+            color: palette.brand,
+            backgroundColor: palette.raised,
+            onRefresh: store.refreshClaims,
+            child: SingleChildScrollView(
+              physics: const AlwaysScrollableScrollPhysics(),
+              padding: const EdgeInsets.only(top: 8, bottom: 16),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  // 1. 말랑이의 한 줄 요약
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
                     child: Row(
                       children: [
-                        moneyCell(s.homeMoneyDue(money.dueCount), money.due,
-                            strong: true),
-                        VerticalDivider(
-                          width: 33,
-                          thickness: 1,
-                          color: palette.line.withValues(alpha: 0.5),
+                        const ReloMascot(size: 48, hopOnTap: true),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            s.claimsSummary(inFlight.length, replied),
+                            style: TextStyle(
+                              fontSize: 15,
+                              fontWeight: FontWeight.w600,
+                              color: palette.ink,
+                              height: 1.4,
+                            ),
+                          ),
                         ),
-                        moneyCell(s.homeMoneyReceived, money.received,
-                            strong: false),
                       ],
                     ),
                   ),
-                ),
-                const SizedBox(height: 22),
+                  const SizedBox(height: 20),
 
-                // 3. 필터 · 검색 · 휴지통을 한 줄에
-                Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 20),
-                  child: Row(
-                    children: [
-                      // 다른 언어에서 필터 이름이 길어져도 검색 · 휴지통 단추를 밀어내지 않게,
-                      // 필터 쪽만 남는 너비 안에서 옆으로 밀리게 한다
-                      Expanded(
-                        child: SingleChildScrollView(
-                          scrollDirection: Axis.horizontal,
-                          child: Row(
-                            children: [
-                              if (!store.showTrash)
-                                for (final tab in _filterTabs)
-                                  ReloTextTab(
-                                    label: tab.label,
-                                    selected: store.stateFilter == tab.id,
-                                    onTap: () =>
-                                        store.setFilter(state: tab.id),
-                                  )
-                              else
-                                Text(
-                                  _s.mcTrash,
-                                  style: TextStyle(
-                                    fontSize: 15,
-                                    fontWeight: FontWeight.w700,
-                                    color: palette.ink,
-                                  ),
-                                ),
-                            ],
-                          ),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      roundIcon(
-                        icon: ReloIcons.search,
-                        label: _searching ? _s.mcSearchClose : _s.mcSearch,
-                        on: _searching,
-                        onTap: () => setState(() {
-                          _searching = !_searching;
-                          if (!_searching) {
-                            _searchCtrl.clear();
-                            store.setFilter(query: '');
-                          }
-                        }),
-                      ),
-                      const SizedBox(width: 6),
-                      roundIcon(
-                        icon: ReloIcons.trash,
-                        label: store.showTrash ? _s.mcTrashClose : _s.mcTrashOpen,
-                        on: store.showTrash,
-                        onColor: palette.danger,
-                        onTap: () => store.setFilter(trash: !store.showTrash),
-                      ),
-                    ],
-                  ),
-                ),
-                if (_searching)
+                  // 2. 받을 돈 / 받은 돈 (상자 없이 가는 선으로만 나눈다)
                   Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
-                    child: TextField(
-                      controller: _searchCtrl,
-                      autofocus: true,
-                      onChanged: (v) => store.setFilter(query: v),
-                      style: TextStyle(fontSize: 14, color: palette.ink),
-                      decoration: InputDecoration(
-                        hintText: _s.mcSearchHint,
-                        hintStyle:
-                            TextStyle(fontSize: 13, color: palette.subtle),
-                        prefixIcon: Icon(ReloIcons.search,
-                            size: 18, color: palette.subtle),
-                        filled: true,
-                        fillColor: palette.raised,
-                        contentPadding:
-                            const EdgeInsets.symmetric(vertical: 10),
-                        enabledBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide.none,
-                        ),
-                        focusedBorder: OutlineInputBorder(
-                          borderRadius: BorderRadius.circular(12),
-                          borderSide: BorderSide(color: palette.focusRing),
-                        ),
-                      ),
-                    ),
-                  ),
-
-                // 4. 환불 건
-                if (list.isEmpty)
-                  Padding(
-                    padding: const EdgeInsets.fromLTRB(20, 48, 20, 0),
-                    child: Column(
-                      children: [
-                        Text(
-                          store.showTrash ? _s.mcTrashEmpty : _s.mcEmpty,
-                          style: TextStyle(
-                            fontSize: 16,
-                            fontWeight: FontWeight.w700,
-                            color: palette.ink,
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: IntrinsicHeight(
+                      child: Row(
+                        children: [
+                          moneyCell(s.homeMoneyDue(money.dueCount), money.due,
+                              strong: true),
+                          VerticalDivider(
+                            width: 33,
+                            thickness: 1,
+                            color: palette.line.withValues(alpha: 0.5),
                           ),
-                        ),
-                        if (!store.showTrash) ...[
-                          const SizedBox(height: 16),
-                          ReloButton(
-                            text: _s.mcStart,
-                            onPressed: () => store.navigateToTab(1),
-                          ),
+                          moneyCell(s.homeMoneyReceived, money.received,
+                              strong: false),
                         ],
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 22),
+
+                  // 3. 필터 · 검색 · 휴지통을 한 줄에
+                  Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 20),
+                    child: Row(
+                      children: [
+                        // 다른 언어에서 필터 이름이 길어져도 검색 · 휴지통 단추를 밀어내지 않게,
+                        // 필터 쪽만 남는 너비 안에서 옆으로 밀리게 한다
+                        Expanded(
+                          child: SingleChildScrollView(
+                            scrollDirection: Axis.horizontal,
+                            child: Row(
+                              children: [
+                                if (!store.showTrash)
+                                  for (final tab in _filterTabs)
+                                    ReloTextTab(
+                                      label: tab.label,
+                                      selected: store.stateFilter == tab.id,
+                                      onTap: () =>
+                                          store.setFilter(state: tab.id),
+                                    )
+                                else
+                                  Text(
+                                    _s.mcTrash,
+                                    style: TextStyle(
+                                      fontSize: 15,
+                                      fontWeight: FontWeight.w700,
+                                      color: palette.ink,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        roundIcon(
+                          icon: ReloIcons.search,
+                          label: _searching ? _s.mcSearchClose : _s.mcSearch,
+                          on: _searching,
+                          onTap: () => setState(() {
+                            _searching = !_searching;
+                            if (!_searching) {
+                              _searchCtrl.clear();
+                              store.setFilter(query: '');
+                            }
+                          }),
+                        ),
+                        const SizedBox(width: 6),
+                        roundIcon(
+                          icon: ReloIcons.trash,
+                          label: store.showTrash
+                              ? _s.mcTrashClose
+                              : _s.mcTrashOpen,
+                          on: store.showTrash,
+                          onColor: palette.danger,
+                          onTap: () => store.setFilter(trash: !store.showTrash),
+                        ),
                       ],
                     ),
-                  )
-                else
-                  ...rows,
-              ],
+                  ),
+                  if (_searching)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 10, 20, 0),
+                      child: TextField(
+                        controller: _searchCtrl,
+                        autofocus: true,
+                        onChanged: (v) => store.setFilter(query: v),
+                        style: TextStyle(fontSize: 14, color: palette.ink),
+                        decoration: InputDecoration(
+                          hintText: _s.mcSearchHint,
+                          hintStyle:
+                              TextStyle(fontSize: 13, color: palette.subtle),
+                          prefixIcon: Icon(ReloIcons.search,
+                              size: 18, color: palette.subtle),
+                          filled: true,
+                          fillColor: palette.raised,
+                          contentPadding:
+                              const EdgeInsets.symmetric(vertical: 10),
+                          enabledBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide.none,
+                          ),
+                          focusedBorder: OutlineInputBorder(
+                            borderRadius: BorderRadius.circular(12),
+                            borderSide: BorderSide(color: palette.focusRing),
+                          ),
+                        ),
+                      ),
+                    ),
+
+                  // 4. 환불 건
+                  if (list.isEmpty)
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 48, 20, 0),
+                      child: Column(
+                        children: [
+                          // 건이 하나도 없을 때만 "아직 없어요"와 시작 단추를 보인다.
+                          // 건은 있는데 필터 · 검색에 걸린 것이 없으면 그렇다고 말한다.
+                          Text(
+                            store.showTrash
+                                ? _s.mcTrashEmpty
+                                : (active.isEmpty
+                                    ? _s.mcEmpty
+                                    : _s.mcEmptyFiltered),
+                            textAlign: TextAlign.center,
+                            style: TextStyle(
+                              fontSize: 16,
+                              fontWeight: FontWeight.w700,
+                              color: palette.ink,
+                            ),
+                          ),
+                          if (!store.showTrash && active.isEmpty) ...[
+                            const SizedBox(height: 16),
+                            ReloButton(
+                              text: _s.mcStart,
+                              onPressed: () => store.navigateToTab(1),
+                            ),
+                          ],
+                        ],
+                      ),
+                    )
+                  else
+                    ...rows,
+                ],
+              ),
             ),
           ),
         ),
