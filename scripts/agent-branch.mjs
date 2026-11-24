@@ -1,10 +1,10 @@
 // Does the real model choose by the state of the claim, or does it always go in one order?
 // Asks the real Gemini for the NEXT choice of an agent run on six situations, several times
-// each, and prints what it chose and why. The first three differ only in the state of the
-// claim (the first choice of a run). The last three are in the middle of a run: a document
-// that disagrees with the saved order number, a draft that was just written, and a fix the
-// person declined. They show whether the model proposes an action when one is called for,
-// and stops when the person said no.
+// each, and prints what it chose and why. The first two differ only in the state of the
+// claim (the first choice of a run). The other four are in the middle of a run: a document
+// that agrees with the saved order, one that disagrees with the saved order number, a draft
+// that was just written, and a fix the person declined. They show whether the model proposes
+// an action when one is called for, and stops when the person said no.
 //   1. Put GEMINI_API_KEY (and optionally GEMINI_MODEL) in .env
 //   2. npm run agent:branch            (3 tries per case = 18 small API calls, plus 3 for filing from one line)
 //      npm run agent:branch -- 5       (5 tries per case)
@@ -55,12 +55,16 @@ const CASES = [
     claim: {...base, state: 'awaiting', files: [orderFile, photo], replies: [askForPhoto], drafts: [sentDraft]},
   },
   {
-    name: '자료가 입금 증빙으로 쓰일 만큼 확인됐고, 영어 설명도 있고, 보낸 글만 없음',
+    // Until 2026-11-24 this case marked the file as proof of a received payment on a claim with
+    // no message yet: a state that cannot happen, and the model's answers on it could not be
+    // judged. It now is the plain middle of a run: the document was read and agrees.
+    name: '(실행 중) 자료를 읽었고 저장된 값과 같음, 영어 설명 있음, 보낸 글 없음',
     expected: 'write_draft',
     claim: {
-      ...base, state: 'review', issueEnglish: 'One of the two hubs does not power on. I tested it with another laptop and cable.',
-      files: [{...orderFile, usedAsProof: true}], replies: [], drafts: [],
+      ...base, state: 'preparing', issueEnglish: 'One of the two hubs does not power on. I tested it with another laptop and cable.',
+      files: [orderFile], replies: [], drafts: [],
     },
+    steps: [{...readStep, differsFromSaved: []}],
   },
   {
     name: '(실행 중) 자료를 읽었더니 주문번호가 저장된 값과 다름',

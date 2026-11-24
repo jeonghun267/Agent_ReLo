@@ -51,6 +51,9 @@ class FakeServer extends ReloApiClient {
   /// 저장된 답장 (새것이 앞)
   final List<Map<String, dynamic>> replies = [];
 
+  /// 다른 곳(웹 등)에서 넣은 건: 앱이 다시 받아 와야 보인다
+  final List<Map<String, dynamic>> moreClaims = [];
+
   List<Asked> posted(String ending) => asked
       .where((a) => a.method == 'POST' && a.path.endsWith(ending))
       .toList();
@@ -255,7 +258,7 @@ class FakeServer extends ReloApiClient {
       };
     }
     if (get && path == '/api/me') return {'user': user};
-    if (get && path == '/api/claims') return {'claims': [claim]};
+    if (get && path == '/api/claims') return {'claims': [claim, ...moreClaims]};
     if (get && path == '/api/claims?deleted=1') return {'claims': []};
     if (get && path == '/api/ai/agent/waiting') {
       return {
@@ -830,6 +833,52 @@ void main() {
       store.navigateToTab(2);
       await settle(tester);
       expect(find.text('AI가 물어볼 것이 있어요'), findsOneWidget);
+    });
+
+    testWidgets('건은 있는데 걸러서 없을 때는 "아직 없어요"라고 하지 않는다', (tester) async {
+      final store = await startApp(tester, FakeServer());
+      store.navigateToTab(2);
+      await settle(tester);
+      expect(find.text('USB-C 허브 7-in-1'), findsOneWidget);
+
+      // 진행 중인 건 하나뿐인데 [입금 완료]로 거른다
+      await tester.tap(find.text('입금 완료'));
+      await settle(tester);
+      expect(find.text('USB-C 허브 7-in-1'), findsNothing);
+      expect(find.text('여기에 맞는 환불 건이 없어요'), findsOneWidget);
+      expect(find.text('아직 환불 신청이 없어요'), findsNothing,
+          reason: '건이 있는데 없다고 하면 안 된다');
+      expect(find.text('환불 신청 시작하기'), findsNothing);
+
+      await tester.tap(find.text('전체'));
+      await settle(tester);
+      expect(find.text('USB-C 허브 7-in-1'), findsOneWidget);
+    });
+
+    testWidgets('목록을 아래로 당기면 다른 곳에서 넣은 건을 받아 온다', (tester) async {
+      final server = FakeServer();
+      final store = await startApp(tester, server);
+      store.navigateToTab(2);
+      await settle(tester);
+      expect(find.text('키보드 덮개'), findsNothing);
+
+      // 웹에서 새 건을 넣은 것처럼
+      server.moreClaims.add({
+        ...server.claim,
+        'id': 'clm_other',
+        'title': '키보드 덮개',
+      });
+      final asksBefore = server.asked.where((a) => a.path == '/api/claims').length;
+      await tester.drag(find.text('USB-C 허브 7-in-1'), const Offset(0, 320));
+      await tester.pump();
+      await tester.pump(const Duration(seconds: 1));
+      await tester.pump(const Duration(seconds: 1));
+      await settle(tester);
+
+      expect(server.asked.where((a) => a.path == '/api/claims').length,
+          greaterThan(asksBefore),
+          reason: '당기면 서버에 다시 묻는다');
+      expect(find.text('키보드 덮개'), findsOneWidget);
     });
 
     testWidgets('서버가 없으면(체험 모드) AI에게 맡기기와 스스로 시작하기를 보여 주지 않는다', (tester) async {

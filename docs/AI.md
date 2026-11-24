@@ -78,7 +78,7 @@ GROUP BY capability;
 5. `scripts/ai-smoke.mjs`에 실제 호출 확인을 한 줄 추가한다.
 6. 에이전트가 고를 수 있는 도구로 만들려면 `ai/prompts/plan.mjs`의 `READ_TOOLS`와 도구 설명, `services/agent.service.mjs`의 `READERS`에 더한다. 건을 바꾸는 도구는 `ACTION_TOOLS`에 더하고, `propose`(무엇이 바뀌는지 만들기)와 `act`(허락된 뒤 기존 서비스로 저장)에 넣는다. 값은 모델에게 받지 않는다. 보내는 도구는 넣지 않는다.
 
-모델이 사건의 상태에 따라 다르게 고르는지는 `npm run agent:branch`로 본다(진짜 Gemini, 여섯 경우를 3번씩 18번 호출, 이어서 신청 한 줄 읽기 세 문장을 한 번씩 3번 호출). 키가 거절되면 첫 호출에서 멈추고 알려 준다.
+모델이 사건의 상태에 따라 다르게 고르는지는 `npm run agent:branch`로 본다(진짜 Gemini, 여섯 경우를 3번씩 18번 호출, 이어서 신청 한 줄 읽기 세 문장을 한 번씩 3번 호출). 키가 거절되면 첫 호출에서 멈추고 알려 준다. 2026-11-24에 쟀고, 결과와 한계는 [`AGENT_LOOP_PLAN.md`](./AGENT_LOOP_PLAN.md) 10절 끝에 있다.
 
 ## 개인정보
 
